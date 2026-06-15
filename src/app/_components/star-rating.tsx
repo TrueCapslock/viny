@@ -21,7 +21,7 @@ export function StarRating({
             onChange
               ? "cursor-pointer hover:scale-110"
               : "cursor-default"
-          } ${star <= value ? "text-gold-500" : "text-cream-300"}`}
+          }            ${star <= value ? "text-gold-500" : "text-gray-300"}`}
         >
           <Star className="w-[calc(var(--spacing)*11)] h-[calc(var(--spacing)*11)]" />
         </button>
@@ -37,7 +37,7 @@ export function StaticStars({ rating }: { rating: number }) {
         <Star
           key={star}
           className={`w-[calc(var(--spacing)*11)] h-[calc(var(--spacing)*11)] ${
-            star <= rating ? "text-gold-500" : "text-cream-300"
+            star <= rating ? "text-gold-500" : "text-gray-300"
           }`}
         />
       ))}
