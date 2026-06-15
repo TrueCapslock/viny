@@ -65,3 +65,11 @@ export function Stars({ className }: { className?: string }) {
     </svg>
   )
 }
+
+export function Star({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 1l2.39 4.84 5.34.78-3.87 3.77.91 5.33L10 13.13l-4.77 2.59.91-5.33L2.27 6.62l5.34-.78L10 1z" />
+    </svg>
+  )
+}

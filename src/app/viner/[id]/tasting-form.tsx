@@ -2,11 +2,12 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { StarRating } from "@/app/_components/star-rating"
 
 export function TastingForm({ wineId }: { wineId: number }) {
   const router = useRouter()
   const [form, setForm] = useState({
-    rating: "",
+    rating: 0,
     nose: "",
     palate: "",
     finish: "",
@@ -25,12 +26,12 @@ export function TastingForm({ wineId }: { wineId: number }) {
       body: JSON.stringify({
         ...form,
         wineId,
-        rating: form.rating ? parseInt(form.rating) : null,
+        rating: form.rating || null,
         pricePaid: form.pricePaid ? parseFloat(form.pricePaid) : null,
       }),
     })
     if (res.ok) {
-      setForm({ rating: "", nose: "", palate: "", finish: "", foodPairing: "", pricePaid: "", location: "" })
+      setForm({ rating: 0, nose: "", palate: "", finish: "", foodPairing: "", pricePaid: "", location: "" })
       router.refresh()
     }
     setSaving(false)
@@ -40,15 +41,8 @@ export function TastingForm({ wineId }: { wineId: number }) {
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <label className="block text-xs font-medium text-wine-700 mb-1">Rating (1-10)</label>
-          <input
-            type="number"
-            min={1}
-            max={10}
-            value={form.rating}
-            onChange={(e) => setForm({ ...form, rating: e.target.value })}
-            className="w-full rounded-lg border border-cream-300 bg-cream-50 px-3 py-2 text-sm text-wine-900 placeholder-wine-300 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none"
-          />
+          <label className="block text-xs font-medium text-wine-700 mb-1">Vurdering</label>
+          <StarRating value={form.rating} onChange={(r) => setForm({ ...form, rating: r })} />
         </div>
         <div>
           <label className="block text-xs font-medium text-wine-700 mb-1">Pris</label>

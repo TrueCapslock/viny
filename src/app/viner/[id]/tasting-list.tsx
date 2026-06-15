@@ -1,4 +1,5 @@
 import type { Tasting } from "@/generated/prisma/client"
+import { StaticStars } from "@/app/_components/star-rating"
 
 export function TastingList({ tastings }: { tastings: Tasting[] }) {
   if (tastings.length === 0) {
@@ -20,12 +21,9 @@ export function TastingList({ tastings }: { tastings: Tasting[] }) {
                 day: "numeric",
               })}
             </time>
-            {tasting.rating && (
-              <span className="inline-flex items-center gap-1 text-sm font-bold text-gold-700 bg-gold-100 px-2.5 py-0.5 rounded-full">
-                <span>{tasting.rating}</span>
-                <span className="text-gold-500 text-xs">/10</span>
-              </span>
-            )}
+            {tasting.rating ? (
+              <StaticStars rating={tasting.rating} />
+            ) : null}
           </div>
 
           <div className="space-y-1.5 text-sm text-wine-800">
