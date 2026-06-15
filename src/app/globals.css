@@ -1,0 +1,92 @@
+@import "tailwindcss";
+
+:root {
+  --wine-50: #fdf2f4;
+  --wine-100: #fce7ea;
+  --wine-200: #f9d0d8;
+  --wine-300: #f4a9b6;
+  --wine-400: #ec7a8e;
+  --wine-500: #de4f68;
+  --wine-600: #c93650;
+  --wine-700: #a9283f;
+  --wine-800: #8e2538;
+  --wine-900: #722337;
+  --wine-950: #3f0f1b;
+
+  --gold-50: #fffff0;
+  --gold-100: #fffddc;
+  --gold-200: #fffab3;
+  --gold-300: #fff480;
+  --gold-400: #ffe84d;
+  --gold-500: #ffd61a;
+  --gold-600: #e6b800;
+  --gold-700: #bf9000;
+  --gold-800: #997300;
+  --gold-900: #7a5e00;
+
+  --cream-50: #fefcf9;
+  --cream-100: #fdf8f0;
+  --cream-200: #faeede;
+  --cream-300: #f5dfc0;
+  --cream-400: #efca9b;
+  --cream-500: #e7b074;
+  --cream-600: #da9653;
+  --cream-700: #c58043;
+  --cream-800: #a46a3b;
+  --cream-900: #855834;
+
+  --background: var(--cream-50);
+  --foreground: #2d1b11;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-wine-50: var(--wine-50);
+  --color-wine-100: var(--wine-100);
+  --color-wine-200: var(--wine-200);
+  --color-wine-300: var(--wine-300);
+  --color-wine-400: var(--wine-400);
+  --color-wine-500: var(--wine-500);
+  --color-wine-600: var(--wine-600);
+  --color-wine-700: var(--wine-700);
+  --color-wine-800: var(--wine-800);
+  --color-wine-900: var(--wine-900);
+  --color-gold-50: var(--gold-50);
+  --color-gold-100: var(--gold-100);
+  --color-gold-200: var(--gold-200);
+  --color-gold-300: var(--gold-300);
+  --color-gold-400: var(--gold-400);
+  --color-gold-500: var(--gold-500);
+  --color-gold-600: var(--gold-600);
+  --color-gold-700: var(--gold-700);
+  --color-gold-800: var(--gold-800);
+  --color-gold-900: var(--gold-900);
+  --color-cream-50: var(--cream-50);
+  --color-cream-100: var(--cream-100);
+  --color-cream-200: var(--cream-200);
+  --color-cream-300: var(--cream-300);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans, Arial, Helvetica, sans-serif);
+}
+
+.bg-wine-gradient {
+  background: linear-gradient(135deg, var(--wine-700), var(--wine-900));
+}
+
+.bg-wine-gradient-light {
+  background: linear-gradient(135deg, var(--wine-50), var(--cream-100));
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--wine-600), var(--wine-800));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

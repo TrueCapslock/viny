@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Wine {
+  id        Int       @id @default(autoincrement())
+  name      String
+  producer  String
+  vintage   Int?
+  varietal  String?
+  region    String?
+  country   String?
+  type      String?
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  tastings  Tasting[]
+}
+
+model Tasting {
+  id          Int      @id @default(autoincrement())
+  date        DateTime @default(now())
+  rating      Int?
+  nose        String?
+  palate      String?
+  finish      String?
+  foodPairing String?
+  pricePaid   Float?
+  location    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  wineId      Int
+  wine        Wine     @relation(fields: [wineId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id        Int       @id @default(autoincrement())
+  name      String?
+  email     String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
