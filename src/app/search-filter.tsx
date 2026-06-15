@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 
 const filters = [
   { key: "", label: "Alle" },
@@ -12,18 +12,42 @@ const filters = [
   { key: "dessert", label: "Dessert" },
 ]
 
-export function SearchAndFilter() {
+export function SearchAndFilter({
+  initialQuery = "",
+  initialType = "",
+}: {
+  initialQuery?: string
+  initialType?: string
+}) {
   const router = useRouter()
-  const [query, setQuery] = useState("")
-  const [active, setActive] = useState("")
+  const sp = useSearchParams()
+  const [query, setQuery] = useState(initialQuery)
+  const [active, setActive] = useState(initialType)
+
+  useEffect(() => {
+    const q = sp.get("q") ?? ""
+    const t = sp.get("type") ?? ""
+    setQuery(q)
+    setActive(t)
+  }, [sp])
+
+  function apply(q: string, t: string) {
+    const params = new URLSearchParams()
+    if (t) params.set("type", t)
+    if (q) params.set("q", q)
+    const qs = params.toString()
+    router.push(qs ? `/?${qs}` : "/")
+  }
 
   function handleFilter(key: string) {
     setActive(key)
-    const params = new URLSearchParams()
-    if (key) params.set("type", key)
-    if (query) params.set("q", query)
-    const qs = params.toString()
-    router.push(qs ? `/?${qs}` : "/")
+    apply(query, key)
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") {
+      apply(query, active)
+    }
   }
 
   return (
@@ -32,6 +56,7 @@ export function SearchAndFilter() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder="Søk i dine viner..."
           className="w-full rounded-xl border border-cream-200 bg-white px-4 py-2.5 pl-10 text-sm text-wine-900 placeholder-wine-400 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none shadow-sm"
         />

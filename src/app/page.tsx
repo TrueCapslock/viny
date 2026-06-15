@@ -5,13 +5,29 @@ import { WineGlass, Grape, WineBottle } from "@/app/_components/icons"
 import { StaticStars } from "@/app/_components/star-rating"
 import { SearchAndFilter } from "./search-filter"
 
-export default async function HomePage() {
+export default async function HomePage(props: { searchParams?: Promise<{ q?: string; type?: string }> }) {
   const session = await auth()
   if (!session?.user?.id) return null
 
+  const searchParams = await props.searchParams
+  const query = searchParams?.q?.toLowerCase() ?? ""
+  const typeFilter = searchParams?.type ?? ""
+
   const userId = parseInt(session.user.id)
   const wines = await prisma.wine.findMany({
-    where: { userId },
+    where: {
+      userId,
+      ...(typeFilter ? { type: typeFilter } : {}),
+      ...(query ? {
+        OR: [
+          { name: { contains: query, mode: "insensitive" } },
+          { producer: { contains: query, mode: "insensitive" } },
+          { varietal: { contains: query, mode: "insensitive" } },
+          { region: { contains: query, mode: "insensitive" } },
+          { country: { contains: query, mode: "insensitive" } },
+        ],
+      } : {}),
+    },
     include: { _count: { select: { tastings: true } } },
     orderBy: { createdAt: "desc" },
   })
@@ -39,21 +55,29 @@ export default async function HomePage() {
             {wines.length} {wines.length === 1 ? "vin" : "viner"}
           </span>
         </div>
-        <SearchAndFilter />
+        <SearchAndFilter initialQuery={query} initialType={typeFilter} />
       </div>
 
       <div className="flex-1 px-4 pb-4">
         {wines.length === 0 ? (
           <div className="text-center py-16">
             <Grape className="w-14 h-16 mx-auto text-wine-300" />
-            <p className="text-wine-700 mt-4 font-medium">Ingen viner registrert ennå</p>
-            <p className="text-wine-400 text-sm mt-1">Trykk på "Legg til" nederst og kom i gang</p>
-            <Link
-              href="/viner/ny"
-              className="inline-block mt-6 rounded-full bg-wine-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-wine-700 transition-colors"
-            >
-              + Legg til vin
-            </Link>
+            <p className="text-wine-700 mt-4 font-medium">
+              {query || typeFilter ? "Ingen viner matchet søket" : "Ingen viner registrert ennå"}
+            </p>
+            <p className="text-wine-400 text-sm mt-1">
+              {query || typeFilter
+                ? "Prøv et annet søk eller filter"
+                : 'Trykk på "Legg til" nederst og kom i gang'}
+            </p>
+            {!query && !typeFilter && (
+              <Link
+                href="/viner/ny"
+                className="inline-block mt-6 rounded-full bg-wine-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-wine-700 transition-colors"
+              >
+                + Legg til vin
+              </Link>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
