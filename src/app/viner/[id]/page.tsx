@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth"
 import { TastingForm } from "./tasting-form"
 import { TastingList } from "./tasting-list"
 import { DeleteButton } from "@/app/_components/delete-button"
-import { WineGlass, Stars } from "@/app/_components/icons"
+import { WineGlass } from "@/app/_components/icons"
 
 type Params = Promise<{ id: string }>
 
