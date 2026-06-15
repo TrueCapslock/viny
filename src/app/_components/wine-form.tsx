@@ -55,6 +55,9 @@ export function WineForm({
     if (res.ok) {
       const { url } = await res.json()
       setForm({ ...form, image: url })
+    } else {
+      const data = await res.json().catch(() => null)
+      setError(data?.error ?? "Kunne ikke laste opp bildet")
     }
     setUploading(false)
   }
