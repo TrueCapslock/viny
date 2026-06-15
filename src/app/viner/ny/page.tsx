@@ -60,20 +60,21 @@ export default function NewWinePage() {
           <div className="bg-white rounded-2xl border border-cream-200 p-4 shadow-sm">
             <WineForm
               key={prefill ? `${prefill.name}-${prefill.producer}` : "empty"}
-              initial={
-                prefill
-                  ? {
-                      name: prefill.name,
-                      producer: prefill.producer,
-                      vintage: "",
-                      varietal: "",
-                      region: "",
-                      country: "",
-                      type: "",
-                      notes: "",
-                    }
-                  : undefined
-              }
+initial={
+  prefill
+    ? {
+        name: prefill.name,
+        producer: prefill.producer,
+        vintage: "",
+        varietal: "",
+        region: "",
+        country: "",
+        type: "",
+        notes: "",
+        image: "",
+      }
+    : undefined
+}
               onSave={async (data) => {
                 const res = await fetch("/api/viner", {
                   method: "POST",

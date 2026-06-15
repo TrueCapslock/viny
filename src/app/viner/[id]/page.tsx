@@ -39,7 +39,15 @@ export default async function WineDetailPage({ params }: { params: Params }) {
               {wine.vintage && `, ${wine.vintage}`}
             </p>
           </div>
-          <WineGlass className="w-8 h-9 text-gold-300/50 shrink-0" />
+          {wine.image ? (
+            <img
+              src={wine.image}
+              alt=""
+              className="w-16 h-16 rounded-xl object-cover shrink-0 border-2 border-white/20 shadow-lg"
+            />
+          ) : (
+            <WineGlass className="w-8 h-9 text-gold-300/50 shrink-0" />
+          )}
         </div>
 
         <div className="flex flex-wrap gap-1.5 mt-3">

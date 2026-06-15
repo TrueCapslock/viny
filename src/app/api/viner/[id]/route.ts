@@ -43,6 +43,7 @@ export async function PUT(request: Request, { params }: { params: Params }) {
       country: body.country || null,
       type: body.type || null,
       notes: body.notes || null,
+      image: body.image || null,
     },
   })
   return NextResponse.json(wine)

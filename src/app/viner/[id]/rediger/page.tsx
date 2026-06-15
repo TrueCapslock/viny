@@ -15,6 +15,7 @@ type FormData = {
   country: string
   type: string
   notes: string
+  image: string
 }
 
 export default function EditWinePage() {
@@ -36,6 +37,7 @@ export default function EditWinePage() {
           country: wine.country ?? "",
           type: wine.type ?? "",
           notes: wine.notes ?? "",
+          image: wine.image ?? "",
         })
         setLoading(false)
       })

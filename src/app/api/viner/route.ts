@@ -31,6 +31,7 @@ export async function POST(request: Request) {
       country: body.country || null,
       type: body.type || null,
       notes: body.notes || null,
+      image: body.image || null,
       userId,
     },
   })

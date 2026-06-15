@@ -66,7 +66,13 @@ export default async function HomePage() {
                   className="block rounded-2xl bg-white p-4 border border-cream-200 hover:border-wine-300 transition-all active:scale-[0.98]"
                 >
                   <div className="flex items-start gap-3">
-                    {i % 3 === 0 ? (
+                    {wine.image ? (
+                      <img
+                        src={wine.image}
+                        alt=""
+                        className="w-10 h-10 rounded-lg object-cover shrink-0 mt-0.5 border border-cream-200"
+                      />
+                    ) : i % 3 === 0 ? (
                       <WineBottle className="w-4 h-10 text-wine-300 shrink-0 mt-1" />
                     ) : i % 3 === 1 ? (
                       <Grape className="w-5 h-7 text-wine-400 shrink-0 mt-1" />
