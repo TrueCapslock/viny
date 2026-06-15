@@ -23,7 +23,7 @@ export function StarRating({
               : "cursor-default"
           } ${star <= value ? "text-gold-500" : "text-cream-300"}`}
         >
-          <Star className="w-7 h-7" />
+          <Star className="w-[calc(var(--spacing)*11)] h-[calc(var(--spacing)*11)]" />
         </button>
       ))}
     </div>
@@ -36,7 +36,7 @@ export function StaticStars({ rating }: { rating: number }) {
       {[1, 2, 3, 4, 5].map((star) => (
         <Star
           key={star}
-          className={`w-7 h-7 ${
+          className={`w-[calc(var(--spacing)*11)] h-[calc(var(--spacing)*11)] ${
             star <= rating ? "text-gold-500" : "text-cream-300"
           }`}
         />
