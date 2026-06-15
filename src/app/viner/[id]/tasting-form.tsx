@@ -39,11 +39,11 @@ export function TastingForm({ wineId }: { wineId: number }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-wine-700 mb-1">Vurdering</label>
-          <StarRating value={form.rating} onChange={(r) => setForm({ ...form, rating: r })} />
-        </div>
+      <div>
+        <label className="block text-xs font-medium text-wine-700 mb-1">Vurdering</label>
+        <StarRating value={form.rating} onChange={(r) => setForm({ ...form, rating: r })} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-wine-700 mb-1">Pris</label>
           <input
@@ -63,6 +63,7 @@ export function TastingForm({ wineId }: { wineId: number }) {
           />
         </div>
       </div>
+
       <div>
         <label className="block text-xs font-medium text-wine-700 mb-1">Duft (nese)</label>
         <input

@@ -10,20 +10,20 @@ export function StarRating({
   onChange?: (rating: number) => void
 }) {
   return (
-    <div className="flex items-center gap-0.5">
+    <div className="flex items-center justify-between">
       {[1, 2, 3, 4, 5].map((star) => (
         <button
           key={star}
           type="button"
           disabled={!onChange}
           onClick={() => onChange?.(star === value ? 0 : star)}
-          className={`p-0.5 transition-colors ${
+          className={`p-1 transition-colors ${
             onChange
               ? "cursor-pointer hover:scale-110"
               : "cursor-default"
           } ${star <= value ? "text-gold-500" : "text-cream-300"}`}
         >
-          <Star className="w-5 h-5" />
+          <Star className="w-7 h-7" />
         </button>
       ))}
     </div>
@@ -32,11 +32,11 @@ export function StarRating({
 
 export function StaticStars({ rating }: { rating: number }) {
   return (
-    <div className="flex items-center gap-0.5">
+    <div className="flex items-center justify-between">
       {[1, 2, 3, 4, 5].map((star) => (
         <Star
           key={star}
-          className={`w-4 h-4 ${
+          className={`w-7 h-7 ${
             star <= rating ? "text-gold-500" : "text-cream-300"
           }`}
         />
