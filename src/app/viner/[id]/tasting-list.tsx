@@ -13,18 +13,18 @@ export function TastingList({ tastings }: { tastings: Tasting[] }) {
           key={tasting.id}
           className="rounded-xl border border-cream-200 bg-cream-50/50 p-4"
         >
-          <div className="flex items-center justify-between mb-2">
-            <time className="text-xs text-wine-400">
-              {new Date(tasting.date).toLocaleDateString("nb-NO", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
-            </time>
-            {tasting.rating ? (
+          <time className="block text-xs text-wine-400">
+            {new Date(tasting.date).toLocaleDateString("nb-NO", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </time>
+          {tasting.rating ? (
+            <div className="mt-1.5">
               <StaticStars rating={tasting.rating} />
-            ) : null}
-          </div>
+            </div>
+          ) : null}
 
           <div className="space-y-1.5 text-sm text-wine-800">
             {tasting.nose && (
