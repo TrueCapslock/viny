@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { prisma } from "@/lib/prisma"
+import { auth } from "@/lib/auth"
 import { TastingForm } from "./tasting-form"
 import { TastingList } from "./tasting-list"
 import { DeleteButton } from "@/app/_components/delete-button"
@@ -9,9 +10,12 @@ import { WineGlass } from "@/app/_components/icons"
 type Params = Promise<{ id: string }>
 
 export default async function WineDetailPage({ params }: { params: Params }) {
+  const session = await auth()
+  if (!session?.user?.id) notFound()
+
   const { id } = await params
-  const wine = await prisma.wine.findUnique({
-    where: { id: parseInt(id) },
+  const wine = await prisma.wine.findFirst({
+    where: { id: parseInt(id), userId: parseInt(session.user.id) },
     include: { tastings: { orderBy: { date: "desc" } } },
   })
 
