@@ -21,7 +21,7 @@ export function WineForm({
   saveLabel = "Lagre",
 }: {
   initial?: WineFormData
-  onSave: (data: WineFormData) => Promise<{ ok: boolean }>
+  onSave: (data: WineFormData) => Promise<{ ok: boolean; error?: string }>
   saveLabel?: string
 }) {
   const router = useRouter()
@@ -38,14 +38,18 @@ export function WineForm({
     },
   )
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
+    setError(null)
     const res = await onSave(form)
     if (res.ok) {
       router.push("/")
       router.refresh()
+    } else {
+      setError(res.error ?? "Noe gikk galt")
     }
     setSaving(false)
   }
@@ -132,6 +136,11 @@ export function WineForm({
             />
           </div>
         </div>
+        {error && (
+          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
         <div>
           <label className="block text-sm font-medium text-wine-700 mb-1">Notater</label>
           <textarea

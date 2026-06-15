@@ -72,7 +72,11 @@ export default function NewWinePage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data),
               })
-              return { ok: res.ok }
+              if (!res.ok) {
+                const text = await res.text()
+                return { ok: false, error: text }
+              }
+              return { ok: true }
             }}
           />
         </div>
