@@ -90,3 +90,11 @@ body {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

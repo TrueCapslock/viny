@@ -13,72 +13,81 @@ type Prefill = {
 export default function NewWinePage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [prefill, setPrefill] = useState<Prefill | null>(null)
+  const [showForm, setShowForm] = useState(false)
 
   function handleSelect(product: { productId: string; productShortName: string }) {
     if (!product.productId) {
       setSelectedId(null)
       setPrefill(null)
+      setShowForm(false)
       return
     }
     setSelectedId(product.productId)
     const parts = product.productShortName.split(" ")
     const producer = parts.length > 1 ? parts.slice(0, Math.min(3, parts.length - 1)).join(" ") : ""
     setPrefill({ name: product.productShortName, producer })
+    setShowForm(true)
   }
 
   return (
-    <div className="flex-1 bg-wine-gradient-light">
-      <div className="bg-wine-gradient text-white">
-        <div className="max-w-xl mx-auto px-4 py-8 pb-12">
-          <div className="flex items-center gap-3">
-            <Grape className="w-8 h-10 text-gold-300/60" />
-            <div>
-              <h1 className="text-2xl font-bold">Ny vin</h1>
-              <p className="text-wine-200 text-sm mt-0.5">Søk og fyll inn detaljer</p>
-            </div>
+    <div className="flex-1 flex flex-col">
+      <div className="bg-wine-gradient text-white px-4 pt-1 pb-8">
+        <div className="flex items-center gap-3 mb-3">
+          <Grape className="w-6 h-7 text-gold-300/60" />
+          <div>
+            <h1 className="text-xl font-bold">Ny vin</h1>
+            <p className="text-wine-200 text-sm">Søk etter vin eller fyll inn manuelt</p>
           </div>
         </div>
       </div>
 
-      <div className="max-w-xl mx-auto px-4 -mt-6 pb-12">
-        <div className="bg-white rounded-2xl shadow-sm border border-cream-200 p-4 mb-6">
+      <div className="flex-1 px-4 -mt-4 pb-24">
+        <div className="bg-white rounded-2xl border border-cream-200 p-4 shadow-sm">
           <VinmonopoletSearch selectedId={selectedId} onSelect={handleSelect} />
         </div>
 
-        <p className="text-xs text-wine-400 mb-4 px-1">
-          Søk etter vin i Vinmonopolets sortiment for å forhåndsutfylle skjemaet.
-        </p>
+        {!showForm && (
+          <p className="text-xs text-wine-400 mt-3 px-1">
+            Søk i Vinmonopolets sortiment eller fyll inn skjemaet under.
+          </p>
+        )}
 
-        <div className="bg-white rounded-2xl shadow-sm border border-cream-200 p-6">
-          <WineForm
-            key={prefill ? `${prefill.name}-${prefill.producer}` : "empty"}
-            initial={
-              prefill
-                ? {
-                    name: prefill.name,
-                    producer: prefill.producer,
-                    vintage: "",
-                    varietal: "",
-                    region: "",
-                    country: "",
-                    type: "",
-                    notes: "",
-                  }
-                : undefined
-            }
-            onSave={async (data) => {
-              const res = await fetch("/api/viner", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data),
-              })
-              if (!res.ok) {
-                const text = await res.text()
-                return { ok: false, error: text }
+        <div
+          className={`mt-4 transition-all duration-300 ${
+            showForm ? "opacity-100 translate-y-0" : ""
+          }`}
+        >
+          <div className="bg-white rounded-2xl border border-cream-200 p-4 shadow-sm">
+            <WineForm
+              key={prefill ? `${prefill.name}-${prefill.producer}` : "empty"}
+              initial={
+                prefill
+                  ? {
+                      name: prefill.name,
+                      producer: prefill.producer,
+                      vintage: "",
+                      varietal: "",
+                      region: "",
+                      country: "",
+                      type: "",
+                      notes: "",
+                    }
+                  : undefined
               }
-              return { ok: true }
-            }}
-          />
+              onSave={async (data) => {
+                const res = await fetch("/api/viner", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(data),
+                })
+                if (!res.ok) {
+                  const text = await res.text()
+                  return { ok: false, error: text }
+                }
+                return { ok: true }
+              }}
+            />
+          </div>
         </div>
       </div>
     </div>

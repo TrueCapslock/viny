@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Header } from "./header";
+import { BottomNav } from "@/app/_components/bottom-nav";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -19,6 +20,12 @@ export const metadata: Metadata = {
   description: "Hold oversikt over viner du har smakt",
 };
 
+export const viewport = {
+  width: "device-width" as const,
+  initialScale: 1,
+  viewportFit: "cover" as const,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -29,13 +36,11 @@ export default function RootLayout({
       lang="nb"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col bg-cream-50">
         <Providers>
           <Header />
-          <main className="flex-1 flex flex-col">{children}</main>
-          <footer className="bg-wine-gradient text-white/60 text-xs py-3 text-center">
-            <p>Viny &mdash; notatene dine, alltid tilgjengelig</p>
-          </footer>
+          <main className="flex-1 flex flex-col pb-20">{children}</main>
+          <BottomNav />
         </Providers>
       </body>
     </html>
