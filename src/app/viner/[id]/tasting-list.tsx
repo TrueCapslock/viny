@@ -53,9 +53,9 @@ export function TastingList({ tastings }: { tastings: Tasting[] }) {
             )}
           </div>
 
-          <div className="flex gap-3 mt-3 text-xs text-wine-400 pt-2 border-t border-cream-200">
-            {tasting.pricePaid && <span>{tasting.pricePaid} kr</span>}
-            {tasting.location && <span>{tasting.location}</span>}
+          <div className="mt-3 pt-2 border-t border-cream-200 space-y-0.5 text-xs text-wine-400">
+            {tasting.pricePaid && <div>{tasting.pricePaid} kr</div>}
+            {tasting.location && <div>{tasting.location}</div>}
           </div>
         </div>
       ))}
