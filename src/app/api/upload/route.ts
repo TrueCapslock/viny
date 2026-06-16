@@ -20,11 +20,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Bildet kan ikke være større enn 5 MB" }, { status: 400 })
     }
 
+    const bytes = await file.arrayBuffer()
+    const buffer = Buffer.from(bytes)
     const ext = file.name.split(".").pop() ?? "jpg"
     const filename = `wine-images/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
 
     if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const blob = await put(filename, file, { access: "public" })
+      const blob = await put(filename, buffer, {
+        access: "public",
+        contentType: file.type,
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      })
       return NextResponse.json({ url: blob.url })
     }
 
@@ -35,8 +41,6 @@ export async function POST(request: Request) {
       )
     }
 
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
     const dir = path.join(process.cwd(), "public", "uploads")
     const localFilename = filename.replace("wine-images/", "")
     const filepath = path.join(dir, localFilename)
