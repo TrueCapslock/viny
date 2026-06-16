@@ -26,6 +26,7 @@ export function WineForm({
 }) {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
+  const imageRef = useRef(initial?.image ?? "")
   const [form, setForm] = useState<WineFormData>(
     initial ?? {
       name: "",
@@ -54,6 +55,7 @@ export function WineForm({
     const res = await fetch("/api/upload", { method: "POST", body: fd })
     if (res.ok) {
       const { url } = await res.json()
+      imageRef.current = url
       setForm((current) => ({ ...current, image: url }))
     } else {
       const data = await res.json().catch(() => null)
@@ -70,7 +72,7 @@ export function WineForm({
     }
     setSaving(true)
     setError(null)
-    const res = await onSave(form)
+    const res = await onSave({ ...form, image: imageRef.current || form.image })
     if (res.ok) {
       router.push("/")
       router.refresh()
@@ -90,7 +92,10 @@ export function WineForm({
               <img src={form.image} alt="Forhåndsvisning" className="w-full h-full object-cover" />
               <button
                 type="button"
-                onClick={() => setForm((current) => ({ ...current, image: "" }))}
+                onClick={() => {
+                  imageRef.current = ""
+                  setForm((current) => ({ ...current, image: "" }))
+                }}
                 className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-xs rounded-bl-xl flex items-center justify-center"
               >
                 ×

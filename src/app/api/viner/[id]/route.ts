@@ -32,6 +32,12 @@ export async function PUT(request: Request, { params }: { params: Params }) {
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
   const body = await request.json()
+  console.log("Updating wine", {
+    id,
+    userId,
+    hasImage: Boolean(body.image),
+    image: body.image,
+  })
   const wine = await prisma.wine.update({
     where: { id: parseInt(id) },
     data: {

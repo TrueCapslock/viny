@@ -21,6 +21,11 @@ export async function POST(request: Request) {
 
   const userId = parseInt(session.user.id)
   const body = await request.json()
+  console.log("Creating wine", {
+    userId,
+    hasImage: Boolean(body.image),
+    image: body.image,
+  })
   const wine = await prisma.wine.create({
     data: {
       name: body.name,
