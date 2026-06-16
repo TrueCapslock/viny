@@ -54,7 +54,7 @@ export function WineForm({
     const res = await fetch("/api/upload", { method: "POST", body: fd })
     if (res.ok) {
       const { url } = await res.json()
-      setForm({ ...form, image: url })
+      setForm((current) => ({ ...current, image: url }))
     } else {
       const data = await res.json().catch(() => null)
       setError(data?.error ?? "Kunne ikke laste opp bildet")
@@ -64,6 +64,10 @@ export function WineForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (uploading) {
+      setError("Vent til bildet er ferdig lastet opp")
+      return
+    }
     setSaving(true)
     setError(null)
     const res = await onSave(form)
@@ -86,7 +90,7 @@ export function WineForm({
               <img src={form.image} alt="Forhåndsvisning" className="w-full h-full object-cover" />
               <button
                 type="button"
-                onClick={() => setForm({ ...form, image: "" })}
+                onClick={() => setForm((current) => ({ ...current, image: "" }))}
                 className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-xs rounded-bl-xl flex items-center justify-center"
               >
                 ×
@@ -116,7 +120,7 @@ export function WineForm({
         <input
           required
           value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))}
           className="w-full rounded-xl border border-cream-200 bg-cream-50 px-3.5 py-2.5 text-sm text-wine-900 placeholder-wine-400 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none"
         />
       </div>
@@ -125,7 +129,7 @@ export function WineForm({
         <input
           required
           value={form.producer}
-          onChange={(e) => setForm({ ...form, producer: e.target.value })}
+          onChange={(e) => setForm((current) => ({ ...current, producer: e.target.value }))}
           className="w-full rounded-xl border border-cream-200 bg-cream-50 px-3.5 py-2.5 text-sm text-wine-900 placeholder-wine-400 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none"
         />
       </div>
@@ -135,7 +139,7 @@ export function WineForm({
           <input
             type="number"
             value={form.vintage}
-            onChange={(e) => setForm({ ...form, vintage: e.target.value })}
+            onChange={(e) => setForm((current) => ({ ...current, vintage: e.target.value }))}
             className="w-full rounded-xl border border-cream-200 bg-cream-50 px-3.5 py-2.5 text-sm text-wine-900 placeholder-wine-400 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none"
           />
         </div>
@@ -143,7 +147,7 @@ export function WineForm({
           <label className="block text-xs font-medium text-wine-700 mb-1">Type</label>
           <select
             value={form.type}
-            onChange={(e) => setForm({ ...form, type: e.target.value })}
+            onChange={(e) => setForm((current) => ({ ...current, type: e.target.value }))}
             className="w-full rounded-xl border border-cream-200 bg-cream-50 px-3.5 py-2.5 text-sm text-wine-900 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none"
           >
             <option value="">Velg...</option>
@@ -159,7 +163,7 @@ export function WineForm({
         <label className="block text-xs font-medium text-wine-700 mb-1">Drue</label>
         <input
           value={form.varietal}
-          onChange={(e) => setForm({ ...form, varietal: e.target.value })}
+          onChange={(e) => setForm((current) => ({ ...current, varietal: e.target.value }))}
           className="w-full rounded-xl border border-cream-200 bg-cream-50 px-3.5 py-2.5 text-sm text-wine-900 placeholder-wine-400 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none"
         />
       </div>
@@ -168,7 +172,7 @@ export function WineForm({
           <label className="block text-xs font-medium text-wine-700 mb-1">Region</label>
           <input
             value={form.region}
-            onChange={(e) => setForm({ ...form, region: e.target.value })}
+            onChange={(e) => setForm((current) => ({ ...current, region: e.target.value }))}
             className="w-full rounded-xl border border-cream-200 bg-cream-50 px-3.5 py-2.5 text-sm text-wine-900 placeholder-wine-400 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none"
           />
         </div>
@@ -176,7 +180,7 @@ export function WineForm({
           <label className="block text-xs font-medium text-wine-700 mb-1">Land</label>
           <input
             value={form.country}
-            onChange={(e) => setForm({ ...form, country: e.target.value })}
+            onChange={(e) => setForm((current) => ({ ...current, country: e.target.value }))}
             className="w-full rounded-xl border border-cream-200 bg-cream-50 px-3.5 py-2.5 text-sm text-wine-900 placeholder-wine-400 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none"
           />
         </div>
@@ -191,16 +195,16 @@ export function WineForm({
         <textarea
           rows={3}
           value={form.notes}
-          onChange={(e) => setForm({ ...form, notes: e.target.value })}
+          onChange={(e) => setForm((current) => ({ ...current, notes: e.target.value }))}
           className="w-full rounded-xl border border-cream-200 bg-cream-50 px-3.5 py-2.5 text-sm text-wine-900 placeholder-wine-400 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none"
         />
       </div>
       <button
         type="submit"
-        disabled={saving}
+        disabled={saving || uploading}
         className="w-full rounded-full bg-wine-600 px-4 py-3 text-sm font-medium text-white hover:bg-wine-700 disabled:opacity-50 transition-colors shadow-sm"
       >
-        {saving ? "Lagrer..." : saveLabel}
+        {uploading ? "Laster opp bilde..." : saving ? "Lagrer..." : saveLabel}
       </button>
     </form>
   )
