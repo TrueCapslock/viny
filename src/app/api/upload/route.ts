@@ -51,6 +51,14 @@ export async function POST(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Ukjent feil"
     console.error("Image upload failed", { message, error })
+
+    if (message.includes("Cannot use public access on a private store")) {
+      return NextResponse.json(
+        { error: "Blob Store må settes til public access for å vise vinbilder direkte i appen." },
+        { status: 500 },
+      )
+    }
+
     return NextResponse.json({ error: `Kunne ikke laste opp bildet: ${message}` }, { status: 500 })
   }
 }
