@@ -49,7 +49,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ url: `/uploads/${localFilename}` })
   } catch (error) {
-    console.error("Image upload failed", error)
-    return NextResponse.json({ error: "Kunne ikke laste opp bildet" }, { status: 500 })
+    const message = error instanceof Error ? error.message : "Ukjent feil"
+    console.error("Image upload failed", { message, error })
+    return NextResponse.json({ error: `Kunne ikke laste opp bildet: ${message}` }, { status: 500 })
   }
 }
