@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 
 type WineFormData = {
@@ -19,14 +19,17 @@ export function WineForm({
   initial,
   onSave,
   saveLabel = "Lagre vin",
+  warnOnUnsavedChanges = false,
 }: {
   initial?: WineFormData
   onSave: (data: WineFormData) => Promise<{ ok: boolean; error?: string }>
   saveLabel?: string
+  warnOnUnsavedChanges?: boolean
 }) {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
   const imageRef = useRef(initial?.image ?? "")
+  const savedRef = useRef(false)
   const [form, setForm] = useState<WineFormData>(
     initial ?? {
       name: "",
@@ -43,6 +46,43 @@ export function WineForm({
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isDirty = warnOnUnsavedChanges && initial
+    ? JSON.stringify(form) !== JSON.stringify(initial)
+    : false
+
+  useEffect(() => {
+    if (!isDirty) return
+
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault()
+      event.returnValue = ""
+    }
+
+    function handleDocumentClick(event: MouseEvent) {
+      if (savedRef.current || event.defaultPrevented) return
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+
+      const target = event.target as HTMLElement | null
+      const link = target?.closest("a[href]") as HTMLAnchorElement | null
+      if (!link || link.target === "_blank") return
+      if (link.href === window.location.href) return
+
+      const ok = window.confirm("Du har ulagrede endringer. Vil du forlate siden uten å lagre?")
+      if (!ok) {
+        event.preventDefault()
+        event.stopPropagation()
+      }
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    document.addEventListener("click", handleDocumentClick, true)
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload)
+      document.removeEventListener("click", handleDocumentClick, true)
+    }
+  }, [isDirty])
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -74,6 +114,7 @@ export function WineForm({
     setError(null)
     const res = await onSave({ ...form, image: imageRef.current || form.image })
     if (res.ok) {
+      savedRef.current = true
       router.push("/")
       router.refresh()
     } else {

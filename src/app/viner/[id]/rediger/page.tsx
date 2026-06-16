@@ -76,6 +76,7 @@ export default function EditWinePage() {
           <WineForm
             initial={initial}
             saveLabel="Lagre endringer"
+            warnOnUnsavedChanges
             onSave={async (data) => {
               const res = await fetch(`/api/viner/${id}`, {
                 method: "PUT",
