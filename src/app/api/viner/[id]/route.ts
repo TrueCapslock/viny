@@ -15,16 +15,25 @@ async function canAccessWine(wineId: number, userId: number) {
   if (!wine) return null
   if (wine.userId === userId) return wine
 
-  const isFriend = await prisma.friend.findFirst({
-    where: {
-      status: "accepted",
-      OR: [
-        { requesterId: userId, addresseeId: wine.userId },
-        { requesterId: wine.userId, addresseeId: userId },
-      ],
-    },
-  })
-  if (isFriend) return wine
+  if (!wine.sharedListId) {
+    const isFriend = await prisma.friend.findFirst({
+      where: {
+        status: "accepted",
+        OR: [
+          { requesterId: userId, addresseeId: wine.userId },
+          { requesterId: wine.userId, addresseeId: userId },
+        ],
+      },
+    })
+    if (isFriend) return wine
+  }
+
+  if (wine.sharedListId) {
+    const isMember = await prisma.sharedListMember.findUnique({
+      where: { sharedListId_userId: { sharedListId: wine.sharedListId, userId } },
+    })
+    if (isMember) return wine
+  }
 
   return null
 }
@@ -34,10 +43,19 @@ async function canEditWine(wineId: number, userId: number) {
   if (!wine) return null
   if (wine.userId === userId) return wine
 
-  const isEditor = await prisma.listShare.findUnique({
-    where: { ownerId_editorId: { ownerId: wine.userId, editorId: userId } },
-  })
-  if (isEditor) return wine
+  if (!wine.sharedListId) {
+    const isEditor = await prisma.listShare.findUnique({
+      where: { ownerId_editorId: { ownerId: wine.userId, editorId: userId } },
+    })
+    if (isEditor) return wine
+  }
+
+  if (wine.sharedListId) {
+    const isMember = await prisma.sharedListMember.findUnique({
+      where: { sharedListId_userId: { sharedListId: wine.sharedListId, userId } },
+    })
+    if (isMember) return wine
+  }
 
   return null
 }
@@ -52,7 +70,10 @@ export async function GET(_request: Request, { params }: { params: Params }) {
 
   const full = await prisma.wine.findUnique({
     where: { id: parseInt(id) },
-    include: { tastings: { orderBy: { date: "desc" } } },
+    include: {
+      tastings: { orderBy: { date: "desc" } },
+      sharedList: { select: { id: true, name: true } },
+    },
   })
   return NextResponse.json(full)
 }

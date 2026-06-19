@@ -22,7 +22,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const valid = await compare(password, user.password)
         if (!valid) return null
 
-        return { id: String(user.id), email: user.email, name: user.name, image: user.image }
+        return { id: String(user.id), email: user.email, name: user.name, image: user.image, prefersBeer: user.prefersBeer }
       },
     }),
   ],
@@ -31,10 +31,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: "/login",
   },
   callbacks: {
-    jwt({ token, user }) {
+    jwt({ token, user, trigger, session: newSession }) {
       if (user) {
         token.id = user.id
         token.image = user.image
+        token.prefersBeer = user.prefersBeer
+      }
+      if (trigger === "update" && newSession?.prefersBeer !== undefined) {
+        token.prefersBeer = newSession.prefersBeer
       }
       return token
     },
@@ -42,6 +46,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (session.user) {
         session.user.id = token.id as string
         session.user.image = token.image as string | null | undefined
+        session.user.prefersBeer = token.prefersBeer as boolean | undefined
       }
       return session
     },

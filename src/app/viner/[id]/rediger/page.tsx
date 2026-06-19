@@ -1,10 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams } from "next/navigation"
 import Link from "next/link"
 import { WineForm } from "@/app/_components/wine-form"
 import { Grape } from "@/app/_components/icons"
+import { useBeerMode } from "@/app/_components/beer-mode-provider"
 
 type FormData = {
   name: string
@@ -21,8 +22,8 @@ type FormData = {
 }
 
 export default function EditWinePage() {
+  const { isBeer } = useBeerMode()
   const { id } = useParams<{ id: string }>()
-  const router = useRouter()
   const [initial, setInitial] = useState<FormData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -61,7 +62,7 @@ export default function EditWinePage() {
   if (!initial) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-wine-400">Fant ikke vinen</p>
+          <p className="text-wine-400">{isBeer ? "Fant ikke ølet" : "Fant ikke vinen"}</p>
       </div>
     )
   }
@@ -79,7 +80,7 @@ export default function EditWinePage() {
           <div className="bg-white/15 rounded-xl p-1.5">
             <Grape className="w-5 h-6 text-gold-300" />
           </div>
-          <h1 className="text-xl font-bold">Rediger vin</h1>
+          <h1 className="text-xl font-bold">{isBeer ? "Rediger øl" : "Rediger vin"}</h1>
         </div>
       </div>
 

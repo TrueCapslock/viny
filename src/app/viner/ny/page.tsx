@@ -4,6 +4,7 @@ import { useState } from "react"
 import { WineForm } from "@/app/_components/wine-form"
 import { VinmonopoletSearch } from "@/app/_components/vinmonopolet-search"
 import { Grape } from "@/app/_components/icons"
+import { useBeerMode } from "@/app/_components/beer-mode-provider"
 
 type Prefill = {
   name: string
@@ -11,6 +12,7 @@ type Prefill = {
 }
 
 export default function NewWinePage() {
+  const { isBeer } = useBeerMode()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [prefill, setPrefill] = useState<Prefill | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -37,8 +39,8 @@ export default function NewWinePage() {
             <Grape className="w-5 h-6 text-gold-300" />
           </div>
           <div>
-            <h1 className="text-xl font-bold">Ny vin</h1>
-            <p className="text-wine-200 text-sm">Søk etter vin eller fyll inn manuelt</p>
+            <h1 className="text-xl font-bold">{isBeer ? "Nytt øl" : "Ny vin"}</h1>
+            <p className="text-wine-200 text-sm">{isBeer ? "Søk etter øl eller fyll inn manuelt" : "Søk etter vin eller fyll inn manuelt"}</p>
           </div>
         </div>
       </div>

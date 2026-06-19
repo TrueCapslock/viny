@@ -4,9 +4,11 @@ import { useState } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { useBeerMode } from "@/app/_components/beer-mode-provider"
 
 export default function LoginPage() {
   const router = useRouter()
+  const { isBeer } = useBeerMode()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -35,10 +37,10 @@ export default function LoginPage() {
       <div className="w-full max-w-sm animate-fade-in-up">
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-2xl bg-wine-gradient shadow-lg shadow-wine-900/20 flex items-center justify-center mx-auto">
-            <img src="/logo.svg" alt="Viny" className="w-9 h-9" />
+            <img src={isBeer ? "/logo-beer.svg" : "/logo.svg"} alt={isBeer ? "Øly" : "Viny"} className="w-9 h-9" />
           </div>
           <h1 className="text-2xl font-bold text-wine-900 mt-4">Logg inn</h1>
-          <p className="text-sm text-wine-400 mt-1">Velkommen tilbake til Viny</p>
+          <p className="text-sm text-wine-400 mt-1">Velkommen tilbake til {isBeer ? "Øly" : "Viny"}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg shadow-wine-900/5 border border-cream-200 p-6 space-y-4">

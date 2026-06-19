@@ -8,7 +8,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Ikke innlogget" }, { status: 401 })
   }
 
-  const { name, email, image } = await request.json()
+  const { name, email, image, prefersBeer } = await request.json()
   const userId = parseInt(session.user.id)
 
   if (email !== undefined && email !== session.user.email) {
@@ -24,8 +24,9 @@ export async function PUT(request: Request) {
       ...(name !== undefined ? { name: name || null } : {}),
       ...(email !== undefined ? { email } : {}),
       ...(image !== undefined ? { image: image || null } : {}),
+      ...(prefersBeer !== undefined ? { prefersBeer } : {}),
     },
   })
 
-  return NextResponse.json({ id: updated.id, name: updated.name, email: updated.email, image: updated.image })
+  return NextResponse.json({ id: updated.id, name: updated.name, email: updated.email, image: updated.image, prefersBeer: updated.prefersBeer })
 }

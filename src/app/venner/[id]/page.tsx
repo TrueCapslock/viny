@@ -5,17 +5,22 @@ import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { Users } from "@/app/_components/icons"
 import { StaticStars } from "@/app/_components/star-rating"
-import { useSession } from "next-auth/react"
+import { useBeerMode } from "@/app/_components/beer-mode-provider"
+import { typeLabel } from "@/lib/beer"
 
 export default function FriendWinesPage() {
+  const { isBeer } = useBeerMode()
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const { data: session } = useSession()
 
-  const [friend, setFriend] = useState<{ id: number; name: string | null; email: string; image: string | null } | null>(null)
-  const [wines, setWines] = useState<any[]>([])
+  type WineData = { id: number; name: string; producer: string; vintage: number | null; type: string | null; varietal: string | null; country: string | null; region: string | null; image: string | null; notes: string | null; inCellar: boolean; quantity: number; _count?: { tastings: number }; tastings?: { rating: number | null }[] }
+  type FriendInfo = { id: number; userId: number; name: string | null; email: string; image: string | null; canEdit: boolean; sharedList: boolean }
+
+  const [friend, setFriend] = useState<FriendInfo | null>(null)
+  const [wines, setWines] = useState<WineData[]>([])
   const [ratingMap, setRatingMap] = useState<Record<number, number>>({})
   const [canEdit, setCanEdit] = useState(false)
+  const [sharedList, setSharedList] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -23,13 +28,14 @@ export default function FriendWinesPage() {
       const friendsRes = await fetch("/api/friends")
       const friendsData = await friendsRes.json()
 
-      const friendInfo = friendsData.friends.find((f: any) => f.userId === parseInt(id))
+      const friendInfo = friendsData.friends.find((f: FriendInfo) => f.userId === parseInt(id))
       if (!friendInfo) {
         router.push("/venner")
         return
       }
       setFriend(friendInfo)
       setCanEdit(friendInfo.canEdit)
+      setSharedList(friendInfo.sharedList)
 
       const winesRes = await fetch(`/api/viner?userId=${id}`)
       const winesData = await winesRes.json()
@@ -41,7 +47,7 @@ export default function FriendWinesPage() {
           const res = await fetch(`/api/viner/${wine.id}`)
           const full = await res.json()
           if (full.tastings?.length > 0) {
-            const avg = full.tastings.reduce((s: number, t: any) => s + (t.rating || 0), 0) / full.tastings.length
+            const avg = full.tastings.reduce((s: number, t: { rating: number | null }) => s + (t.rating || 0), 0) / full.tastings.length
             ratings[wine.id] = Math.round(avg)
           }
         }
@@ -65,8 +71,6 @@ export default function FriendWinesPage() {
   }
 
   if (!friend) return null
-
-  const isOwnProfile = session?.user?.id === id
 
   return (
     <div className="flex flex-col flex-1">
@@ -92,8 +96,9 @@ export default function FriendWinesPage() {
           <div>
             <h1 className="text-xl font-bold text-white">{friend.name ?? friend.email}</h1>
             <p className="text-sm text-wine-200/90">
-              {wines.length} {wines.length === 1 ? "vin" : "viner"}
-              {canEdit && " · Du kan redigere"}
+              {wines.length} {isBeer ? "øl" : wines.length === 1 ? "vin" : "viner"}
+              {sharedList && (isBeer ? " · Felles ølliste" : " · Felles vinliste")}
+              {canEdit && !sharedList && " · Du kan redigere"}
             </p>
           </div>
         </div>
@@ -103,13 +108,13 @@ export default function FriendWinesPage() {
         {wines.length === 0 ? (
           <div className="text-center py-16 animate-fade-in">
             <div className="w-16 h-16 rounded-2xl bg-wine-50 border border-wine-100 flex items-center justify-center mx-auto">
-              <img src="/logo.svg" alt="" className="w-8 h-8 opacity-40" />
+              <img src={isBeer ? "/logo-beer.svg" : "/logo.svg"} alt="" className="w-8 h-8 opacity-40" />
             </div>
-            <p className="text-wine-700 font-semibold mt-4">Ingen viner ennå</p>
+            <p className="text-wine-700 font-semibold mt-4">{isBeer ? "Ingen øl ennå" : "Ingen viner ennå"}</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {wines.map((wine: any, i: number) => {
+            {wines.map((wine) => {
               const avg = ratingMap[wine.id]
               return (
                 <Link
@@ -125,7 +130,7 @@ export default function FriendWinesPage() {
                         </div>
                       ) : (
                         <div className="w-14 h-14 rounded-xl bg-wine-50 border border-wine-100 flex items-center justify-center shrink-0">
-                          <img src="/logo.svg" alt="" className="w-7 h-7 opacity-50" />
+                          <img src={isBeer ? "/logo-beer.svg" : "/logo.svg"} alt="" className="w-7 h-7 opacity-50" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0 pt-0.5">
@@ -137,7 +142,7 @@ export default function FriendWinesPage() {
                         <div className="flex flex-wrap gap-1.5 mt-2">
                           {wine.type && (
                             <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-wine-50 text-wine-600 border border-wine-100/80">
-                              {typeLabel(wine.type)}
+                              {typeLabel(wine.type, isBeer)}
                             </span>
                           )}
                         </div>
@@ -160,12 +165,4 @@ export default function FriendWinesPage() {
       </div>
     </div>
   )
-}
-
-function typeLabel(type: string) {
-  const labels: Record<string, string> = {
-    red: "Rødvin", white: "Hvitvin", sparkling: "Mousserende",
-    rose: "Rosé", dessert: "Dessertvin",
-  }
-  return labels[type] ?? type
 }

@@ -1,33 +1,59 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Users, Grape } from "@/app/_components/icons"
+import { Users } from "@/app/_components/icons"
+import { useBeerMode } from "@/app/_components/beer-mode-provider"
 
 type UserInfo = { id: number; name: string | null; email: string; image: string | null }
-type Friend = UserInfo & { id: number; userId: number; canEdit: boolean }
+type Friend = UserInfo & { id: number; userId: number; sharedList: boolean }
 type Pending = { id: number; userId: number; name: string | null; email: string; image: string | null; direction: "sent" | "received" }
 
+type Suggestion = {
+  id: number
+  name: string
+  producer: string
+  vintage: number | null
+  varietal: string | null
+  notes: string | null
+  message: string | null
+  fromUser: { id: number; name: string | null; email: string; image: string | null }
+  toUser?: { id: number; name: string | null; email: string; image: string | null }
+}
+
 export default function FriendsPage() {
-  const router = useRouter()
+  const { isBeer } = useBeerMode()
   const [friends, setFriends] = useState<Friend[]>([])
   const [pendingSent, setPendingSent] = useState<Pending[]>([])
   const [pendingReceived, setPendingReceived] = useState<Pending[]>([])
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+  const [sentSuggestions, setSentSuggestions] = useState<Suggestion[]>([])
   const [loading, setLoading] = useState(true)
 
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<UserInfo[]>([])
   const [searching, setSearching] = useState(false)
 
+  // Share dialog state
+  const [showShareDialog, setShowShareDialog] = useState(false)
+  const [shareTarget, setShareTarget] = useState<Friend | null>(null)
+  const [sharing, setSharing] = useState(false)
+  const [shareError, setShareError] = useState<string | null>(null)
+
   useEffect(() => { load() }, [])
 
   async function load() {
-    const res = await fetch("/api/friends")
-    const data = await res.json()
-    setFriends(data.friends)
-    setPendingSent(data.pendingSent)
-    setPendingReceived(data.pendingReceived)
+    const [friendsRes, forslagRes] = await Promise.all([
+      fetch("/api/friends"),
+      fetch("/api/forslag"),
+    ])
+    const friendsData = await friendsRes.json()
+    const forslagData = await forslagRes.json()
+    setFriends(friendsData.friends)
+    setPendingSent(friendsData.pendingSent)
+    setPendingReceived(friendsData.pendingReceived)
+    setSuggestions(forslagData.received)
+    setSentSuggestions(forslagData.sent)
     setLoading(false)
   }
 
@@ -58,26 +84,45 @@ export default function FriendsPage() {
     load()
   }
 
-  async function handleRemove(friendshipId: number) {
-    await fetch(`/api/friends/${friendshipId}`, { method: "DELETE" })
-    load()
+  async function handleShare(mode: "mine" | "theirs" | "merge") {
+    if (!shareTarget) return
+    setSharing(true)
+    setShareError(null)
+    const res = await fetch("/api/shared-lists", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ friendUserId: shareTarget.userId, mode }),
+    })
+    if (res.ok) {
+      setShowShareDialog(false)
+      setShareTarget(null)
+      load()
+    } else {
+      const data = await res.json()
+      setShareError(data.error ?? "Noe gikk galt")
+    }
+    setSharing(false)
   }
 
-  async function handleToggleShare(friendUserId: number, currentlyShared: boolean) {
-    if (currentlyShared) {
-      await fetch("/api/friends/share", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ friendUserId }),
-      })
-    } else {
-      await fetch("/api/friends/share", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ friendUserId }),
-      })
-    }
-    load()
+  async function handleAcceptSuggestion(suggestionId: number) {
+    const res = await fetch(`/api/forslag/${suggestionId}/accept`, { method: "POST" })
+    if (res.ok) load()
+  }
+
+  async function handleDeclineSuggestion(suggestionId: number) {
+    const res = await fetch(`/api/forslag/${suggestionId}`, { method: "DELETE" })
+    if (res.ok) load()
+  }
+
+  async function handleCancelSuggestion(suggestionId: number) {
+    const res = await fetch(`/api/forslag/${suggestionId}`, { method: "DELETE" })
+    if (res.ok) load()
+  }
+
+  function openShareDialog(friend: Friend) {
+    setShareTarget(friend)
+    setShareError(null)
+    setShowShareDialog(true)
   }
 
   async function handleSearch(q: string) {
@@ -213,10 +258,92 @@ export default function FriendsPage() {
         </section>
       )}
 
+      {suggestions.length > 0 && (
+        <section className="mb-6">
+          <h2 className="text-xs font-semibold text-wine-500 uppercase tracking-wider mb-3">{isBeer ? "Ølforslag" : "Vinforslag"}</h2>
+          <div className="space-y-2">
+            {suggestions.map((s) => (
+              <div key={s.id} className="bg-white rounded-xl border border-cream-200 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-wine-100 flex items-center justify-center shrink-0 overflow-hidden">
+                    {s.fromUser.image ? (
+                      <img src={s.fromUser.image} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <Users className="w-5 h-5 text-wine-500" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-wine-800">
+                      {s.name}
+                    </p>
+                    <p className="text-xs text-wine-500">
+                      {s.producer}{s.vintage ? `, ${s.vintage}` : ""}
+                    </p>
+                    <p className="text-xs text-wine-400 mt-1">
+                      Foreslått av {s.fromUser.name ?? s.fromUser.email}
+                    </p>
+                    {s.message && (
+                      <p className="text-xs text-wine-500 mt-1.5 bg-cream-50 rounded-lg px-3 py-2 italic">
+                        &ldquo;{s.message}&rdquo;
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={() => handleAcceptSuggestion(s.id)}
+                    className="rounded-full bg-wine-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-wine-700 transition-colors"
+                  >
+                    Legg til i min liste
+                  </button>
+                  <button
+                    onClick={() => handleDeclineSuggestion(s.id)}
+                    className="rounded-full border border-cream-300 px-3.5 py-1.5 text-xs font-medium text-wine-600 hover:bg-cream-50 transition-colors"
+                  >
+                    Avslå
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {sentSuggestions.length > 0 && (
+        <section className="mb-6">
+          <h2 className="text-xs font-semibold text-wine-500 uppercase tracking-wider mb-3">Sendte forslag</h2>
+          <div className="space-y-2">
+            {sentSuggestions.map((s) => (
+              <div key={s.id} className="bg-white rounded-xl border border-cream-200 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-wine-800">{s.name}</p>
+                    <p className="text-xs text-wine-500">
+                      {s.producer}{s.vintage ? `, ${s.vintage}` : ""}
+                    </p>
+                    <p className="text-xs text-wine-400 mt-1">
+                      Til: {s.toUser?.name ?? s.toUser?.email ?? "Ukjent"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={() => handleCancelSuggestion(s.id)}
+                    className="rounded-full border border-red-200 px-3.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    Trekk tilbake
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section>
         <h2 className="text-xs font-semibold text-wine-500 uppercase tracking-wider mb-3">
           Dine venner
-          {friends.length === 0 && " — legg til venner for å se deres viner"}
+          {friends.length === 0 && (isBeer ? " — legg til venner for å se deres øl" : " — legg til venner for å se deres viner")}
         </h2>
         {friends.length === 0 ? (
           <div className="text-center py-10">
@@ -247,7 +374,7 @@ export default function FriendsPage() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-xs text-wine-400">
-                      {friend.canEdit ? "Redigering" : "Les"}
+                      {friend.sharedList ? "Felles liste" : "Les"}
                     </span>
                     <svg className="w-4 h-4 text-wine-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -255,22 +382,85 @@ export default function FriendsPage() {
                   </div>
                 </Link>
                 <div className="px-4 pb-3 pt-0">
-                  <button
-                    onClick={() => handleToggleShare(friend.userId, friend.canEdit)}
-                    className={`text-xs font-medium transition-colors ${
-                      friend.canEdit
-                        ? "text-wine-500 hover:text-wine-700"
-                        : "text-wine-400 hover:text-wine-600"
-                    }`}
-                  >
-                    {friend.canEdit ? "Fjern redigeringstilgang" : "Gi redigeringstilgang"}
-                  </button>
+                  {friend.sharedList ? (
+                    <span className="text-xs font-medium text-gold-600">
+                      {isBeer ? "✓ Deler ølliste" : "✓ Deler vinliste"}
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => openShareDialog(friend)}
+                      className="text-xs font-medium text-wine-600 hover:text-wine-800 transition-colors"
+                    >
+                      Del liste
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
       </section>
+
+      {showShareDialog && shareTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowShareDialog(false)} />
+          <div className="relative bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl animate-scale-in">
+            <button
+              onClick={() => setShowShareDialog(false)}
+              className="absolute top-4 right-4 text-wine-400 hover:text-wine-600 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <h2 className="text-lg font-bold text-wine-900 mb-1">{isBeer ? "Del ølliste" : "Del vinliste"}</h2>
+            <p className="text-sm text-wine-500 mb-5">
+              Velg hva som skal deles med <span className="font-medium text-wine-700">{shareTarget.name ?? shareTarget.email}</span>
+            </p>
+
+            <div className="space-y-2">
+              <button
+                onClick={() => handleShare("mine")}
+                disabled={sharing}
+                className="w-full text-left rounded-xl border border-cream-200 p-4 hover:border-wine-300 hover:bg-wine-50 transition-all disabled:opacity-50"
+              >
+                <p className="text-sm font-semibold text-wine-800">Del din liste</p>
+                <p className="text-xs text-wine-500 mt-0.5">{isBeer ? "Vennene får tilgang til dine øl. Dere kan begge redigere." : "Vennene får tilgang til dine viner. Dere kan begge redigere."}</p>
+              </button>
+              <button
+                onClick={() => handleShare("theirs")}
+                disabled={sharing}
+                className="w-full text-left rounded-xl border border-cream-200 p-4 hover:border-wine-300 hover:bg-wine-50 transition-all disabled:opacity-50"
+              >
+                <p className="text-sm font-semibold text-wine-800">Del vennens liste</p>
+                <p className="text-xs text-wine-500 mt-0.5">{isBeer ? "Du får tilgang til vennens øl. Dere kan begge redigere." : "Du får tilgang til vennens viner. Dere kan begge redigere."}</p>
+              </button>
+              <button
+                onClick={() => handleShare("merge")}
+                disabled={sharing}
+                className="w-full text-left rounded-xl border border-cream-200 p-4 hover:border-wine-300 hover:bg-wine-50 transition-all disabled:opacity-50"
+              >
+                <p className="text-sm font-semibold text-wine-800">Slå sammen</p>
+                <p className="text-xs text-wine-500 mt-0.5">Begge listene slås sammen til én felles liste. Dere kan begge redigere.</p>
+              </button>
+            </div>
+
+            {sharing && (
+              <div className="flex items-center justify-center gap-2 mt-4 text-sm text-wine-500">
+                <div className="w-4 h-4 border-2 border-wine-400 border-t-transparent rounded-full animate-spin" />
+                Oppretter felles liste...
+              </div>
+            )}
+
+            {shareError && (
+              <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 mt-4">
+                {shareError}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

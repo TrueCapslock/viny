@@ -2,11 +2,13 @@ import { notFound } from "next/navigation"
 import Link from "next/link"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
-import { TastingForm } from "./tasting-form"
 import { TastingList } from "./tasting-list"
+import { TastingFormDialog } from "./tasting-form-dialog"
 import { DeleteButton } from "@/app/_components/delete-button"
 import { ImageLightbox } from "@/app/_components/image-lightbox"
 import { CellarToggle } from "@/app/_components/cellar-toggle"
+import { SuggestWineButton } from "@/app/_components/suggest-wine-button"
+import { ModeLogo, ModeText, ModeTypeLabel } from "@/app/_components/mode-text"
 
 type Params = Promise<{ id: string }>
 
@@ -26,20 +28,46 @@ export default async function WineDetailPage({ params }: { params: Params }) {
   if (!wine) notFound()
 
   const isOwner = wine.userId === userId
-  const isFriend = !isOwner && await prisma.friend.findFirst({
-    where: {
-      status: "accepted",
-      OR: [
-        { requesterId: userId, addresseeId: wine.userId },
-        { requesterId: wine.userId, addresseeId: userId },
-      ],
-    },
-  })
-  const canEdit = isOwner || !!(await prisma.listShare.findUnique({
-    where: { ownerId_editorId: { ownerId: wine.userId, editorId: userId } },
-  }))
 
-  if (!isOwner && !isFriend) notFound()
+  let canEdit = isOwner
+  let canView = isOwner
+
+  if (!canEdit) {
+    if (wine.sharedListId) {
+      const isMember = await prisma.sharedListMember.findUnique({
+        where: { sharedListId_userId: { sharedListId: wine.sharedListId, userId } },
+      })
+      if (isMember) {
+        canEdit = true
+        canView = true
+      }
+    }
+
+    if (!canView) {
+      const isEditor = await prisma.listShare.findUnique({
+        where: { ownerId_editorId: { ownerId: wine.userId, editorId: userId } },
+      })
+      if (isEditor) {
+        canEdit = true
+        canView = true
+      }
+    }
+
+    if (!canView) {
+      const isFriend = await prisma.friend.findFirst({
+        where: {
+          status: "accepted",
+          OR: [
+            { requesterId: userId, addresseeId: wine.userId },
+            { requesterId: wine.userId, addresseeId: userId },
+          ],
+        },
+      })
+      if (isFriend) canView = true
+    }
+  }
+
+  if (!canView) notFound()
 
   const backHref = isOwner ? "/" : `/venner/${wine.userId}`
 
@@ -80,7 +108,7 @@ export default async function WineDetailPage({ params }: { params: Params }) {
                 <ImageLightbox src={wine.image} />
               ) : (
                 <div className="w-20 h-20 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center shrink-0">
-                  <img src="/logo.svg" alt="" className="w-10 h-10 opacity-40" />
+                  <ModeLogo className="w-10 h-10 opacity-40" />
                 </div>
               )}
             </div>
@@ -88,7 +116,7 @@ export default async function WineDetailPage({ params }: { params: Params }) {
             <div className="flex flex-wrap gap-2 mt-4">
               {wine.type && (
                 <span className="text-xs px-3 py-1 rounded-full bg-white/15 text-wine-100 border border-white/10 backdrop-blur-sm">
-                  {typeLabel(wine.type)}
+                  <ModeTypeLabel type={wine.type} />
                 </span>
               )}
               {wine.varietal && (
@@ -114,7 +142,7 @@ export default async function WineDetailPage({ params }: { params: Params }) {
               </div>
             )}
 
-            {isOwner && (
+            {canEdit && (
               <div className="mt-3">
                 <CellarToggle wineId={wine.id} initialInCellar={wine.inCellar} initialQuantity={wine.quantity} />
               </div>
@@ -126,18 +154,29 @@ export default async function WineDetailPage({ params }: { params: Params }) {
           <div className="bg-white rounded-2xl border border-cream-200 shadow-lg shadow-wine-900/5 px-4 py-2 inline-flex items-center gap-3">
             {canEdit && (
               <>
-                <Link
-                  href={`/viner/${wine.id}/rediger`}
-                  className="text-sm font-medium text-wine-600 hover:text-wine-800 transition-colors px-3.5 py-1.5 rounded-xl hover:bg-wine-50"
-                >
-                  Rediger
-                </Link>
-                <span className="w-px h-5 bg-cream-200" />
-                <DeleteButton wineId={wine.id} wineName={wine.name} tastingCount={wine.tastings.length} />
+                <SuggestWineButton wineId={wine.id} wineName={wine.name} />
+                {canEdit && (
+                  <>
+                    <span className="w-px h-5 bg-cream-200" />
+                    <Link
+                      href={`/viner/${wine.id}/rediger`}
+                      className="text-sm font-medium text-wine-600 hover:text-wine-800 transition-colors px-3.5 py-1.5 rounded-xl hover:bg-wine-50"
+                    >
+                      Rediger
+                    </Link>
+                    <span className="w-px h-5 bg-cream-200" />
+                    <DeleteButton wineId={wine.id} wineName={wine.name} tastingCount={wine.tastings.length} />
+                  </>
+                )}
               </>
             )}
             {!canEdit && (
-              <span className="text-sm text-wine-400 px-3.5 py-1.5">{wine.user.name ?? wine.user.email} sin vin</span>
+              <>
+                <SuggestWineButton wineId={wine.id} wineName={wine.name} />
+                <span className="text-sm text-wine-400 px-3.5 py-1.5">
+                  {wine.user.name ?? wine.user.email} sin <ModeText wine="vin" beer="øl" />
+                </span>
+              </>
             )}
           </div>
         </div>
@@ -145,34 +184,16 @@ export default async function WineDetailPage({ params }: { params: Params }) {
 
       <div className="flex-1 px-4 mt-14 pb-24 space-y-4">
         <section className="bg-white rounded-2xl border border-cream-200 p-5 shadow-sm">
-          <h2 className="text-base font-bold text-wine-900 mb-4 flex items-center gap-2">
-            <span className="w-1 h-5 rounded-full bg-wine-500" />
-            Smaksnotater ({wine.tastings.length})
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-bold text-wine-900 flex items-center gap-2">
+              <span className="w-1 h-5 rounded-full bg-wine-500" />
+              Smaksnotater ({wine.tastings.length})
+            </h2>
+            {canEdit && <TastingFormDialog wineId={wine.id} />}
+          </div>
           <TastingList tastings={wine.tastings} />
         </section>
-
-        {canEdit && (
-          <section className="bg-white rounded-2xl border border-cream-200 p-5 shadow-sm">
-            <h3 className="text-base font-bold text-wine-900 mb-4 flex items-center gap-2">
-              <span className="w-1 h-5 rounded-full bg-gold-500" />
-              Legg til smaking
-            </h3>
-            <TastingForm wineId={wine.id} />
-          </section>
-        )}
       </div>
     </div>
   )
-}
-
-function typeLabel(type: string) {
-  const labels: Record<string, string> = {
-    red: "Rødvin",
-    white: "Hvitvin",
-    sparkling: "Mousserende",
-    rose: "Rosé",
-    dessert: "Dessertvin",
-  }
-  return labels[type] ?? type
 }

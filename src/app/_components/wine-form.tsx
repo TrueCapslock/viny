@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useBeerMode } from "@/app/_components/beer-mode-provider"
+import { typeLabel } from "@/lib/beer"
 
 type WineFormData = {
   name: string
@@ -20,7 +22,7 @@ type WineFormData = {
 export function WineForm({
   initial,
   onSave,
-  saveLabel = "Lagre vin",
+  saveLabel,
   warnOnUnsavedChanges = false,
 }: {
   initial?: WineFormData
@@ -28,6 +30,7 @@ export function WineForm({
   saveLabel?: string
   warnOnUnsavedChanges?: boolean
 }) {
+  const { isBeer } = useBeerMode()
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
   const imageRef = useRef(initial?.image ?? "")
@@ -220,21 +223,21 @@ export function WineForm({
                 className={inputClass}
               >
                 <option value="">Velg...</option>
-                <option value="red">Rødvin</option>
-                <option value="white">Hvitvin</option>
-                <option value="sparkling">Mousserende</option>
-                <option value="rose">Rosé</option>
-                <option value="dessert">Dessertvin</option>
+                <option value="red">{typeLabel("red", isBeer)}</option>
+                <option value="white">{typeLabel("white", isBeer)}</option>
+                <option value="sparkling">{typeLabel("sparkling", isBeer)}</option>
+                <option value="rose">{typeLabel("rose", isBeer)}</option>
+                <option value="dessert">{typeLabel("dessert", isBeer)}</option>
               </select>
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-wine-700 mb-1">Drue</label>
+              <label className="block text-xs font-medium text-wine-700 mb-1">{isBeer ? "Stil" : "Drue"}</label>
             <input
               value={form.varietal}
               onChange={(e) => setForm((current) => ({ ...current, varietal: e.target.value }))}
               className={inputClass}
-              placeholder="Cabernet Sauvignon"
+              placeholder={isBeer ? "IPA" : "Cabernet Sauvignon"}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -267,12 +270,12 @@ export function WineForm({
           value={form.notes}
           onChange={(e) => setForm((current) => ({ ...current, notes: e.target.value }))}
           className={inputClass + " resize-none"}
-          placeholder="Dine notater om vinen..."
+          placeholder={isBeer ? "Dine notater om ølet..." : "Dine notater om vinen..."}
         />
       </div>
 
       <div>
-        <h3 className="text-xs font-semibold text-wine-500 uppercase tracking-wider mb-3">Vinskap</h3>
+        <h3 className="text-xs font-semibold text-wine-500 uppercase tracking-wider mb-3">{isBeer ? "Lager" : "Vinskap"}</h3>
         <div className="bg-cream-50 rounded-2xl border border-cream-200 p-4 space-y-4">
           <label className="flex items-center gap-3 cursor-pointer select-none">
             <div
@@ -285,12 +288,12 @@ export function WineForm({
             >
               <div className={`w-[18px] h-[18px] bg-white rounded-full shadow-sm absolute top-[3px] transition-transform ${form.inCellar ? "translate-x-[22px]" : "translate-x-[3px]"}`} />
             </div>
-            <span className="text-sm font-medium text-wine-800">I mitt vinskap</span>
+            <span className="text-sm font-medium text-wine-800">{isBeer ? "På lager" : "I mitt vinskap"}</span>
           </label>
 
           {form.inCellar && (
             <div className="animate-fade-in-up">
-              <label className="block text-xs font-medium text-wine-700 mb-1">Antall flasker</label>
+              <label className="block text-xs font-medium text-wine-700 mb-1">{isBeer ? "Antall" : "Antall flasker"}</label>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -339,7 +342,7 @@ export function WineForm({
         disabled={saving || uploading}
         className="w-full rounded-full bg-gradient-to-r from-wine-600 to-wine-700 px-4 py-3.5 text-sm font-medium text-white hover:from-wine-700 hover:to-wine-800 disabled:opacity-50 transition-all shadow-md shadow-wine-600/20 hover:shadow-lg hover:shadow-wine-600/30 active:scale-[0.98]"
       >
-        {uploading ? "Laster opp bilde..." : saving ? "Lagrer..." : saveLabel}
+        {uploading ? "Laster opp bilde..." : saving ? "Lagrer..." : saveLabel ?? (isBeer ? "Lagre øl" : "Lagre vin")}
       </button>
     </form>
   )

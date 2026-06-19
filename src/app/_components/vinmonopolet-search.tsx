@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback, useRef } from "react"
+import { useBeerMode } from "@/app/_components/beer-mode-provider"
 
 type SearchResult = {
   productId: string
@@ -14,6 +15,7 @@ export function VinmonopoletSearch({
   selectedId: string | null
   onSelect: (product: SearchResult) => void
 }) {
+  const { isBeer } = useBeerMode()
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -88,7 +90,7 @@ export function VinmonopoletSearch({
           value={query}
           onChange={(e) => handleChange(e.target.value)}
           onFocus={handleFocus}
-          placeholder="Søk etter vin, produsent..."
+          placeholder={isBeer ? "Søk etter øl, produsent..." : "Søk etter vin, produsent..."}
           className="w-full rounded-xl border border-cream-200 bg-cream-50 pl-10 pr-8 py-2.5 text-sm text-wine-900 placeholder-wine-300 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none transition-all"
         />
         <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-wine-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

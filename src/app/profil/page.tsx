@@ -4,6 +4,7 @@ import { useSession, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useState, useRef, useEffect } from "react"
 import { Grape } from "@/app/_components/icons"
+import { AvatarCropDialog } from "@/app/_components/avatar-crop-dialog"
 
 export default function ProfilePage() {
   const { data: session, update } = useSession()
@@ -18,23 +19,32 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
 
+  const [cropImage, setCropImage] = useState<string | null>(null)
+
   useEffect(() => {
     if (session?.user && !loaded) {
-      setName(session.user.name ?? "")
-      setEmail(session.user.email ?? "")
-      setImage(session.user.image ?? "")
-      setLoaded(true)
+      queueMicrotask(() => {
+        setName(session.user.name ?? "")
+        setEmail(session.user.email ?? "")
+        setImage(session.user.image ?? "")
+        setLoaded(true)
+      })
     }
   }, [session, loaded])
 
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    const url = URL.createObjectURL(file)
+    setCropImage(url)
+    if (fileRef.current) fileRef.current.value = ""
+  }
 
+  async function handleCrop(blob: Blob) {
+    setCropImage(null)
     setUploading(true)
     const fd = new FormData()
-    fd.set("file", file)
-
+    fd.set("file", blob, "avatar.jpg")
     const res = await fetch("/api/upload", { method: "POST", body: fd })
     if (res.ok) {
       const { url } = await res.json()
@@ -98,7 +108,7 @@ export default function ProfilePage() {
             ref={fileRef}
             type="file"
             accept="image/*"
-            onChange={handleImageUpload}
+            onChange={handleFileSelect}
             className="hidden"
           />
           {uploading && (
@@ -163,8 +173,17 @@ export default function ProfilePage() {
           </button>
         </div>
       </form>
+
+      {cropImage && (
+        <AvatarCropDialog
+          imageUrl={cropImage}
+          onCrop={handleCrop}
+          onClose={() => {
+            URL.revokeObjectURL(cropImage)
+            setCropImage(null)
+          }}
+        />
+      )}
     </div>
   )
 }
-
-

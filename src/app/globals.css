@@ -179,3 +179,56 @@ body {
   animation: shimmer 1.5s ease-in-out infinite;
   border-radius: 8px;
 }
+
+[data-beer="true"] {
+  --wine-50: #fef8ee;
+  --wine-100: #fdeed5;
+  --wine-200: #fad999;
+  --wine-300: #f5c060;
+  --wine-400: #f0a630;
+  --wine-500: #e08d20;
+  --wine-600: #c07010;
+  --wine-700: #9a5500;
+  --wine-800: #7d4300;
+  --wine-900: #613300;
+  --wine-950: #3b1d00;
+
+  --gold-50: #f5faf0;
+  --gold-100: #e8f3da;
+  --gold-200: #cfe6b3;
+  --gold-300: #aed487;
+  --gold-400: #8dc05e;
+  --gold-500: #6ea63f;
+  --gold-600: #548830;
+  --gold-700: #416926;
+  --gold-800: #35531f;
+  --gold-900: #2c441a;
+
+  --background: #fdfbf7;
+  --foreground: #2d1b11;
+}
+
+[data-beer="true"] ::selection {
+  background: var(--wine-200);
+  color: var(--wine-900);
+}
+
+[data-beer="true"] .bg-wine-gradient {
+  background: linear-gradient(135deg, var(--wine-700), var(--wine-950));
+}
+
+[data-beer="true"] .bg-wine-gradient-light {
+  background: linear-gradient(135deg, var(--wine-50), var(--cream-100));
+}
+
+[data-beer="true"] .bg-subtle {
+  background-image: radial-gradient(var(--wine-100) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+[data-beer="true"] .text-gradient {
+  background: linear-gradient(135deg, var(--wine-600), var(--wine-800));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

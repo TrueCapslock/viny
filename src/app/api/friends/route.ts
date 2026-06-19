@@ -27,6 +27,24 @@ export async function GET() {
 
   const editorIds = new Set(editors.map((e) => e.editorId))
 
+  const sharedLists = await prisma.sharedList.findMany({
+    where: { members: { some: { userId } } },
+    include: {
+      members: {
+        include: { user: { select: { id: true, name: true, email: true, image: true } } },
+      },
+    },
+  })
+
+  const sharedWithUserIds = new Set<number>()
+  for (const list of sharedLists) {
+    for (const member of list.members) {
+      if (member.userId !== userId) {
+        sharedWithUserIds.add(member.userId)
+      }
+    }
+  }
+
   const friends = [
     ...sent.filter((f) => f.status === "accepted").map((f) => ({
       id: f.id,
@@ -36,6 +54,7 @@ export async function GET() {
       image: f.addressee.image,
       status: "accepted" as const,
       canEdit: editorIds.has(f.addressee.id),
+      sharedList: sharedWithUserIds.has(f.addressee.id),
     })),
     ...received.filter((f) => f.status === "accepted").map((f) => ({
       id: f.id,
@@ -45,6 +64,7 @@ export async function GET() {
       image: f.requester.image,
       status: "accepted" as const,
       canEdit: editorIds.has(f.requester.id),
+      sharedList: sharedWithUserIds.has(f.requester.id),
     })),
   ]
 
@@ -66,7 +86,7 @@ export async function GET() {
     direction: "received" as const,
   }))
 
-  return NextResponse.json({ friends, pendingSent, pendingReceived })
+  return NextResponse.json({ friends, pendingSent, pendingReceived, sharedLists })
 }
 
 export async function POST(request: Request) {

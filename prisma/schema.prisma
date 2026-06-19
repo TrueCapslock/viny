@@ -7,6 +7,29 @@ datasource db {
   provider = "postgresql"
 }
 
+model SharedList {
+  id        Int       @id @default(autoincrement())
+  name      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  members   SharedListMember[]
+  wines     Wine[]
+}
+
+model SharedListMember {
+  id           Int         @id @default(autoincrement())
+  sharedListId Int
+  userId       Int
+  role         String      @default("member") // "admin" | "member"
+  createdAt    DateTime    @default(now())
+
+  sharedList   SharedList  @relation(fields: [sharedListId], references: [id], onDelete: Cascade)
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([sharedListId, userId])
+}
+
 model Wine {
   id        Int       @id @default(autoincrement())
   name      String
@@ -25,6 +48,9 @@ model Wine {
   tastings  Tasting[]
   userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sharedListId  Int?
+  sharedList    SharedList? @relation(fields: [sharedListId], references: [id])
+  suggestions   WineSuggestion[]
 }
 
 model Tasting {
@@ -48,15 +74,45 @@ model User {
   name      String?
   email     String    @unique
   password  String
-  image     String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  wines     Wine[]
+  image       String?
+  prefersBeer Boolean @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  wines       Wine[]
 
   sentFriendships   Friend[]     @relation("SentFriendships")
   receivedFriendships Friend[]   @relation("ReceivedFriendships")
-  ownedShares       ListShare[]  @relation("ListOwners")
-  editorShares      ListShare[]  @relation("ListEditors")
+  ownedShares        ListShare[]           @relation("ListOwners")
+  editorShares       ListShare[]           @relation("ListEditors")
+  sharedListMembers  SharedListMember[]
+  sentSuggestions    WineSuggestion[]      @relation("SentSuggestions")
+  receivedSuggestions WineSuggestion[]     @relation("ReceivedSuggestions")
+}
+
+model WineSuggestion {
+  id        Int      @id @default(autoincrement())
+  fromUserId Int
+  toUserId   Int
+  message   String?
+  wineId    Int?
+
+  name      String
+  producer  String
+  vintage   Int?
+  varietal  String?
+  region    String?
+  country   String?
+  type      String?
+  notes     String?
+  image     String?
+
+  status    String   @default("pending") // "pending" | "accepted" | "declined"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  fromUser  User     @relation("SentSuggestions", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser    User     @relation("ReceivedSuggestions", fields: [toUserId], references: [id], onDelete: Cascade)
+  wine      Wine?    @relation(fields: [wineId], references: [id])
 }
 
 model Friend {

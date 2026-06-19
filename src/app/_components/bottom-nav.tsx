@@ -4,15 +4,17 @@ import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { Shelf, Plus, Corkscrew } from "@/app/_components/icons"
 import { Users } from "@/app/_components/icons"
+import { useBeerMode } from "@/app/_components/beer-mode-provider"
 
 export function BottomNav() {
   const pathname = usePathname()
+  const { isBeer } = useBeerMode()
   const hide = pathname === "/login" || pathname === "/register"
 
   if (hide) return null
 
   const tabs = [
-    { href: "/", label: "Vinskap", icon: Shelf },
+    { href: "/", label: isBeer ? "Ølsamling" : "Vinskap", icon: Shelf },
     { href: "/venner", label: "Venner", icon: Users },
     { href: "/viner/ny", label: "Legg til", icon: Plus, primary: true },
     { href: "/profil", label: "Profil", icon: Corkscrew },

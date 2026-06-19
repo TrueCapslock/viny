@@ -1,9 +1,10 @@
 import Link from "next/link"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
-import { Shelf } from "@/app/_components/icons"
+import { Prisma } from "@/generated/prisma/client"
 import { StaticStars } from "@/app/_components/star-rating"
 import { SearchAndFilter } from "./search-filter"
+import { typeLabel } from "@/lib/beer"
 
 export default async function HomePage(props: { searchParams?: Promise<{ q?: string; type?: string; all?: string }> }) {
   const session = await auth()
@@ -15,13 +16,31 @@ export default async function HomePage(props: { searchParams?: Promise<{ q?: str
   const showAll = searchParams?.all === "1"
 
   const userId = parseInt(session.user.id)
-  const cellarCount = await prisma.wine.count({ where: { userId, inCellar: true } })
-  const wines = await prisma.wine.findMany({
-    where: {
-      userId,
-      ...(showAll ? {} : { inCellar: true }),
-      ...(typeFilter ? { type: typeFilter } : {}),
-      ...(query ? {
+  const isBeer = session.user.prefersBeer ?? false
+
+  const sharedListIds = await prisma.sharedList.findMany({
+    where: { members: { some: { userId } } },
+    select: { id: true },
+  })
+
+  const personalWhere = { userId, sharedListId: null }
+  const sharedWhere = sharedListIds.length > 0
+    ? { sharedListId: { in: sharedListIds.map((sl) => sl.id) } }
+    : null
+
+  function baseFilter(): Prisma.WineWhereInput[] {
+    const filters: Prisma.WineWhereInput[] = [personalWhere]
+    if (sharedWhere) filters.push(sharedWhere)
+    return filters
+  }
+
+  function finalWhere(): Prisma.WineWhereInput {
+    const filters = baseFilter()
+    const ands: Prisma.WineWhereInput[] = [{ OR: filters }]
+    if (!showAll) ands.push({ inCellar: true })
+    if (typeFilter) ands.push({ type: typeFilter })
+    if (query) {
+      ands.push({
         OR: [
           { name: { contains: query, mode: "insensitive" } },
           { producer: { contains: query, mode: "insensitive" } },
@@ -29,8 +48,20 @@ export default async function HomePage(props: { searchParams?: Promise<{ q?: str
           { region: { contains: query, mode: "insensitive" } },
           { country: { contains: query, mode: "insensitive" } },
         ],
-      } : {}),
+      })
+    }
+    return { AND: ands }
+  }
+
+  const cellarCount = await prisma.wine.count({
+    where: {
+      inCellar: true,
+      OR: baseFilter(),
     },
+  })
+
+  const wines = await prisma.wine.findMany({
+    where: finalWhere(),
     include: { _count: { select: { tastings: true } } },
     orderBy: { createdAt: "desc" },
   })
@@ -53,14 +84,11 @@ export default async function HomePage(props: { searchParams?: Promise<{ q?: str
     <div className="flex flex-col flex-1">
       <div className="px-4 pt-4 pb-2 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-wine-900 tracking-tight">
-              {showAll ? "Alle viner" : "Vinskap"}
-            </h1>
-            <Shelf className="w-5 h-5 text-wine-400 mt-1" />
-          </div>
+          <h1 className="text-2xl font-bold text-wine-900 tracking-tight">
+            {showAll ? (isBeer ? "Alt øl" : "Alle viner") : isBeer ? "Ølsamling" : "Vinskap"}
+          </h1>
           <span className="text-xs font-medium text-wine-400 bg-wine-50 border border-wine-100 rounded-full px-3 py-1">
-            {wines.length} {wines.length === 1 ? "vin" : "viner"}
+            {wines.length} {isBeer ? "øl" : wines.length === 1 ? "vin" : "viner"}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -72,7 +100,7 @@ export default async function HomePage(props: { searchParams?: Promise<{ q?: str
                 : "bg-cream-100 text-wine-600 hover:bg-cream-200 border border-cream-200"
             }`}
           >
-            Alle viner
+            {isBeer ? "Alt øl" : "Alle viner"}
           </Link>
           <Link
             href={showAll ? "/?all=0" : "/"}
@@ -82,27 +110,27 @@ export default async function HomePage(props: { searchParams?: Promise<{ q?: str
                 : "bg-cream-100 text-wine-600 hover:bg-cream-200 border border-cream-200"
             }`}
           >
-            I vinskapet{cellarCount > 0 && ` (${cellarCount})`}
+            {isBeer ? `På lager${cellarCount > 0 ? ` (${cellarCount})` : ""}` : `I vinskapet${cellarCount > 0 ? ` (${cellarCount})` : ""}`}
           </Link>
         </div>
-        <SearchAndFilter initialQuery={query} initialType={typeFilter} />
+        <SearchAndFilter key={`${query}-${typeFilter}`} initialQuery={query} initialType={typeFilter} />
       </div>
 
       <div className="flex-1 px-4 pb-4">
         {wines.length === 0 ? (
           <div className="text-center py-20 animate-fade-in">
             <div className="w-20 h-20 rounded-2xl bg-wine-50 border border-wine-100 flex items-center justify-center mx-auto">
-              <img src="/logo.svg" alt="" className="w-10 h-10 opacity-40" />
+              <img src={isBeer ? "/logo-beer.svg" : "/logo.svg"} alt="" className="w-10 h-10 opacity-40" />
             </div>
             <p className="text-wine-800 font-semibold mt-5 text-lg">
-              {query || typeFilter ? "Ingen treff" : showAll ? "Velkommen til Viny" : "Tomt vinskap"}
+              {query || typeFilter ? "Ingen treff" : showAll ? (isBeer ? "Velkommen til Øly" : "Velkommen til Viny") : isBeer ? "Tom ølkasse" : "Tomt vinskap"}
             </p>
             <p className="text-wine-400 text-sm mt-1.5 max-w-xs mx-auto leading-relaxed">
               {query || typeFilter
                 ? "Prøv et annet søk eller filter"
                 : showAll
-                  ? 'Trykk på "Legg til" nederst og registrer din første vin'
-                  : 'Merk viner som "I mitt vinskap" for å se dem her'}
+                  ? isBeer ? 'Trykk på "Legg til" nederst og registrer ditt første øl' : 'Trykk på "Legg til" nederst og registrer din første vin'
+                  : isBeer ? 'Merk øl som "På lager" for å se dem her' : 'Merk viner som "I mitt vinskap" for å se dem her'}
             </p>
             {!query && !typeFilter && (
               <Link
@@ -110,7 +138,7 @@ export default async function HomePage(props: { searchParams?: Promise<{ q?: str
                 className="inline-flex items-center gap-2 mt-6 rounded-full bg-wine-600 px-6 py-3 text-sm font-medium text-white hover:bg-wine-700 transition-all shadow-md shadow-wine-600/20 hover:shadow-lg hover:shadow-wine-600/30 active:scale-[0.97]"
               >
                 <span className="text-lg leading-none">+</span>
-                Legg til vin
+                {isBeer ? "Legg til øl" : "Legg til vin"}
               </Link>
             )}
           </div>
@@ -137,7 +165,7 @@ export default async function HomePage(props: { searchParams?: Promise<{ q?: str
                         </div>
                       ) : (
                         <div className="w-14 h-14 rounded-xl bg-wine-50 border border-wine-100 flex items-center justify-center shrink-0">
-                          <img src="/logo.svg" alt="" className="w-7 h-7 opacity-50" />
+                          <img src={isBeer ? "/logo-beer.svg" : "/logo.svg"} alt="" className="w-7 h-7 opacity-50" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0 pt-0.5">
@@ -149,7 +177,7 @@ export default async function HomePage(props: { searchParams?: Promise<{ q?: str
                         <div className="flex flex-wrap gap-1.5 mt-2">
                           {wine.type && (
                             <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-wine-50 text-wine-600 border border-wine-100/80">
-                              {typeLabel(wine.type)}
+                              {typeLabel(wine.type, isBeer)}
                             </span>
                           )}
                           {wine.varietal && (
@@ -164,7 +192,7 @@ export default async function HomePage(props: { searchParams?: Promise<{ q?: str
                           )}
                           {wine.inCellar && (
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-gold-50 text-gold-700 border border-gold-200/80">
-                              {wine.quantity > 0 ? `${wine.quantity} fl.` : "I vinskap"}
+                              {wine.quantity > 0 ? `${wine.quantity} ${isBeer ? "stk." : "fl."}` : isBeer ? "På lager" : "I vinskap"}
                             </span>
                           )}
                         </div>
@@ -188,15 +216,4 @@ export default async function HomePage(props: { searchParams?: Promise<{ q?: str
       </div>
     </div>
   )
-}
-
-function typeLabel(type: string) {
-  const labels: Record<string, string> = {
-    red: "Rødvin",
-    white: "Hvitvin",
-    sparkling: "Mousserende",
-    rose: "Rosé",
-    dessert: "Dessertvin",
-  }
-  return labels[type] ?? type
 }

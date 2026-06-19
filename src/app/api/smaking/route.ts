@@ -15,7 +15,16 @@ export async function POST(request: Request) {
     const isEditor = await prisma.listShare.findUnique({
       where: { ownerId_editorId: { ownerId: wine.userId, editorId: userId } },
     })
-    if (!isEditor) return NextResponse.json({ error: "Not found" }, { status: 404 })
+    if (isEditor) {
+      // ok
+    } else if (wine.sharedListId) {
+      const isMember = await prisma.sharedListMember.findUnique({
+        where: { sharedListId_userId: { sharedListId: wine.sharedListId, userId } },
+      })
+      if (!isMember) return NextResponse.json({ error: "Not found" }, { status: 404 })
+    } else {
+      return NextResponse.json({ error: "Not found" }, { status: 404 })
+    }
   }
 
   const tasting = await prisma.tasting.create({

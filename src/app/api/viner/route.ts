@@ -29,8 +29,25 @@ export async function GET(request: Request) {
     ownerId = targetId
   }
 
+  const sharedListIds = await prisma.sharedList.findMany({
+    where: targetUserId
+      ? {
+          AND: [
+            { members: { some: { userId } } },
+            { members: { some: { userId: ownerId } } },
+          ],
+        }
+      : { members: { some: { userId } } },
+    select: { id: true },
+  })
+
   const wines = await prisma.wine.findMany({
-    where: { userId: ownerId },
+    where: {
+      OR: [
+        { userId: ownerId, sharedListId: null },
+        { sharedListId: { in: sharedListIds.map((sl) => sl.id) } },
+      ],
+    },
     include: { _count: { select: { tastings: true } } },
     orderBy: { createdAt: "desc" },
   })

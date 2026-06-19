@@ -1,16 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { useBeerMode } from "@/app/_components/beer-mode-provider"
+import { filterLabel } from "@/lib/beer"
 
-const filters = [
-  { key: "", label: "Alle" },
-  { key: "red", label: "Rød" },
-  { key: "white", label: "Hvit" },
-  { key: "sparkling", label: "Bobler" },
-  { key: "rose", label: "Rosé" },
-  { key: "dessert", label: "Dessert" },
-]
+const filterKeys = ["", "red", "white", "sparkling", "rose", "dessert"]
 
 export function SearchAndFilter({
   initialQuery = "",
@@ -21,15 +16,9 @@ export function SearchAndFilter({
 }) {
   const router = useRouter()
   const sp = useSearchParams()
+  const { isBeer } = useBeerMode()
   const [query, setQuery] = useState(initialQuery)
   const [active, setActive] = useState(initialType)
-
-  useEffect(() => {
-    const q = sp.get("q") ?? ""
-    const t = sp.get("type") ?? ""
-    setQuery(q)
-    setActive(t)
-  }, [sp])
 
   function apply(q: string, t: string) {
     const params = new URLSearchParams()
@@ -59,7 +48,7 @@ export function SearchAndFilter({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Søk i dine viner..."
+          placeholder={isBeer ? "Søk i ditt øl..." : "Søk i dine viner..."}
           className="w-full rounded-xl border border-cream-200 bg-white pl-10 pr-4 py-2.5 text-sm text-wine-900 placeholder-wine-400 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none shadow-sm transition-all"
         />
         <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-wine-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -77,17 +66,17 @@ export function SearchAndFilter({
         )}
       </div>
       <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-        {filters.map((f) => (
+        {filterKeys.map((key) => (
           <button
-            key={f.key}
-            onClick={() => handleFilter(f.key)}
+            key={key}
+            onClick={() => handleFilter(key)}
             className={`shrink-0 text-xs font-medium px-3.5 py-1.5 rounded-full border transition-all ${
-              active === f.key
+              active === key
                 ? "bg-wine-600 text-white border-wine-600 shadow-sm shadow-wine-600/20"
                 : "bg-white text-wine-600 border-cream-200 hover:border-wine-300 hover:bg-wine-50"
             }`}
           >
-            {f.label}
+            {filterLabel(key, isBeer)}
           </button>
         ))}
       </div>
