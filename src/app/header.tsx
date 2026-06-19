@@ -3,7 +3,6 @@
 import { useSession, signOut } from "next-auth/react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { WineGlass } from "@/app/_components/icons"
 
 export function Header() {
   const { data: session } = useSession()
@@ -15,7 +14,7 @@ export function Header() {
     <header className="bg-wine-gradient text-white sticky top-0 z-40">
       <div className="flex items-center justify-between px-4 py-2.5">
         <Link href="/" className="flex items-center gap-2">
-          <WineGlass className="w-5 h-6 text-gold-300" />
+          <img src="/logo.svg" alt="Viny" className="w-7 h-7" />
           <span className="text-base font-bold tracking-wide">Viny</span>
         </Link>
         {session?.user && (

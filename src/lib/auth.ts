@@ -22,7 +22,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const valid = await compare(password, user.password)
         if (!valid) return null
 
-        return { id: String(user.id), email: user.email, name: user.name }
+        return { id: String(user.id), email: user.email, name: user.name, image: user.image }
       },
     }),
   ],
@@ -32,11 +32,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   callbacks: {
     jwt({ token, user }) {
-      if (user) token.id = user.id
+      if (user) {
+        token.id = user.id
+        token.image = user.image
+      }
       return token
     },
     session({ session, token }) {
-      if (session.user) session.user.id = token.id as string
+      if (session.user) {
+        session.user.id = token.id as string
+        session.user.image = token.image as string | null | undefined
+      }
       return session
     },
   },

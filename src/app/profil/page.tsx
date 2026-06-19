@@ -2,30 +2,169 @@
 
 import { useSession, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import { useState, useRef, useEffect } from "react"
 import { Grape } from "@/app/_components/icons"
 
 export default function ProfilePage() {
-  const { data: session } = useSession()
+  const { data: session, update } = useSession()
   const router = useRouter()
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [image, setImage] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    if (session?.user && !loaded) {
+      setName(session.user.name ?? "")
+      setEmail(session.user.email ?? "")
+      setImage(session.user.image ?? "")
+      setLoaded(true)
+    }
+  }, [session, loaded])
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    const fd = new FormData()
+    fd.set("file", file)
+
+    const res = await fetch("/api/upload", { method: "POST", body: fd })
+    if (res.ok) {
+      const { url } = await res.json()
+      setImage(url)
+    } else {
+      const data = await res.json().catch(() => null)
+      setError(data?.error ?? "Kunne ikke laste opp bildet")
+    }
+    setUploading(false)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    setError(null)
+
+    const res = await fetch("/api/profile", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, image: image || null }),
+    })
+
+    if (!res.ok) {
+      const data = await res.json()
+      setError(data.error ?? "Noe gikk galt")
+      setSaving(false)
+      return
+    }
+
+    update()
+    router.refresh()
+    setSaving(false)
+  }
+
+  const inputClass = "w-full rounded-xl border border-cream-200 bg-cream-50 px-3.5 py-2.5 text-sm text-wine-900 placeholder-wine-300 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none transition-all"
 
   return (
-    <div className="flex-1 px-4 pt-8">
+    <div className="flex-1 px-4 pt-6 pb-24 animate-fade-in">
       <div className="text-center mb-8">
-        <div className="w-16 h-16 rounded-full bg-wine-gradient flex items-center justify-center mx-auto">
-          <Grape className="w-8 h-9 text-gold-300" />
+        <div className="relative inline-block">
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="group relative w-24 h-24 rounded-2xl overflow-hidden mx-auto block"
+          >
+            {image ? (
+              <img src={image} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-wine-gradient flex items-center justify-center">
+                <Grape className="w-10 h-11 text-gold-300" />
+              </div>
+            )}
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+              <svg className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+              </svg>
+            </div>
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            className="hidden"
+          />
+          {uploading && (
+            <div className="absolute inset-0 bg-white/60 rounded-2xl flex items-center justify-center">
+              <span className="w-6 h-6 border-2 border-wine-400 border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
         </div>
-        <h1 className="text-xl font-bold text-wine-800 mt-3">Profil</h1>
+        <h1 className="text-2xl font-bold text-wine-900 mt-4">{session?.user?.name ?? "Profil"}</h1>
         <p className="text-sm text-wine-400 mt-0.5">{session?.user?.email}</p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-cream-200 p-4 space-y-3">
+      <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-cream-200 shadow-sm p-5 space-y-4">
+        {error && (
+          <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            </svg>
+            {error}
+          </div>
+        )}
+
+        <div>
+          <label className="block text-xs font-semibold text-wine-700 mb-1.5">Navn</label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className={inputClass}
+            placeholder="Ditt navn"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-wine-700 mb-1.5">E-post</label>
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+
         <button
-          onClick={() => signOut({ callbackUrl: "/login" })}
-          className="w-full text-left text-sm text-red-600 font-medium px-3 py-2.5 rounded-xl hover:bg-red-50 transition-colors"
+          type="submit"
+          disabled={saving || uploading}
+          className="w-full rounded-full bg-gradient-to-r from-wine-600 to-wine-700 px-4 py-3 text-sm font-medium text-white hover:from-wine-700 hover:to-wine-800 disabled:opacity-50 transition-all shadow-md shadow-wine-600/20 hover:shadow-lg active:scale-[0.98]"
         >
-          Logg ut
+          {saving ? "Lagrer..." : "Lagre endringer"}
         </button>
-      </div>
+
+        <div className="pt-2 border-t border-cream-100">
+          <button
+            type="button"
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm text-red-600 font-medium rounded-xl hover:bg-red-50 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+            </svg>
+            Logg ut
+          </button>
+        </div>
+      </form>
     </div>
   )
 }
+
+

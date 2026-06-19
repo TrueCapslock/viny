@@ -2,13 +2,8 @@
 
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { WineGlass, Grape, Corkscrew } from "@/app/_components/icons"
-
-const tabs = [
-  { href: "/", label: "Mine viner", icon: WineGlass },
-  { href: "/viner/ny", label: "Legg til", icon: Grape, primary: true },
-  { href: "/profil", label: "Profil", icon: Corkscrew },
-]
+import { Shelf, Plus, Corkscrew } from "@/app/_components/icons"
+import { Users } from "@/app/_components/icons"
 
 export function BottomNav() {
   const pathname = usePathname()
@@ -16,9 +11,16 @@ export function BottomNav() {
 
   if (hide) return null
 
+  const tabs = [
+    { href: "/", label: "Vinskap", icon: Shelf },
+    { href: "/venner", label: "Venner", icon: Users },
+    { href: "/viner/ny", label: "Legg til", icon: Plus, primary: true },
+    { href: "/profil", label: "Profil", icon: Corkscrew },
+  ]
+
   return (
-    <nav className="fixed bottom-0 left-0 right-2 z-50 flex justify-center pb-2 pointer-events-none">
-      <div className="bg-white/95 backdrop-blur-md border border-cream-200 rounded-2xl shadow-lg shadow-wine-900/10 flex items-center justify-around px-2 py-1.5 max-w-sm w-full pointer-events-auto mx-auto">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pb-3 pointer-events-none">
+      <div className="bg-white/90 backdrop-blur-xl border border-cream-200/80 rounded-2xl shadow-xl shadow-wine-900/10 flex items-center justify-around px-2 py-1.5 max-w-sm w-full pointer-events-auto mx-4">
         {tabs.map((tab) => {
           const isActive = tab.href === "/"
             ? pathname === "/"
@@ -30,9 +32,9 @@ export function BottomNav() {
               <Link
                 key={tab.href}
                 href={tab.href}
-                className={`flex flex-col items-center gap-0.5 px-5 py-1.5 rounded-xl transition-colors ${
+                className={`flex flex-col items-center gap-0.5 px-5 py-1.5 rounded-xl transition-all duration-200 ${
                   isActive
-                    ? "bg-wine-600 text-white shadow-sm shadow-wine-600/30"
+                    ? "bg-wine-600 text-white shadow-md shadow-wine-600/30 scale-105"
                     : "bg-wine-600/90 text-white hover:bg-wine-700 shadow-sm"
                 }`}
               >
@@ -46,10 +48,13 @@ export function BottomNav() {
             <Link
               key={tab.href}
               href={tab.href}
-              className={`flex flex-col items-center gap-0.5 px-5 py-1.5 rounded-xl transition-colors ${
+              className={`flex flex-col items-center gap-0.5 px-5 py-1.5 rounded-xl transition-all duration-200 relative ${
                 isActive ? "text-wine-700" : "text-wine-400 hover:text-wine-600"
               }`}
             >
+              {isActive && (
+                <span className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-wine-600" />
+              )}
               <Icon className="w-5 h-6" />
               <span className="text-[10px] font-medium">{tab.label}</span>
             </Link>

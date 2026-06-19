@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Wine" ADD COLUMN     "inCellar" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "quantity" INTEGER NOT NULL DEFAULT 0;

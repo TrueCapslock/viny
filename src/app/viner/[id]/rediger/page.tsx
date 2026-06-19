@@ -16,6 +16,8 @@ type FormData = {
   type: string
   notes: string
   image: string
+  inCellar: boolean
+  quantity: string
 }
 
 export default function EditWinePage() {
@@ -38,6 +40,8 @@ export default function EditWinePage() {
           type: wine.type ?? "",
           notes: wine.notes ?? "",
           image: wine.image ?? "",
+          inCellar: wine.inCellar ?? false,
+          quantity: wine.quantity?.toString() ?? "0",
         })
         setLoading(false)
       })
@@ -46,7 +50,10 @@ export default function EditWinePage() {
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-wine-400">Laster...</p>
+        <div className="text-center">
+          <div className="w-10 h-10 border-3 border-wine-200 border-t-wine-600 rounded-full animate-spin mx-auto" />
+          <p className="text-wine-400 text-sm mt-3">Laster...</p>
+        </div>
       </div>
     )
   }
@@ -61,18 +68,23 @@ export default function EditWinePage() {
 
   return (
     <div className="flex-1 flex flex-col">
-      <div className="bg-wine-gradient text-white px-4 pt-1 pb-8">
-        <Link href={`/viner/${id}`} className="inline-flex items-center gap-1 text-sm text-wine-200 hover:text-white transition-colors mb-3">
-          &larr; Tilbake
+      <div className="bg-wine-gradient text-white px-4 pt-1 pb-10">
+        <Link href={`/viner/${id}`} className="inline-flex items-center gap-1.5 text-sm text-wine-200 hover:text-white transition-colors mb-4">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Tilbake
         </Link>
         <div className="flex items-center gap-3">
-          <Grape className="w-6 h-7 text-gold-300/60" />
+          <div className="bg-white/15 rounded-xl p-1.5">
+            <Grape className="w-5 h-6 text-gold-300" />
+          </div>
           <h1 className="text-xl font-bold">Rediger vin</h1>
         </div>
       </div>
 
       <div className="flex-1 px-4 -mt-4 pb-24">
-        <div className="bg-white rounded-2xl border border-cream-200 p-4 shadow-sm">
+        <div className="bg-white rounded-2xl border border-cream-200 p-5 shadow-sm">
           <WineForm
             initial={initial}
             saveLabel="Lagre endringer"

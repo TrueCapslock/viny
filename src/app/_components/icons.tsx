@@ -40,12 +40,20 @@ export function WineBottle({ className }: { className?: string }) {
 
 export function Corkscrew({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 60 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="25" y="0" width="10" height="30" rx="2" fill="currentColor" opacity="0.4" />
-      <path d="M20 30h20l5 15c1 3-1 6-4 6H19c-3 0-5-3-4-6l5-15z" fill="currentColor" opacity="0.3" />
-      <path d="M22 55c0-5 16-5 16 0" stroke="currentColor" strokeWidth="2" fill="none" opacity="0.3" />
-      <path d="M20 65c0-8 20-8 20 0" stroke="currentColor" strokeWidth="2" fill="none" opacity="0.25" />
-      <path d="M18 75c0-10 24-10 24 0" stroke="currentColor" strokeWidth="2" fill="none" opacity="0.2" />
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="7" r="4" fill="currentColor" opacity="0.35" />
+      <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 21c0-4 3-8 8-8s8 4 8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
+    </svg>
+  )
+}
+
+export function Plus({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.35" />
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8 12h8M12 8v8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -70,6 +78,34 @@ export function Star({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
       <path d="M10 1l2.39 4.84 5.34.78-3.87 3.77.91 5.33L10 13.13l-4.77 2.59.91-5.33L2.27 6.62l5.34-.78L10 1z" />
+    </svg>
+  )
+}
+
+export function Shelf({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2" y="3" width="20" height="2" rx="1" fill="currentColor" opacity="0.3" />
+      <rect x="2" y="12" width="20" height="2" rx="1" fill="currentColor" opacity="0.35" />
+      <rect x="2" y="19" width="20" height="2" rx="1" fill="currentColor" opacity="0.3" />
+      <rect x="5" y="5" width="3" height="7" rx="0.75" fill="currentColor" opacity="0.5" />
+      <rect x="10" y="5" width="3" height="7" rx="0.75" fill="currentColor" opacity="0.35" />
+      <rect x="16" y="5" width="3" height="7" rx="0.75" fill="currentColor" opacity="0.45" />
+      <rect x="7" y="14" width="3" height="5" rx="0.75" fill="currentColor" opacity="0.4" />
+      <rect x="14" y="14" width="3" height="5" rx="0.75" fill="currentColor" opacity="0.55" />
+    </svg>
+  )
+}
+
+export function Users({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="8" cy="6" r="3" fill="currentColor" opacity="0.35" />
+      <circle cx="8" cy="6" r="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="17" cy="7" r="2.5" fill="currentColor" opacity="0.35" />
+      <circle cx="17" cy="7" r="2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 20c0-3.5 2.5-6 5-6s5 2.5 5 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.55" />
+      <path d="M13 19c0-2.8 2-5 4.5-5s4.5 2.2 4.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.45" />
     </svg>
   )
 }

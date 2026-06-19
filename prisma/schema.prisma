@@ -18,6 +18,8 @@ model Wine {
   type      String?
   notes     String?
   image     String?
+  inCellar  Boolean   @default(false)
+  quantity  Int       @default(0)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   tastings  Tasting[]
@@ -46,7 +48,39 @@ model User {
   name      String?
   email     String    @unique
   password  String
+  image     String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   wines     Wine[]
+
+  sentFriendships   Friend[]     @relation("SentFriendships")
+  receivedFriendships Friend[]   @relation("ReceivedFriendships")
+  ownedShares       ListShare[]  @relation("ListOwners")
+  editorShares      ListShare[]  @relation("ListEditors")
+}
+
+model Friend {
+  id          Int      @id @default(autoincrement())
+  requesterId Int
+  addresseeId Int
+  status      String   @default("pending") // "pending" | "accepted"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  requester   User     @relation("SentFriendships", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee   User     @relation("ReceivedFriendships", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+}
+
+model ListShare {
+  id        Int      @id @default(autoincrement())
+  ownerId   Int
+  editorId  Int
+  createdAt DateTime @default(now())
+
+  owner     User     @relation("ListOwners", fields: [ownerId], references: [id], onDelete: Cascade)
+  editor    User     @relation("ListEditors", fields: [editorId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerId, editorId])
 }

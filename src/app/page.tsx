@@ -1,22 +1,25 @@
 import Link from "next/link"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
-import { WineGlass, Grape, WineBottle } from "@/app/_components/icons"
+import { Shelf } from "@/app/_components/icons"
 import { StaticStars } from "@/app/_components/star-rating"
 import { SearchAndFilter } from "./search-filter"
 
-export default async function HomePage(props: { searchParams?: Promise<{ q?: string; type?: string }> }) {
+export default async function HomePage(props: { searchParams?: Promise<{ q?: string; type?: string; all?: string }> }) {
   const session = await auth()
   if (!session?.user?.id) return null
 
   const searchParams = await props.searchParams
   const query = searchParams?.q?.toLowerCase() ?? ""
   const typeFilter = searchParams?.type ?? ""
+  const showAll = searchParams?.all === "1"
 
   const userId = parseInt(session.user.id)
+  const cellarCount = await prisma.wine.count({ where: { userId, inCellar: true } })
   const wines = await prisma.wine.findMany({
     where: {
       userId,
+      ...(showAll ? {} : { inCellar: true }),
       ...(typeFilter ? { type: typeFilter } : {}),
       ...(query ? {
         OR: [
@@ -48,34 +51,66 @@ export default async function HomePage(props: { searchParams?: Promise<{ q?: str
 
   return (
     <div className="flex flex-col flex-1">
-      <div className="px-4 pt-4 pb-2">
-        <div className="flex items-center justify-between mb-1">
-          <h1 className="text-xl font-bold text-wine-800">Mine viner</h1>
-          <span className="text-xs text-wine-400">
+      <div className="px-4 pt-4 pb-2 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-wine-900 tracking-tight">
+              {showAll ? "Alle viner" : "Vinskap"}
+            </h1>
+            <Shelf className="w-5 h-5 text-wine-400 mt-1" />
+          </div>
+          <span className="text-xs font-medium text-wine-400 bg-wine-50 border border-wine-100 rounded-full px-3 py-1">
             {wines.length} {wines.length === 1 ? "vin" : "viner"}
           </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href={showAll ? "/" : "/?all=1"}
+            className={`text-xs font-medium px-3.5 py-1.5 rounded-full transition-all ${
+              showAll
+                ? "bg-wine-600 text-white shadow-sm"
+                : "bg-cream-100 text-wine-600 hover:bg-cream-200 border border-cream-200"
+            }`}
+          >
+            Alle viner
+          </Link>
+          <Link
+            href={showAll ? "/?all=0" : "/"}
+            className={`text-xs font-medium px-3.5 py-1.5 rounded-full transition-all ${
+              !showAll
+                ? "bg-wine-600 text-white shadow-sm"
+                : "bg-cream-100 text-wine-600 hover:bg-cream-200 border border-cream-200"
+            }`}
+          >
+            I vinskapet{cellarCount > 0 && ` (${cellarCount})`}
+          </Link>
         </div>
         <SearchAndFilter initialQuery={query} initialType={typeFilter} />
       </div>
 
       <div className="flex-1 px-4 pb-4">
         {wines.length === 0 ? (
-          <div className="text-center py-16">
-            <Grape className="w-14 h-16 mx-auto text-wine-300" />
-            <p className="text-wine-700 mt-4 font-medium">
-              {query || typeFilter ? "Ingen viner matchet søket" : "Ingen viner registrert ennå"}
+          <div className="text-center py-20 animate-fade-in">
+            <div className="w-20 h-20 rounded-2xl bg-wine-50 border border-wine-100 flex items-center justify-center mx-auto">
+              <img src="/logo.svg" alt="" className="w-10 h-10 opacity-40" />
+            </div>
+            <p className="text-wine-800 font-semibold mt-5 text-lg">
+              {query || typeFilter ? "Ingen treff" : showAll ? "Velkommen til Viny" : "Tomt vinskap"}
             </p>
-            <p className="text-wine-400 text-sm mt-1">
+            <p className="text-wine-400 text-sm mt-1.5 max-w-xs mx-auto leading-relaxed">
               {query || typeFilter
                 ? "Prøv et annet søk eller filter"
-                : 'Trykk på "Legg til" nederst og kom i gang'}
+                : showAll
+                  ? 'Trykk på "Legg til" nederst og registrer din første vin'
+                  : 'Merk viner som "I mitt vinskap" for å se dem her'}
             </p>
             {!query && !typeFilter && (
               <Link
                 href="/viner/ny"
-                className="inline-block mt-6 rounded-full bg-wine-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-wine-700 transition-colors"
+                className="inline-flex items-center gap-2 mt-6 rounded-full bg-wine-600 px-6 py-3 text-sm font-medium text-white hover:bg-wine-700 transition-all shadow-md shadow-wine-600/20 hover:shadow-lg hover:shadow-wine-600/30 active:scale-[0.97]"
               >
-                + Legg til vin
+                <span className="text-lg leading-none">+</span>
+                Legg til vin
               </Link>
             )}
           </div>
@@ -87,55 +122,63 @@ export default async function HomePage(props: { searchParams?: Promise<{ q?: str
                 <Link
                   key={wine.id}
                   href={`/viner/${wine.id}`}
-                  className="block rounded-2xl bg-white p-4 border border-cream-200 hover:border-wine-300 transition-all active:scale-[0.98]"
+                  className="block rounded-2xl bg-white border border-cream-200/80 card-hover shadow-sm"
+                  style={{ animationDelay: `${i * 50}ms` }}
                 >
-                  <div className="flex items-start gap-3">
-                    {wine.image ? (
-                      <img
-                        src={wine.image}
-                        alt=""
-                        className="w-10 h-10 rounded-lg object-cover shrink-0 mt-0.5 border border-cream-200"
-                      />
-                    ) : i % 3 === 0 ? (
-                      <WineBottle className="w-4 h-10 text-wine-300 shrink-0 mt-1" />
-                    ) : i % 3 === 1 ? (
-                      <Grape className="w-5 h-7 text-wine-400 shrink-0 mt-1" />
-                    ) : (
-                      <WineGlass className="w-4 h-5 text-wine-300 shrink-0 mt-1" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h2 className="font-semibold text-wine-900 truncate text-base">{wine.name}</h2>
-                      <p className="text-sm text-wine-600 truncate">
-                        {wine.producer}
-                        {wine.vintage && `, ${wine.vintage}`}
-                      </p>
-                      <div className="flex flex-wrap gap-1.5 mt-1.5">
-                        {wine.type && (
-                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-wine-50 text-wine-600 border border-wine-100">
-                            {typeLabel(wine.type)}
-                          </span>
-                        )}
-                        {wine.varietal && (
-                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-cream-100 text-cream-800 border border-cream-200">
-                            {wine.varietal}
-                          </span>
-                        )}
-                        {wine.country && (
-                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-cream-100 text-cream-800 border border-cream-200">
-                            {wine.country}
-                          </span>
-                        )}
+                  <div className="p-4">
+                    <div className="flex items-start gap-3.5">
+                      {wine.image ? (
+                        <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-cream-200 shadow-sm">
+                          <img
+                            src={wine.image}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-14 h-14 rounded-xl bg-wine-50 border border-wine-100 flex items-center justify-center shrink-0">
+                          <img src="/logo.svg" alt="" className="w-7 h-7 opacity-50" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0 pt-0.5">
+                        <h2 className="font-bold text-wine-900 truncate text-[15px]">{wine.name}</h2>
+                        <p className="text-sm text-wine-500 truncate">
+                          {wine.producer}
+                          {wine.vintage && `, ${wine.vintage}`}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {wine.type && (
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-wine-50 text-wine-600 border border-wine-100/80">
+                              {typeLabel(wine.type)}
+                            </span>
+                          )}
+                          {wine.varietal && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-cream-100 text-cream-700 border border-cream-200/80">
+                              {wine.varietal}
+                            </span>
+                          )}
+                          {wine.country && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-cream-100 text-cream-700 border border-cream-200/80">
+                              {wine.country}
+                            </span>
+                          )}
+                          {wine.inCellar && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-gold-50 text-gold-700 border border-gold-200/80">
+                              {wine.quantity > 0 ? `${wine.quantity} fl.` : "I vinskap"}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-cream-100">
-                    <div className="flex items-center gap-2">
-                      {avg > 0 && <StaticStars rating={avg} />}
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-cream-100/80">
+                      <div className="flex items-center gap-2">
+                        {avg > 0 && <StaticStars rating={avg} />}
+                      </div>
+                      <span className="text-[11px] text-wine-400 font-medium">
+                        {wine._count.tastings} smaksnotat{wine._count.tastings !== 1 ? "er" : ""}
+                      </span>
                     </div>
-                    <span className="text-xs text-wine-400">
-                      {wine._count.tastings} smaksnotat{wine._count.tastings !== 1 ? "er" : ""}
-                    </span>
                   </div>
                 </Link>
               )

@@ -9,8 +9,14 @@ export async function POST(request: Request) {
   const userId = parseInt(session.user.id)
   const body = await request.json()
 
-  const wine = await prisma.wine.findFirst({ where: { id: body.wineId, userId } })
+  const wine = await prisma.wine.findUnique({ where: { id: body.wineId } })
   if (!wine) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  if (wine.userId !== userId) {
+    const isEditor = await prisma.listShare.findUnique({
+      where: { ownerId_editorId: { ownerId: wine.userId, editorId: userId } },
+    })
+    if (!isEditor) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
 
   const tasting = await prisma.tasting.create({
     data: {

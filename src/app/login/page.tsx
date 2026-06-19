@@ -4,17 +4,18 @@ import { useState } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Grape } from "@/app/_components/icons"
 
 export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    setLoading(true)
     const res = await signIn("credentials", {
       email,
       password,
@@ -22,6 +23,7 @@ export default function LoginPage() {
     })
     if (res?.error) {
       setError("Feil e-post eller passord")
+      setLoading(false)
     } else {
       router.push("/")
       router.refresh()
@@ -29,53 +31,61 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex-1 bg-wine-gradient-light flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
+    <div className="flex-1 flex items-center justify-center px-4 bg-subtle">
+      <div className="w-full max-w-sm animate-fade-in-up">
         <div className="text-center mb-8">
-          <Grape className="w-12 h-14 mx-auto text-wine-400" />
-          <h1 className="text-2xl font-bold text-wine-800 mt-4">Logg inn</h1>
+          <div className="w-16 h-16 rounded-2xl bg-wine-gradient shadow-lg shadow-wine-900/20 flex items-center justify-center mx-auto">
+            <img src="/logo.svg" alt="Viny" className="w-9 h-9" />
+          </div>
+          <h1 className="text-2xl font-bold text-wine-900 mt-4">Logg inn</h1>
           <p className="text-sm text-wine-400 mt-1">Velkommen tilbake til Viny</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-cream-200 p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg shadow-wine-900/5 border border-cream-200 p-6 space-y-4">
           {error && (
-            <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
               {error}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-wine-700 mb-1">E-post</label>
+            <label className="block text-sm font-medium text-wine-700 mb-1.5">E-post</label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-cream-300 bg-cream-50 px-3 py-2 text-sm text-wine-900 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none"
+              className="w-full rounded-xl border border-cream-200 bg-cream-50 px-3.5 py-2.5 text-sm text-wine-900 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none transition-all"
+              placeholder="din@epost.no"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-wine-700 mb-1">Passord</label>
+            <label className="block text-sm font-medium text-wine-700 mb-1.5">Passord</label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-cream-300 bg-cream-50 px-3 py-2 text-sm text-wine-900 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none"
+              className="w-full rounded-xl border border-cream-200 bg-cream-50 px-3.5 py-2.5 text-sm text-wine-900 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none transition-all"
+              placeholder="••••••••"
             />
           </div>
 
           <button
             type="submit"
-            className="w-full rounded-full bg-wine-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-wine-700 transition-colors shadow-sm"
+            disabled={loading}
+            className="w-full rounded-full bg-gradient-to-r from-wine-600 to-wine-700 px-4 py-3 text-sm font-medium text-white hover:from-wine-700 hover:to-wine-800 disabled:opacity-50 transition-all shadow-md shadow-wine-600/20 hover:shadow-lg active:scale-[0.98]"
           >
-            Logg inn
+            {loading ? "Logger inn..." : "Logg inn"}
           </button>
 
           <p className="text-center text-sm text-wine-400">
             Har du ikke konto?{" "}
-            <Link href="/register" className="text-wine-600 hover:text-wine-800 underline">
+            <Link href="/register" className="text-wine-600 hover:text-wine-800 font-medium underline">
               Registrer deg
             </Link>
           </p>
