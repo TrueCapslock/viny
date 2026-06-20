@@ -33,13 +33,6 @@ export function AvatarCropDialog({
     return () => window.removeEventListener("resize", updateSize)
   }, [])
 
-  useEffect(() => {
-    if (!cropSize) return
-    const cs = cropSize
-    setPosition((prev) => clampPosition(prev, cs))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cropSize, zoom])
-
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     setDragging(true)
     setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y })
@@ -47,17 +40,29 @@ export function AvatarCropDialog({
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!dragging) return
-    setPosition({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y,
+    setPosition((prev) => {
+      const next = {
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y,
+      }
+      const aspect = imageLoaded ? naturalSize.w / naturalSize.h : 1
+      const cs = cropSize || 280
+      const z = zoom
+      const { w: imgW, h: imgH } = aspect >= 1
+        ? { w: cs * z * aspect, h: cs * z }
+        : { w: cs * z, h: cs * z / aspect }
+      const maxX = Math.max(0, (imgW - cs) / 2)
+      const maxY = Math.max(0, (imgH - cs) / 2)
+      return {
+        x: Math.min(maxX, Math.max(-maxX, next.x)),
+        y: Math.min(maxY, Math.max(-maxY, next.y)),
+      }
     })
-  }, [dragging, dragStart])
+  }, [dragging, dragStart, cropSize, zoom, imageLoaded, naturalSize])
 
   const handleMouseUp = useCallback(() => {
     setDragging(false)
-    const cs = cropSize || 280
-    setPosition((prev) => clampPosition(prev, cs))
-  }, [cropSize, zoom])
+  }, [])
 
   function getDisplaySize(cs: number, z: number) {
     const aspect = imageLoaded ? naturalSize.w / naturalSize.h : 1
@@ -98,16 +103,6 @@ export function AvatarCropDialog({
     canvas.toBlob((blob) => {
       if (blob) onCrop(blob)
     }, "image/jpeg", 0.9)
-  }
-
-  function clampPosition(pos: { x: number; y: number }, cs: number) {
-    const { w: imgW, h: imgH } = getDisplaySize(cs, zoom)
-    const maxX = (imgW - cs) / 2
-    const maxY = (imgH - cs) / 2
-    return {
-      x: Math.min(maxX, Math.max(-maxX, pos.x)),
-      y: Math.min(maxY, Math.max(-maxY, pos.y)),
-    }
   }
 
   const cs = cropSize || 280
