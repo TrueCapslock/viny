@@ -36,8 +36,8 @@ export function Users({ className }: { className?: string }) {
 export function Star({ className, filled }: { className?: string; filled?: boolean }) {
   return (
     <span
-      className={`material-symbols-outlined leading-none ${className ?? ""}`}
-      style={{ fontSize: 18, fontVariationSettings: `'FILL' ${filled ? 1 : 0}, 'wght' 400, 'GRAD' 0, 'opsz' 24` }}
+      className={`material-symbols-outlined leading-none ${filled ? "fill-1" : ""} ${className ?? ""}`}
+      style={{ fontSize: 18 }}
     >
       star
     </span>
