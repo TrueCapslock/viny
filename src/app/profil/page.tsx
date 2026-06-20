@@ -107,7 +107,7 @@ export default function ProfilePage() {
               <img src={image} alt="" className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full bg-wine-gradient flex items-center justify-center">
-                <Users className="w-10 h-11 text-gold-300" />
+                <Users className="w-14 h-14 text-gold-300" />
               </div>
             )}
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
