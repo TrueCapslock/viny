@@ -33,9 +33,8 @@ export async function POST(_request: Request, { params }: { params: Params }) {
     },
   })
 
-  await prisma.wineSuggestion.update({
+  await prisma.wineSuggestion.delete({
     where: { id: suggestion.id },
-    data: { status: "accepted" },
   })
 
   return NextResponse.json(wine, { status: 201 })

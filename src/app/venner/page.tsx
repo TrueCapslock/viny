@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { Users } from "@/app/_components/icons"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
 import { UserCardSkeleton } from "@/app/_components/skeletons"
+import { useFriends, useSuggestions } from "@/hooks/use-data"
 
 type UserInfo = { id: number; name: string | null; email: string; image: string | null }
 type Friend = UserInfo & { id: number; userId: number; sharedList: boolean }
@@ -19,43 +20,24 @@ type Suggestion = {
   notes: string | null
   message: string | null
   fromUser: { id: number; name: string | null; email: string; image: string | null }
-  toUser?: { id: number; name: string | null; email: string; image: string | null }
 }
 
 export default function FriendsPage() {
   const { isBeer } = useBeerMode()
-  const [friends, setFriends] = useState<Friend[]>([])
-  const [pendingSent, setPendingSent] = useState<Pending[]>([])
-  const [pendingReceived, setPendingReceived] = useState<Pending[]>([])
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
-  const [sentSuggestions, setSentSuggestions] = useState<Suggestion[]>([])
-  const [loading, setLoading] = useState(true)
+  const { friends, pendingSent, pendingReceived, loading: friendsLoading, mutate: mutateFriends } = useFriends()
+  const { received: suggestions, loading: suggestionsLoading, mutate: mutateSuggestions } = useSuggestions()
 
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<UserInfo[]>([])
   const [searching, setSearching] = useState(false)
 
-  // Share dialog state
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [shareTarget, setShareTarget] = useState<Friend | null>(null)
   const [sharing, setSharing] = useState(false)
   const [shareError, setShareError] = useState<string | null>(null)
 
-  useEffect(() => { load() }, [])
-
-  async function load() {
-    const [friendsRes, forslagRes] = await Promise.all([
-      fetch("/api/friends"),
-      fetch("/api/forslag"),
-    ])
-    const friendsData = await friendsRes.json()
-    const forslagData = await forslagRes.json()
-    setFriends(friendsData.friends)
-    setPendingSent(friendsData.pendingSent)
-    setPendingReceived(friendsData.pendingReceived)
-    setSuggestions(forslagData.received)
-    setSentSuggestions(forslagData.sent)
-    setLoading(false)
+  async function reload() {
+    await Promise.all([mutateFriends(), mutateSuggestions()])
   }
 
   async function handleRequest(email: string) {
@@ -68,7 +50,7 @@ export default function FriendsPage() {
     if (res.ok) {
       setSearchQuery("")
       setSearchResults([])
-      load()
+      mutateFriends()
     } else {
       const data = await res.json()
       alert(data.error)
@@ -77,12 +59,12 @@ export default function FriendsPage() {
 
   async function handleAccept(friendshipId: number) {
     await fetch(`/api/friends/${friendshipId}`, { method: "PUT" })
-    load()
+    mutateFriends()
   }
 
   async function handleDecline(friendshipId: number) {
     await fetch(`/api/friends/${friendshipId}`, { method: "DELETE" })
-    load()
+    mutateFriends()
   }
 
   async function handleShare(mode: "mine" | "theirs" | "merge") {
@@ -97,7 +79,7 @@ export default function FriendsPage() {
     if (res.ok) {
       setShowShareDialog(false)
       setShareTarget(null)
-      load()
+      mutateFriends()
     } else {
       const data = await res.json()
       setShareError(data.error ?? "Noe gikk galt")
@@ -107,17 +89,12 @@ export default function FriendsPage() {
 
   async function handleAcceptSuggestion(suggestionId: number) {
     const res = await fetch(`/api/forslag/${suggestionId}/accept`, { method: "POST" })
-    if (res.ok) load()
+    if (res.ok) reload()
   }
 
   async function handleDeclineSuggestion(suggestionId: number) {
     const res = await fetch(`/api/forslag/${suggestionId}`, { method: "DELETE" })
-    if (res.ok) load()
-  }
-
-  async function handleCancelSuggestion(suggestionId: number) {
-    const res = await fetch(`/api/forslag/${suggestionId}`, { method: "DELETE" })
-    if (res.ok) load()
+    if (res.ok) mutateSuggestions()
   }
 
   function openShareDialog(friend: Friend) {
@@ -138,6 +115,8 @@ export default function FriendsPage() {
     setSearchResults(data)
     setSearching(false)
   }
+
+  const loading = friendsLoading && suggestionsLoading
 
   if (loading) {
     return (
@@ -317,37 +296,6 @@ export default function FriendsPage() {
                     className="rounded-full border border-cream-300 px-3.5 py-1.5 text-xs font-medium text-wine-600 hover:bg-cream-50 transition-colors"
                   >
                     Avslå
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {sentSuggestions.length > 0 && (
-        <section className="mb-6">
-          <h2 className="text-xs font-semibold text-wine-500 uppercase tracking-wider mb-3">Sendte forslag</h2>
-          <div className="space-y-2">
-            {sentSuggestions.map((s) => (
-              <div key={s.id} className="bg-white rounded-xl border border-cream-200 p-4">
-                <div className="flex items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-wine-800">{s.name}</p>
-                    <p className="text-xs text-wine-500">
-                      {s.producer}{s.vintage ? `, ${s.vintage}` : ""}
-                    </p>
-                    <p className="text-xs text-wine-400 mt-1">
-                      Til: {s.toUser?.name ?? s.toUser?.email ?? "Ukjent"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-2 mt-3">
-                  <button
-                    onClick={() => handleCancelSuggestion(s.id)}
-                    className="rounded-full border border-red-200 px-3.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
-                  >
-                    Trekk tilbake
                   </button>
                 </div>
               </div>

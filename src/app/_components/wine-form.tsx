@@ -98,6 +98,7 @@ export function WineForm({
     setUploading(true)
     const fd = new FormData()
     fd.set("file", file)
+    fd.set("folder", "wine-images")
 
     const res = await fetch("/api/upload", { method: "POST", body: fd })
     if (res.ok) {

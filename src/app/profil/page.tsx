@@ -56,6 +56,7 @@ export default function ProfilePage() {
     setUploading(true)
     const fd = new FormData()
     fd.set("file", blob, "avatar.jpg")
+    fd.set("folder", "user-images")
     const res = await fetch("/api/upload", { method: "POST", body: fd })
     if (res.ok) {
       const { url } = await res.json()

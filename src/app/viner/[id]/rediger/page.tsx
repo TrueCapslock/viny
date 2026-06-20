@@ -6,6 +6,7 @@ import Link from "next/link"
 import { WineForm } from "@/app/_components/wine-form"
 import { Grape } from "@/app/_components/icons"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
+import { useWineDetail } from "@/hooks/use-data"
 import { FormSkeleton } from "@/app/_components/skeletons"
 
 type FormData = {
@@ -25,31 +26,28 @@ type FormData = {
 export default function EditWinePage() {
   const { isBeer } = useBeerMode()
   const { id } = useParams<{ id: string }>()
+  const { wine, loading } = useWineDetail(parseInt(id))
   const [initial, setInitial] = useState<FormData | null>(null)
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(`/api/viner/${id}`)
-      .then((r) => r.json())
-      .then((wine) => {
-        setInitial({
-          name: wine.name,
-          producer: wine.producer,
-          vintage: wine.vintage?.toString() ?? "",
-          varietal: wine.varietal ?? "",
-          region: wine.region ?? "",
-          country: wine.country ?? "",
-          type: wine.type ?? "",
-          notes: wine.notes ?? "",
-          image: wine.image ?? "",
-          inCellar: wine.inCellar ?? false,
-          quantity: wine.quantity?.toString() ?? "0",
-        })
-        setLoading(false)
+    if (wine) {
+      setInitial({
+        name: wine.name,
+        producer: wine.producer,
+        vintage: wine.vintage?.toString() ?? "",
+        varietal: wine.varietal ?? "",
+        region: wine.region ?? "",
+        country: wine.country ?? "",
+        type: wine.type ?? "",
+        notes: wine.notes ?? "",
+        image: wine.image ?? "",
+        inCellar: wine.inCellar ?? false,
+        quantity: wine.quantity?.toString() ?? "0",
       })
-  }, [id])
+    }
+  }, [wine])
 
-  if (loading) {
+  if (loading && !initial) {
     return <FormSkeleton />
   }
 

@@ -23,7 +23,8 @@ export async function POST(request: Request) {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
     const ext = file.name.split(".").pop() ?? "jpg"
-    const filename = `wine-images/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+    const folder = (formData.get("folder") as string) || "wine-images"
+    const filename = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
 
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const blob = await put(filename, buffer, {
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
     }
 
     const dir = path.join(process.cwd(), "public", "uploads")
-    const localFilename = filename.replace("wine-images/", "")
+    const localFilename = filename.replace(`${folder}/`, "")
     const filepath = path.join(dir, localFilename)
     await mkdir(dir, { recursive: true })
     await writeFile(filepath, buffer)

@@ -21,9 +21,8 @@ export async function DELETE(_request: Request, { params }: { params: Params }) 
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   }
 
-  await prisma.wineSuggestion.update({
+  await prisma.wineSuggestion.delete({
     where: { id: suggestion.id },
-    data: { status: "declined" },
   })
 
   return NextResponse.json({ success: true })

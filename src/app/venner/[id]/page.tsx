@@ -1,66 +1,30 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useMemo } from "react"
+import { useParams } from "next/navigation"
 import Link from "next/link"
 import { Users } from "@/app/_components/icons"
-import { StaticStars } from "@/app/_components/star-rating"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
 import { typeLabel } from "@/lib/beer"
+import { useFriends, useWines } from "@/hooks/use-data"
 import { WineCardSkeletonList } from "@/app/_components/skeletons"
+
+type FriendInfo = { id: number; userId: number; name: string | null; email: string; image: string | null; canEdit: boolean; sharedList: boolean }
 
 export default function FriendWinesPage() {
   const { isBeer } = useBeerMode()
   const { id } = useParams<{ id: string }>()
-  const router = useRouter()
+  const friendId = parseInt(id)
 
-  type WineData = { id: number; name: string; producer: string; vintage: number | null; type: string | null; varietal: string | null; country: string | null; region: string | null; image: string | null; notes: string | null; inCellar: boolean; quantity: number; _count?: { tastings: number }; tastings?: { rating: number | null }[] }
-  type FriendInfo = { id: number; userId: number; name: string | null; email: string; image: string | null; canEdit: boolean; sharedList: boolean }
+  const { friends, loading: friendsLoading } = useFriends()
+  const { wines, loading: winesLoading } = useWines(friendId)
 
-  const [friend, setFriend] = useState<FriendInfo | null>(null)
-  const [wines, setWines] = useState<WineData[]>([])
-  const [ratingMap, setRatingMap] = useState<Record<number, number>>({})
-  const [canEdit, setCanEdit] = useState(false)
-  const [sharedList, setSharedList] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const friend = useMemo(
+    () => friends.find((f: FriendInfo) => f.userId === friendId) ?? null,
+    [friends, friendId],
+  )
 
-  useEffect(() => {
-    async function load() {
-      const friendsRes = await fetch("/api/friends")
-      const friendsData = await friendsRes.json()
-
-      const friendInfo = friendsData.friends.find((f: FriendInfo) => f.userId === parseInt(id))
-      if (!friendInfo) {
-        router.push("/venner")
-        return
-      }
-      setFriend(friendInfo)
-      setCanEdit(friendInfo.canEdit)
-      setSharedList(friendInfo.sharedList)
-
-      const winesRes = await fetch(`/api/viner?userId=${id}`)
-      const winesData = await winesRes.json()
-      setWines(winesData)
-
-      if (winesData.length > 0) {
-        const ratings: Record<number, number> = {}
-        for (const wine of winesData) {
-          const res = await fetch(`/api/viner/${wine.id}`)
-          const full = await res.json()
-          if (full.tastings?.length > 0) {
-            const avg = full.tastings.reduce((s: number, t: { rating: number | null }) => s + (t.rating || 0), 0) / full.tastings.length
-            ratings[wine.id] = Math.round(avg)
-          }
-        }
-        setRatingMap(ratings)
-      }
-
-      setLoading(false)
-    }
-    load()
-  }, [id, router])
-
-  if (loading) {
+  if (friendsLoading && !friend) {
     return (
       <div className="flex flex-col flex-1">
         <div className="bg-wine-gradient px-4 pt-1 pb-6">
@@ -107,15 +71,15 @@ export default function FriendWinesPage() {
             <h1 className="text-xl font-bold text-white">{friend.name ?? friend.email}</h1>
             <p className="text-sm text-wine-200/90">
               {wines.length} {isBeer ? "øl" : wines.length === 1 ? "vin" : "viner"}
-              {sharedList && (isBeer ? " · Felles ølliste" : " · Felles vinliste")}
-              {canEdit && !sharedList && " · Du kan redigere"}
+              {friend.sharedList && (isBeer ? " · Felles ølliste" : " · Felles vinliste")}
+              {friend.canEdit && !friend.sharedList && " · Du kan redigere"}
             </p>
           </div>
         </div>
       </div>
 
       <div className="flex-1 px-4 -mt-2 pb-24">
-        {wines.length === 0 ? (
+        {wines.length === 0 && !winesLoading ? (
           <div className="text-center py-16 animate-fade-in">
             <div className="w-16 h-16 rounded-2xl bg-wine-50 border border-wine-100 flex items-center justify-center mx-auto">
               <img src={isBeer ? "/logo-beer.svg" : "/logo.svg"} alt="" className="w-8 h-8 opacity-40" />
@@ -124,52 +88,46 @@ export default function FriendWinesPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {wines.map((wine) => {
-              const avg = ratingMap[wine.id]
-              return (
-                <Link
-                  key={wine.id}
-                  href={`/viner/${wine.id}`}
-                  className="block rounded-2xl bg-white border border-cream-200/80 card-hover shadow-sm"
-                >
-                  <div className="p-4">
-                    <div className="flex items-start gap-3.5">
-                      {wine.image ? (
-                        <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-cream-200 shadow-sm">
-                          <img src={wine.image} alt="" className="w-full h-full object-cover" />
-                        </div>
-                      ) : (
-                        <div className="w-14 h-14 rounded-xl bg-wine-50 border border-wine-100 flex items-center justify-center shrink-0">
-                          <img src={isBeer ? "/logo-beer.svg" : "/logo.svg"} alt="" className="w-7 h-7 opacity-50" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0 pt-0.5">
-                        <h2 className="font-bold text-wine-900 truncate text-[15px]">{wine.name}</h2>
-                        <p className="text-sm text-wine-500 truncate">
-                          {wine.producer}
-                          {wine.vintage && `, ${wine.vintage}`}
-                        </p>
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                          {wine.type && (
-                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-wine-50 text-wine-600 border border-wine-100/80">
-                              {typeLabel(wine.type)}
-                            </span>
-                          )}
-                        </div>
+            {wines.map((wine: { id: number; name: string; producer: string; vintage: number | null; type: string | null; image: string | null; _count?: { tastings: number } }) => (
+              <Link
+                key={wine.id}
+                href={`/viner/${wine.id}`}
+                className="block rounded-2xl bg-white border border-cream-200/80 card-hover shadow-sm"
+              >
+                <div className="p-4">
+                  <div className="flex items-start gap-3.5">
+                    {wine.image ? (
+                      <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-cream-200 shadow-sm">
+                        <img src={wine.image} alt="" className="w-full h-full object-cover" />
                       </div>
-                    </div>
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-cream-100/80">
-                      <div className="flex items-center gap-2">
-                        {avg > 0 && <StaticStars rating={avg} />}
+                    ) : (
+                      <div className="w-14 h-14 rounded-xl bg-wine-50 border border-wine-100 flex items-center justify-center shrink-0">
+                        <img src={isBeer ? "/logo-beer.svg" : "/logo.svg"} alt="" className="w-7 h-7 opacity-50" />
                       </div>
-                      <span className="text-[11px] text-wine-400 font-medium">
-                        {wine._count?.tastings ?? 0} smaksnotat{wine._count?.tastings !== 1 ? "er" : ""}
-                      </span>
+                    )}
+                    <div className="flex-1 min-w-0 pt-0.5">
+                      <h2 className="font-bold text-wine-900 truncate text-[15px]">{wine.name}</h2>
+                      <p className="text-sm text-wine-500 truncate">
+                        {wine.producer}
+                        {wine.vintage && `, ${wine.vintage}`}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {wine.type && (
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-wine-50 text-wine-600 border border-wine-100/80">
+                            {typeLabel(wine.type)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </Link>
-              )
-            })}
+                  <div className="flex items-center justify-end mt-3 pt-3 border-t border-cream-100/80">
+                    <span className="text-[11px] text-wine-400 font-medium">
+                      {wine._count?.tastings ?? 0} smaksnotat{wine._count?.tastings !== 1 ? "er" : ""}
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            ))}
           </div>
         )}
       </div>

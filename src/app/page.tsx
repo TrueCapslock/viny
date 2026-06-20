@@ -1,84 +1,44 @@
+"use client"
+
+import { useMemo } from "react"
+import { useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
-import { Prisma } from "@/generated/prisma/client"
+import { useBeerMode } from "@/app/_components/beer-mode-provider"
 import { StaticStars } from "@/app/_components/star-rating"
 import { SearchAndFilter } from "./search-filter"
 import { typeLabel } from "@/lib/beer"
+import { useWines } from "@/hooks/use-data"
+import { HomeSkeleton } from "@/app/_components/skeletons"
 
-export default async function HomePage(props: { searchParams?: Promise<{ q?: string; type?: string; all?: string }> }) {
-  const session = await auth()
-  if (!session?.user?.id) return null
+export default function HomePage() {
+  const searchParams = useSearchParams()
+  const query = searchParams.get("q")?.toLowerCase() ?? ""
+  const typeFilter = searchParams.get("type") ?? ""
+  const showAll = searchParams.get("all") === "1"
+  const { isBeer } = useBeerMode()
+  const { wines, loading } = useWines()
 
-  const searchParams = await props.searchParams
-  const query = searchParams?.q?.toLowerCase() ?? ""
-  const typeFilter = searchParams?.type ?? ""
-  const showAll = searchParams?.all === "1"
+  const { filtered, cellarCount } = useMemo(() => {
+    const cellarCount = wines.filter((w: any) => w.inCellar).length
 
-  const userId = parseInt(session.user.id)
-  const isBeer = session.user.prefersBeer ?? false
-
-  const sharedListIds = await prisma.sharedList.findMany({
-    where: { members: { some: { userId } } },
-    select: { id: true },
-  })
-
-  const personalWhere = { userId, sharedListId: null }
-  const sharedWhere = sharedListIds.length > 0
-    ? { sharedListId: { in: sharedListIds.map((sl) => sl.id) } }
-    : null
-
-  function baseFilter(): Prisma.WineWhereInput[] {
-    const filters: Prisma.WineWhereInput[] = [personalWhere]
-    if (sharedWhere) filters.push(sharedWhere)
-    return filters
-  }
-
-  function finalWhere(): Prisma.WineWhereInput {
-    const filters = baseFilter()
-    const ands: Prisma.WineWhereInput[] = [{ OR: filters }]
-    if (!showAll) ands.push({ inCellar: true })
-    if (typeFilter) ands.push({ type: typeFilter })
-    if (query) {
-      ands.push({
-        OR: [
-          { name: { contains: query, mode: "insensitive" } },
-          { producer: { contains: query, mode: "insensitive" } },
-          { varietal: { contains: query, mode: "insensitive" } },
-          { region: { contains: query, mode: "insensitive" } },
-          { country: { contains: query, mode: "insensitive" } },
-        ],
-      })
+    let filtered = wines
+    if (!showAll) {
+      filtered = filtered.filter((w: any) => w.inCellar)
     }
-    return { AND: ands }
-  }
-
-  const cellarCount = await prisma.wine.count({
-    where: {
-      inCellar: true,
-      OR: baseFilter(),
-    },
-  })
-
-  const wines = await prisma.wine.findMany({
-    where: finalWhere(),
-    include: { _count: { select: { tastings: true } } },
-    orderBy: { createdAt: "desc" },
-  })
-
-  const avgRatings = wines.length > 0
-    ? await Promise.all(
-        wines.map(async (wine) => {
-          const result = await prisma.tasting.aggregate({
-            where: { wineId: wine.id },
-            _avg: { rating: true },
-          })
-          return { wineId: wine.id, avg: result._avg.rating ?? 0 }
-        }),
+    if (typeFilter) {
+      filtered = filtered.filter((w: any) => w.type === typeFilter)
+    }
+    if (query) {
+      const q = query.toLowerCase()
+      filtered = filtered.filter((w: any) =>
+        [w.name, w.producer, w.varietal, w.region, w.country]
+          .some((f) => f?.toLowerCase().includes(q)),
       )
-    : []
+    }
+    return { filtered, cellarCount }
+  }, [wines, showAll, typeFilter, query])
 
-  const ratingMap = Object.fromEntries(avgRatings.map((r) => [r.wineId, Math.round(r.avg)]))
+  if (loading) return <HomeSkeleton />
 
   return (
     <div className="flex flex-col flex-1">
@@ -88,7 +48,7 @@ export default async function HomePage(props: { searchParams?: Promise<{ q?: str
             {showAll ? (isBeer ? "Alt øl" : "Alle viner") : isBeer ? "Ølsamling" : "Vinskap"}
           </h1>
           <span className="text-xs font-medium text-wine-400 bg-wine-50 border border-wine-100 rounded-full px-3 py-1">
-            {wines.length} {isBeer ? "øl" : wines.length === 1 ? "vin" : "viner"}
+            {filtered.length} {isBeer ? "øl" : filtered.length === 1 ? "vin" : "viner"}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -103,7 +63,7 @@ export default async function HomePage(props: { searchParams?: Promise<{ q?: str
             {isBeer ? "Alt øl" : "Alle viner"}
           </Link>
           <Link
-            href={showAll ? "/?all=0" : "/"}
+            href={showAll ? "/" : "/?all=0"}
             className={`text-xs font-medium px-3.5 py-1.5 rounded-full transition-all ${
               !showAll
                 ? "bg-wine-600 text-white shadow-sm"
@@ -117,7 +77,7 @@ export default async function HomePage(props: { searchParams?: Promise<{ q?: str
       </div>
 
       <div className="flex-1 px-4 pb-4">
-        {wines.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="text-center py-20 animate-fade-in">
             <div className="w-20 h-20 rounded-2xl bg-wine-50 border border-wine-100 flex items-center justify-center mx-auto">
               <img src={isBeer ? "/logo-beer.svg" : "/logo.svg"} alt="" className="w-10 h-10 opacity-40" />
@@ -144,8 +104,8 @@ export default async function HomePage(props: { searchParams?: Promise<{ q?: str
           </div>
         ) : (
           <div className="space-y-3">
-            {wines.map((wine, i) => {
-              const avg = ratingMap[wine.id]
+            {filtered.map((wine: any, i: number) => {
+              const avg = wine.avgRating ?? 0
               return (
                 <Link
                   key={wine.id}
@@ -204,7 +164,7 @@ export default async function HomePage(props: { searchParams?: Promise<{ q?: str
                         {avg > 0 && <StaticStars rating={avg} />}
                       </div>
                       <span className="text-[11px] text-wine-400 font-medium">
-                        {wine._count.tastings} smaksnotat{wine._count.tastings !== 1 ? "er" : ""}
+                        {wine._count?.tastings ?? 0} smaksnotat{wine._count?.tastings !== 1 ? "er" : ""}
                       </span>
                     </div>
                   </div>

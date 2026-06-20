@@ -51,7 +51,20 @@ export async function GET(request: Request) {
     include: { _count: { select: { tastings: true } } },
     orderBy: { createdAt: "desc" },
   })
-  return NextResponse.json(wines)
+
+  const winesWithRating = wines.length > 0
+    ? await Promise.all(
+        wines.map(async (wine) => {
+          const result = await prisma.tasting.aggregate({
+            where: { wineId: wine.id },
+            _avg: { rating: true },
+          })
+          return { ...wine, avgRating: Math.round(result._avg.rating ?? 0) }
+        }),
+      )
+    : []
+
+  return NextResponse.json(winesWithRating)
 }
 
 export async function POST(request: Request) {

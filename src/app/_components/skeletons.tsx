@@ -174,6 +174,27 @@ export function UserDialogSkeleton() {
   )
 }
 
+export function HomeSkeleton() {
+  return (
+    <div className="flex flex-col flex-1">
+      <div className="px-4 pt-4 pb-2 space-y-3">
+        <div className="flex items-center justify-between">
+          <SkeletonBlock className="h-7 w-28 rounded-md" />
+          <SkeletonBlock className="h-5 w-16 rounded-full" />
+        </div>
+        <div className="flex items-center gap-2">
+          <SkeletonBlock className="h-7 rounded-full w-24" />
+          <SkeletonBlock className="h-7 rounded-full w-32" />
+        </div>
+        <SearchFilterSkeleton />
+      </div>
+      <div className="flex-1 px-4 pb-4">
+        <WineCardSkeletonList count={5} />
+      </div>
+    </div>
+  )
+}
+
 export function HeaderSkeleton() {
   return (
     <div className="flex items-center justify-between px-4 py-2">
