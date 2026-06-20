@@ -9,8 +9,7 @@ export function ModeText({ wine, beer }: { wine: string; beer: string }) {
 }
 
 export function ModeTypeLabel({ type }: { type: string }) {
-  const { isBeer } = useBeerMode()
-  return typeLabel(type, isBeer)
+  return typeLabel(type)
 }
 
 export function ModeLogo({ className }: { className?: string }) {

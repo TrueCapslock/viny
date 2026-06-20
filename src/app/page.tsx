@@ -177,7 +177,7 @@ export default async function HomePage(props: { searchParams?: Promise<{ q?: str
                         <div className="flex flex-wrap gap-1.5 mt-2">
                           {wine.type && (
                             <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-wine-50 text-wine-600 border border-wine-100/80">
-                              {typeLabel(wine.type, isBeer)}
+                              {typeLabel(wine.type)}
                             </span>
                           )}
                           {wine.varietal && (

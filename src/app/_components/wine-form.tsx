@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
-import { typeLabel } from "@/lib/beer"
+import { wineTypes, beerTypes } from "@/lib/beer"
 
 type WineFormData = {
   name: string
@@ -222,12 +222,19 @@ export function WineForm({
                 onChange={(e) => setForm((current) => ({ ...current, type: e.target.value }))}
                 className={inputClass}
               >
-                <option value="">Velg...</option>
-                <option value="red">{typeLabel("red", isBeer)}</option>
-                <option value="white">{typeLabel("white", isBeer)}</option>
-                <option value="sparkling">{typeLabel("sparkling", isBeer)}</option>
-                <option value="rose">{typeLabel("rose", isBeer)}</option>
-                <option value="dessert">{typeLabel("dessert", isBeer)}</option>
+                <option value="">Velg type...</option>
+                {isBeer && (
+                  <optgroup label="Øl">
+                    {beerTypes.map((t) => (
+                      <option key={t.key} value={t.key}>{t.label}</option>
+                    ))}
+                  </optgroup>
+                )}
+                <optgroup label={isBeer ? "Vin" : "Type"}>
+                  {wineTypes.map((t) => (
+                    <option key={t.key} value={t.key}>{t.label}</option>
+                  ))}
+                </optgroup>
               </select>
             </div>
           </div>

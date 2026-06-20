@@ -1,28 +1,56 @@
-const typeMap: Record<string, [string, string]> = {
-  red: ["Rødvin", "Mørkt øl"],
-  white: ["Hvitvin", "Lyst øl"],
-  sparkling: ["Mousserende", "Pilsner"],
-  rose: ["Rosé", "Hveteøl"],
-  dessert: ["Dessertvin", "Spesialøl"],
+export const wineTypes = [
+  { key: "red", label: "Rødvin" },
+  { key: "white", label: "Hvitvin" },
+  { key: "sparkling", label: "Mousserende" },
+  { key: "rose", label: "Rosé" },
+  { key: "dessert", label: "Dessertvin" },
+] as const
+
+export const beerTypes = [
+  { key: "beer_dark", label: "Mørkt øl" },
+  { key: "beer_light", label: "Lyst øl" },
+  { key: "beer_pilsner", label: "Pilsner" },
+  { key: "beer_wheat", label: "Hveteøl" },
+  { key: "beer_special", label: "Spesialøl" },
+] as const
+
+export type WineTypeKey = (typeof wineTypes)[number]["key"]
+export type BeerTypeKey = (typeof beerTypes)[number]["key"]
+export type TypeKey = WineTypeKey | BeerTypeKey | ""
+
+const typeLabels: Record<string, string> = {}
+for (const t of wineTypes) typeLabels[t.key] = t.label
+for (const t of beerTypes) typeLabels[t.key] = t.label
+
+export function typeLabel(type: string) {
+  return typeLabels[type] ?? type
 }
 
-export function typeLabel(type: string, isBeer: boolean) {
-  const pair = typeMap[type]
-  if (!pair) return type
-  return isBeer ? pair[1] : pair[0]
+export function isBeerType(type: string) {
+  return beerTypes.some((t) => t.key === type)
 }
 
-export const filterLabels: Record<string, [string, string]> = {
-  "": ["Alle", "Alle"],
-  red: ["Rød", "Mørk"],
-  white: ["Hvit", "Lys"],
-  sparkling: ["Bobler", "Pils"],
-  rose: ["Rosé", "Hvete"],
-  dessert: ["Dessert", "Spesial"],
+const wineFilterKeys = ["", "red", "white", "sparkling", "rose", "dessert"]
+const allFilterKeys = ["", ...wineFilterKeys.slice(1), ...beerTypes.map((t) => t.key)]
+
+export function getFilterKeys(isBeer: boolean) {
+  return isBeer ? allFilterKeys : wineFilterKeys
 }
 
-export function filterLabel(key: string, isBeer: boolean) {
-  const pair = filterLabels[key]
-  if (!pair) return key
-  return isBeer ? pair[1] : pair[0]
+const filterLabels: Record<string, string> = {
+  "": "Alle",
+  red: "Rød",
+  white: "Hvit",
+  sparkling: "Bobler",
+  rose: "Rosé",
+  dessert: "Dessert",
+  beer_dark: "Mørk",
+  beer_light: "Lys",
+  beer_pilsner: "Pils",
+  beer_wheat: "Hvete",
+  beer_special: "Spesial",
+}
+
+export function filterLabel(key: string) {
+  return filterLabels[key] ?? key
 }
