@@ -19,6 +19,7 @@ export function AvatarCropDialog({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [imageLoaded, setImageLoaded] = useState(false)
   const [cropSize, setCropSize] = useState(0)
+  const [naturalSize, setNaturalSize] = useState({ w: 0, h: 0 })
 
   useEffect(() => {
     function updateSize() {
@@ -53,22 +54,33 @@ export function AvatarCropDialog({
     const img = imageRef.current
     if (!img) return
 
+    const aspect = naturalSize.w / naturalSize.h
+    let imgW: number, imgH: number
+    if (aspect >= 1) {
+      imgW = cropSize * zoom
+      imgH = imgW / aspect
+    } else {
+      imgH = cropSize * zoom
+      imgW = imgH * aspect
+    }
+
+    const scaleX = naturalSize.w / imgW
+    const scaleY = naturalSize.h / imgH
+    const left = (cropSize - imgW) / 2 + position.x
+    const top = (cropSize - imgH) / 2 + position.y
+
     const canvas = document.createElement("canvas")
     canvas.width = 400
     canvas.height = 400
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    const naturalCrop = cropSize / zoom
-    const offsetX = (img.naturalWidth - naturalCrop) / 2 - position.x / zoom
-    const offsetY = (img.naturalHeight - naturalCrop) / 2 - position.y / zoom
-
     ctx.drawImage(
       img,
-      offsetX,
-      offsetY,
-      naturalCrop,
-      naturalCrop,
+      -left * scaleX,
+      -top * scaleY,
+      cropSize * scaleX,
+      cropSize * scaleY,
       0,
       0,
       400,
@@ -92,38 +104,56 @@ export function AvatarCropDialog({
 
         <h2 className="text-lg font-bold text-wine-900 mb-4">Beskjær bilde</h2>
 
-        <div
-          ref={containerRef}
-          className="relative mx-auto overflow-hidden rounded-2xl bg-black/10"
-          style={{
-            width: cropSize || 280,
-            height: cropSize || 280,
-          }}
-        >
           <div
-            className="w-full h-full cursor-grab active:cursor-grabbing select-none"
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
+            ref={containerRef}
+            className="relative mx-auto overflow-hidden rounded-2xl bg-black/10"
+            style={{
+              width: cropSize || 280,
+              height: cropSize || 280,
+            }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              ref={imageRef}
-              src={imageUrl}
-              alt=""
-              draggable={false}
-              onLoad={() => setImageLoaded(true)}
-              className="absolute pointer-events-none"
-              style={{
-                width: cropSize * zoom,
-                height: cropSize * zoom,
-                left: `calc(50% - ${cropSize * zoom / 2}px + ${position.x}px)`,
-                top: `calc(50% - ${cropSize * zoom / 2}px + ${position.y}px)`,
-              }}
-            />
+            {imageLoaded && (() => {
+              const aspect = naturalSize.w / naturalSize.h
+              let imgW: number, imgH: number
+              if (aspect >= 1) {
+                imgW = cropSize * zoom
+                imgH = imgW / aspect
+              } else {
+                imgH = cropSize * zoom
+                imgW = imgH * aspect
+              }
+              return (
+                <div
+                  className="w-full h-full cursor-grab active:cursor-grabbing select-none"
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    ref={imageRef}
+                    src={imageUrl}
+                    alt=""
+                    draggable={false}
+                    onLoad={() => {
+                      if (imageRef.current) {
+                        setNaturalSize({ w: imageRef.current.naturalWidth, h: imageRef.current.naturalHeight })
+                        setImageLoaded(true)
+                      }
+                    }}
+                    className="absolute pointer-events-none"
+                    style={{
+                      width: imgW,
+                      height: imgH,
+                      left: (cropSize - imgW) / 2 + position.x,
+                      top: (cropSize - imgH) / 2 + position.y,
+                    }}
+                  />
+                </div>
+              )
+            })()}
           </div>
-        </div>
 
         <div className="mt-4 flex items-center gap-3">
           <svg className="w-4 h-4 text-wine-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
