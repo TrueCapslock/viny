@@ -196,7 +196,7 @@ export default function FriendsPage() {
         <section className="mb-6">
           <h2 className="text-xs font-semibold text-wine-500 uppercase tracking-wider mb-3">Venneforespørsler</h2>
           <div className="space-y-2">
-            {pendingReceived.map((p) => (
+            {pendingReceived.map((p: Pending) => (
               <div key={p.id} className="bg-white rounded-xl border border-cream-200 p-4 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-wine-100 flex items-center justify-center shrink-0 overflow-hidden">
                   {p.image ? (
@@ -233,7 +233,7 @@ export default function FriendsPage() {
         <section className="mb-6">
           <h2 className="text-xs font-semibold text-wine-500 uppercase tracking-wider mb-3">Ventende forespørsler</h2>
           <div className="space-y-2">
-            {pendingSent.map((p) => (
+            {pendingSent.map((p: Pending) => (
               <div key={p.id} className="bg-white rounded-xl border border-cream-200 p-4 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-cream-100 flex items-center justify-center shrink-0 overflow-hidden">
                   {p.image ? (
@@ -257,7 +257,7 @@ export default function FriendsPage() {
         <section className="mb-6">
           <h2 className="text-xs font-semibold text-wine-500 uppercase tracking-wider mb-3">{isBeer ? "Ølforslag" : "Vinforslag"}</h2>
           <div className="space-y-2">
-            {suggestions.map((s) => (
+            {suggestions.map((s: Suggestion) => (
               <div key={s.id} className="bg-white rounded-xl border border-cream-200 p-4">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-full bg-wine-100 flex items-center justify-center shrink-0 overflow-hidden">
@@ -319,7 +319,7 @@ export default function FriendsPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {friends.map((friend) => (
+            {friends.map((friend: Friend) => (
               <div key={friend.id} className="bg-white rounded-xl border border-cream-200 overflow-hidden">
                 <Link
                   href={`/venner/${friend.userId}`}
