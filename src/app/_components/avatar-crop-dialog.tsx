@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback, useEffect } from "react"
+import { useState, useRef, useEffect } from "react"
 
 export function AvatarCropDialog({
   imageUrl,
@@ -15,11 +15,15 @@ export function AvatarCropDialog({
   const imageRef = useRef<HTMLImageElement>(null)
   const [zoom, setZoom] = useState(1)
   const [position, setPosition] = useState({ x: 0, y: 0 })
-  const [dragging, setDragging] = useState(false)
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const dragRef = useRef({ dragging: false, startX: 0, startY: 0, posX: 0, posY: 0 })
   const [imageLoaded, setImageLoaded] = useState(false)
   const [cropSize, setCropSize] = useState(0)
-  const [naturalSize, setNaturalSize] = useState({ w: 0, h: 0 })
+  const naturalRef = useRef({ w: 1, h: 1 })
+  const zoomRef = useRef(1)
+  const cropSizeRef = useRef(280)
+
+  zoomRef.current = zoom
+  cropSizeRef.current = cropSize || 280
 
   useEffect(() => {
     function updateSize() {
@@ -33,39 +37,45 @@ export function AvatarCropDialog({
     return () => window.removeEventListener("resize", updateSize)
   }, [])
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    setDragging(true)
-    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y })
-  }, [position])
+  function clamp(pos: { x: number; y: number }) {
+    const aspect = naturalRef.current.w / naturalRef.current.h
+    const cs = cropSizeRef.current
+    const z = zoomRef.current
+    const { w: imgW, h: imgH } = aspect >= 1
+      ? { w: cs * z * aspect, h: cs * z }
+      : { w: cs * z, h: cs * z / aspect }
+    const maxX = Math.max(0, (imgW - cs) / 2)
+    const maxY = Math.max(0, (imgH - cs) / 2)
+    return {
+      x: Math.min(maxX, Math.max(-maxX, pos.x)),
+      y: Math.min(maxY, Math.max(-maxY, pos.y)),
+    }
+  }
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!dragging) return
-    setPosition((prev) => {
-      const next = {
-        x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y,
-      }
-      const aspect = imageLoaded ? naturalSize.w / naturalSize.h : 1
-      const cs = cropSize || 280
-      const z = zoom
-      const { w: imgW, h: imgH } = aspect >= 1
-        ? { w: cs * z * aspect, h: cs * z }
-        : { w: cs * z, h: cs * z / aspect }
-      const maxX = Math.max(0, (imgW - cs) / 2)
-      const maxY = Math.max(0, (imgH - cs) / 2)
-      return {
-        x: Math.min(maxX, Math.max(-maxX, next.x)),
-        y: Math.min(maxY, Math.max(-maxY, next.y)),
-      }
-    })
-  }, [dragging, dragStart, cropSize, zoom, imageLoaded, naturalSize])
+  function handleMouseDown(e: React.MouseEvent) {
+    const d = dragRef.current
+    d.dragging = true
+    d.startX = e.clientX - position.x
+    d.startY = e.clientY - position.y
+    d.posX = position.x
+    d.posY = position.y
+  }
 
-  const handleMouseUp = useCallback(() => {
-    setDragging(false)
-  }, [])
+  function handleMouseMove(e: React.MouseEvent) {
+    const d = dragRef.current
+    if (!d.dragging) return
+    const next = clamp({ x: e.clientX - d.startX, y: e.clientY - d.startY })
+    d.posX = next.x
+    d.posY = next.y
+    setPosition(next)
+  }
+
+  function handleMouseUp() {
+    dragRef.current.dragging = false
+  }
 
   function getDisplaySize(cs: number, z: number) {
-    const aspect = imageLoaded ? naturalSize.w / naturalSize.h : 1
+    const aspect = naturalRef.current.w / naturalRef.current.h
     if (aspect >= 1) {
       const h = cs * z
       return { w: h * aspect, h }
@@ -80,8 +90,9 @@ export function AvatarCropDialog({
 
     const cs = cropSize || 280
     const { w: imgW, h: imgH } = getDisplaySize(cs, zoom)
+    const n = naturalRef.current
 
-    const scale = naturalSize.w / imgW
+    const scale = n.w / imgW
     const left = (cs - imgW) / 2 + position.x
     const top = (cs - imgH) / 2 + position.y
 
@@ -145,7 +156,7 @@ export function AvatarCropDialog({
                 draggable={false}
                 onLoad={() => {
                   if (imageRef.current) {
-                    setNaturalSize({ w: imageRef.current.naturalWidth, h: imageRef.current.naturalHeight })
+                    naturalRef.current = { w: imageRef.current.naturalWidth, h: imageRef.current.naturalHeight }
                     setImageLoaded(true)
                   }
                 }}
