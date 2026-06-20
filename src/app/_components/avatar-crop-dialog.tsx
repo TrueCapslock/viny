@@ -15,15 +15,11 @@ export function AvatarCropDialog({
   const imageRef = useRef<HTMLImageElement>(null)
   const [zoom, setZoom] = useState(1)
   const [position, setPosition] = useState({ x: 0, y: 0 })
-  const dragRef = useRef({ dragging: false, startX: 0, startY: 0, posX: 0, posY: 0 })
   const [imageLoaded, setImageLoaded] = useState(false)
   const [cropSize, setCropSize] = useState(0)
+  const dragRef = useRef({ dragging: false, startX: 0, startY: 0, origX: 0, origY: 0 })
+  const [naturalSize, setNaturalSize] = useState({ w: 1, h: 1 })
   const naturalRef = useRef({ w: 1, h: 1 })
-  const zoomRef = useRef(1)
-  const cropSizeRef = useRef(280)
-
-  zoomRef.current = zoom
-  cropSizeRef.current = cropSize || 280
 
   useEffect(() => {
     function updateSize() {
@@ -37,45 +33,48 @@ export function AvatarCropDialog({
     return () => window.removeEventListener("resize", updateSize)
   }, [])
 
-  function clamp(pos: { x: number; y: number }) {
+  function clamp(x: number, y: number) {
     const aspect = naturalRef.current.w / naturalRef.current.h
-    const cs = cropSizeRef.current
-    const z = zoomRef.current
-    const { w: imgW, h: imgH } = aspect >= 1
-      ? { w: cs * z * aspect, h: cs * z }
-      : { w: cs * z, h: cs * z / aspect }
+    const cs = cropSize || 280
+    const imgW = aspect >= 1 ? cs * zoom * aspect : cs * zoom
+    const imgH = aspect >= 1 ? cs * zoom : cs * zoom / aspect
     const maxX = Math.max(0, (imgW - cs) / 2)
     const maxY = Math.max(0, (imgH - cs) / 2)
     return {
-      x: Math.min(maxX, Math.max(-maxX, pos.x)),
-      y: Math.min(maxY, Math.max(-maxY, pos.y)),
+      x: Math.min(maxX, Math.max(-maxX, x)),
+      y: Math.min(maxY, Math.max(-maxY, y)),
     }
   }
 
-  function handleMouseDown(e: React.MouseEvent) {
+  function onPointerDown(e: React.PointerEvent) {
     const d = dragRef.current
     d.dragging = true
-    d.startX = e.clientX - position.x
-    d.startY = e.clientY - position.y
-    d.posX = position.x
-    d.posY = position.y
+    d.startX = e.clientX
+    d.startY = e.clientY
+    d.origX = position.x
+    d.origY = position.y
+    e.currentTarget.setPointerCapture(e.pointerId)
   }
 
-  function handleMouseMove(e: React.MouseEvent) {
+  function onPointerMove(e: React.PointerEvent) {
     const d = dragRef.current
     if (!d.dragging) return
-    const next = clamp({ x: e.clientX - d.startX, y: e.clientY - d.startY })
-    d.posX = next.x
-    d.posY = next.y
+    const next = clamp(
+      d.origX + (e.clientX - d.startX),
+      d.origY + (e.clientY - d.startY),
+    )
     setPosition(next)
   }
 
-  function handleMouseUp() {
-    dragRef.current.dragging = false
+  function onPointerUp(e: React.PointerEvent) {
+    const d = dragRef.current
+    if (!d.dragging) return
+    d.dragging = false
+    e.currentTarget.releasePointerCapture(e.pointerId)
   }
 
   function getDisplaySize(cs: number, z: number) {
-    const aspect = naturalRef.current.w / naturalRef.current.h
+    const aspect = naturalSize.w / naturalSize.h
     if (aspect >= 1) {
       const h = cs * z
       return { w: h * aspect, h }
@@ -90,7 +89,7 @@ export function AvatarCropDialog({
 
     const cs = cropSize || 280
     const { w: imgW, h: imgH } = getDisplaySize(cs, zoom)
-    const n = naturalRef.current
+    const n = naturalSize
 
     const scale = n.w / imgW
     const left = (cs - imgW) / 2 + position.x
@@ -131,46 +130,44 @@ export function AvatarCropDialog({
 
         <h2 className="text-lg font-bold text-wine-900 mb-4">Beskjær bilde</h2>
 
-          <div
-            ref={containerRef}
-            className="relative mx-auto overflow-hidden rounded-2xl bg-black/10"
-            style={{ width: cs, height: cs }}
-          >
-            {!imageLoaded && (
-              <div className="absolute inset-0 flex items-center justify-center text-wine-400 text-sm">
-                Laster bilde...
-              </div>
-            )}
-            <div
-              className="w-full h-full cursor-grab active:cursor-grabbing select-none"
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                ref={imageRef}
-                src={imageUrl}
-                alt=""
-                draggable={false}
-                onLoad={() => {
-                  if (imageRef.current) {
-                    naturalRef.current = { w: imageRef.current.naturalWidth, h: imageRef.current.naturalHeight }
-                    setImageLoaded(true)
-                  }
-                }}
-                className="absolute pointer-events-none"
-                style={{
-                  width: imgW,
-                  height: imgH,
-                  maxWidth: "none",
-                  left: (cs - imgW) / 2 + position.x,
-                  top: (cs - imgH) / 2 + position.y,
-                }}
-              />
+        <div
+          ref={containerRef}
+          className="relative mx-auto overflow-hidden rounded-2xl bg-black/10 cursor-grab active:cursor-grabbing select-none touch-none"
+          style={{ width: cs, height: cs }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+        >
+          {!imageLoaded && (
+            <div className="absolute inset-0 flex items-center justify-center text-wine-400 text-sm">
+              Laster bilde...
             </div>
-          </div>
+          )}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            ref={imageRef}
+            src={imageUrl}
+            alt=""
+            draggable={false}
+            onLoad={() => {
+              if (imageRef.current) {
+                const nw = imageRef.current.naturalWidth
+                const nh = imageRef.current.naturalHeight
+                naturalRef.current = { w: nw, h: nh }
+                setNaturalSize({ w: nw, h: nh })
+                setImageLoaded(true)
+              }
+            }}
+            className="absolute pointer-events-none"
+            style={{
+              width: imgW,
+              height: imgH,
+              maxWidth: "none",
+              left: (cs - imgW) / 2 + position.x,
+              top: (cs - imgH) / 2 + position.y,
+            }}
+          />
+        </div>
 
         <div className="mt-4 flex items-center gap-3">
           <svg className="w-4 h-4 text-wine-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
