@@ -4,7 +4,7 @@ import { useSession, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useState, useRef, useEffect } from "react"
-import { Users } from "@/app/_components/icons"
+import { Icon } from "@/app/_components/icons"
 import { AvatarCropDialog } from "@/app/_components/avatar-crop-dialog"
 import { ProfileSkeleton } from "@/app/_components/skeletons"
 
@@ -107,7 +107,7 @@ export default function ProfilePage() {
               <img src={image} alt="" className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full bg-wine-gradient flex items-center justify-center">
-                <Users className="w-14 h-14 text-gold-300" />
+                <Icon name="group" size={64} className="text-gold-300" />
               </div>
             )}
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
