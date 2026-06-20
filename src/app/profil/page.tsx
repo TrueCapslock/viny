@@ -2,6 +2,7 @@
 
 import { useSession, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { useState, useRef, useEffect } from "react"
 import { Grape } from "@/app/_components/icons"
 import { AvatarCropDialog } from "@/app/_components/avatar-crop-dialog"
@@ -14,6 +15,7 @@ export default function ProfilePage() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [image, setImage] = useState("")
+  const [prefersBeer, setPrefersBeer] = useState(false)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -27,6 +29,7 @@ export default function ProfilePage() {
         setName(session.user.name ?? "")
         setEmail(session.user.email ?? "")
         setImage(session.user.image ?? "")
+        setPrefersBeer(session.user.prefersBeer ?? false)
         setLoaded(true)
       })
     }
@@ -64,7 +67,7 @@ export default function ProfilePage() {
     const res = await fetch("/api/profile", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, image: image || null }),
+      body: JSON.stringify({ name, email, image: image || null, prefersBeer }),
     })
 
     if (!res.ok) {
@@ -74,7 +77,7 @@ export default function ProfilePage() {
       return
     }
 
-    update()
+    update({ prefersBeer })
     router.refresh()
     setSaving(false)
   }
@@ -152,6 +155,30 @@ export default function ProfilePage() {
           />
         </div>
 
+        <div className="rounded-2xl border border-cream-200 bg-cream-50 p-4">
+          <label className="flex items-center justify-between gap-4 cursor-pointer select-none">
+            <div>
+              <span className="block text-sm font-semibold text-wine-900">Jeg liker øl bedre</span>
+              <span className="block text-xs text-wine-500 mt-0.5">Bytter appen til øl-modus med øl-labels, logo og lagertekst.</span>
+            </div>
+            <div
+              role="switch"
+              aria-checked={prefersBeer}
+              tabIndex={0}
+              onClick={() => setPrefersBeer((current) => !current)}
+              onKeyDown={(e) => {
+                if (e.key === " " || e.key === "Enter") {
+                  e.preventDefault()
+                  setPrefersBeer((current) => !current)
+                }
+              }}
+              className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${prefersBeer ? "bg-gold-500" : "bg-cream-300"}`}
+            >
+              <div className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-1 transition-transform ${prefersBeer ? "translate-x-6" : "translate-x-1"}`} />
+            </div>
+          </label>
+        </div>
+
         <button
           type="submit"
           disabled={saving || uploading}
@@ -160,7 +187,18 @@ export default function ProfilePage() {
           {saving ? "Lagrer..." : "Lagre endringer"}
         </button>
 
-        <div className="pt-2 border-t border-cream-100">
+        <div className="pt-2 border-t border-cream-100 space-y-2">
+          {session?.user?.isAdmin && (
+            <Link
+              href="/admin"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-wine-700 rounded-xl hover:bg-wine-50 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+              </svg>
+              Admin
+            </Link>
+          )}
           <button
             type="button"
             onClick={() => signOut({ callbackUrl: "/login" })}

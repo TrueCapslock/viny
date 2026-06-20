@@ -6,6 +6,7 @@ declare module "next-auth" {
     id: string
     image?: string | null
     prefersBeer?: boolean
+    isAdmin?: boolean
   }
   interface Session {
     user: {
@@ -14,6 +15,7 @@ declare module "next-auth" {
       name?: string | null
       image?: string | null
       prefersBeer?: boolean
+      isAdmin?: boolean
     }
   }
 }
@@ -23,5 +25,6 @@ declare module "next-auth/jwt" {
     id: string
     image?: string | null
     prefersBeer?: boolean
+    isAdmin?: boolean
   }
 }
