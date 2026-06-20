@@ -112,8 +112,13 @@ export function AvatarCropDialog({
               height: cropSize || 280,
             }}
           >
-            {imageLoaded && (() => {
-              const aspect = naturalSize.w / naturalSize.h
+            {!imageLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center text-wine-400 text-sm">
+                Laster bilde...
+              </div>
+            )}
+            {(() => {
+              const aspect = imageLoaded ? naturalSize.w / naturalSize.h : 1
               let imgW: number, imgH: number
               if (aspect >= 1) {
                 imgW = cropSize * zoom
