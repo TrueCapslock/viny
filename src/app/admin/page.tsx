@@ -19,6 +19,7 @@ type User = {
 function UsersDialog({ onClose }: { onClose: () => void }) {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
+  const [toggling, setToggling] = useState<number | null>(null)
 
   useEffect(() => {
     fetch("/api/admin/users")
@@ -28,6 +29,19 @@ function UsersDialog({ onClose }: { onClose: () => void }) {
         setLoading(false)
       })
   }, [])
+
+  async function toggleBeer(userId: number, current: boolean) {
+    setToggling(userId)
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prefersBeer: !current }),
+    })
+    if (res.ok) {
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, prefersBeer: !current } : u)))
+    }
+    setToggling(null)
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -62,7 +76,12 @@ function UsersDialog({ onClose }: { onClose: () => void }) {
                   <p className="text-sm font-medium text-wine-900 truncate">{user.name ?? user.email}</p>
                   <p className="text-xs text-wine-400 truncate">{user.email}</p>
                 </div>
-                <div className="flex gap-1.5 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {user.prefersBeer && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                      Øl
+                    </span>
+                  )}
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-wine-50 text-wine-600 border border-wine-100">
                     {user._count.wines} viner
                   </span>
@@ -71,6 +90,17 @@ function UsersDialog({ onClose }: { onClose: () => void }) {
                       Admin
                     </span>
                   )}
+                  <button
+                    onClick={() => toggleBeer(user.id, user.prefersBeer)}
+                    disabled={toggling === user.id}
+                    className={`ml-1 w-8 h-5 rounded-full transition-colors relative shrink-0 ${
+                      user.prefersBeer ? "bg-amber-400" : "bg-cream-300"
+                    } ${toggling === user.id ? "opacity-50" : ""}`}
+                  >
+                    <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-sm absolute top-0.5 transition-transform ${
+                      user.prefersBeer ? "translate-x-[14px]" : "translate-x-[3px]"
+                    }`} />
+                  </button>
                 </div>
               </div>
             ))
