@@ -35,6 +35,13 @@ export default function ProfilePage() {
     }
   }, [session, loaded])
 
+  useEffect(() => {
+    if (session?.user && loaded) {
+      update({})
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded])
+
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return

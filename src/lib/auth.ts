@@ -31,15 +31,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: "/login",
   },
   callbacks: {
-    jwt({ token, user, trigger, session: newSession }) {
+    async jwt({ token, user, trigger, session: newSession }) {
       if (user) {
         token.id = user.id
         token.image = user.image
         token.prefersBeer = user.prefersBeer
         token.isAdmin = user.isAdmin
       }
-      if (trigger === "update" && newSession?.prefersBeer !== undefined) {
-        token.prefersBeer = newSession.prefersBeer
+      if (trigger === "update") {
+        if (newSession?.prefersBeer !== undefined) {
+          token.prefersBeer = newSession.prefersBeer
+        }
+        const dbUser = await prisma.user.findUnique({ where: { id: parseInt(token.id as string) } })
+        if (dbUser) {
+          token.isAdmin = dbUser.isAdmin
+          token.prefersBeer = dbUser.prefersBeer
+        }
       }
       return token
     },
