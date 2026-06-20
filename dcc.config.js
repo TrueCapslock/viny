@@ -90,7 +90,7 @@ export default {
       id: 'kill',
       label: 'Kill dev server',
       description: 'Stop the Next.js dev server on port 3000.',
-      command: 'kill $(lsof -ti:3000) 2>/dev/null; echo "done"',
+      command: 'pkill -f "next-server" 2>/dev/null; echo "done"',
       group: 'Development',
     },
   ],
