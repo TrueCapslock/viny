@@ -33,8 +33,15 @@ export function Users({ className }: { className?: string }) {
   return <Icon name="group" size={22} className={className} />
 }
 
-export function Star({ className }: { className?: string }) {
-  return <Icon name="star" size={18} className={className} />
+export function Star({ className, filled }: { className?: string; filled?: boolean }) {
+  return (
+    <span
+      className={`material-symbols-outlined leading-none ${className ?? ""}`}
+      style={{ fontSize: 18, fontVariationSettings: `'FILL' ${filled ? 1 : 0}, 'wght' 400, 'GRAD' 0, 'opsz' 24` }}
+    >
+      star
+    </span>
+  )
 }
 
 export function Plus({ className }: { className?: string }) {

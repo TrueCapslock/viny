@@ -26,6 +26,7 @@ export function StarRating({
             }`}
           >
             <Star
+              filled={filled}
               className={`w-7 h-7 transition-all duration-200 ${
                 filled
                   ? "text-gold-500 drop-shadow-sm"
@@ -45,6 +46,7 @@ export function StaticStars({ rating }: { rating: number }) {
       {[1, 2, 3, 4, 5].map((star) => (
         <Star
           key={star}
+          filled={star <= rating}
           className={`w-4 h-4 ${
             star <= rating ? "text-gold-500" : "text-gray-200"
           }`}
