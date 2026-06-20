@@ -153,6 +153,7 @@ export function AvatarCropDialog({
                 style={{
                   width: imgW,
                   height: imgH,
+                  maxWidth: "none",
                   left: (cs - imgW) / 2 + position.x,
                   top: (cs - imgH) / 2 + position.y,
                 }}
