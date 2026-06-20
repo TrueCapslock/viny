@@ -48,6 +48,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.prefersBeer = dbUser.prefersBeer
         }
       }
+      const settings = await prisma.siteSettings.findFirst()
+      token.beerModeDisabled = settings?.beerModeDisabled ?? false
       return token
     },
     session({ session, token }) {
@@ -56,6 +58,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.image = token.image as string | null | undefined
         session.user.prefersBeer = token.prefersBeer as boolean | undefined
         session.user.isAdmin = token.isAdmin as boolean | undefined
+        session.user.beerModeDisabled = token.beerModeDisabled as boolean | undefined
       }
       return session
     },

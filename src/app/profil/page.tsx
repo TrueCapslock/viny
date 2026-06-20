@@ -165,29 +165,31 @@ export default function ProfilePage() {
           />
         </div>
 
-        <div className="rounded-2xl border border-cream-200 bg-cream-50 p-4">
-          <label className="flex items-center justify-between gap-4 cursor-pointer select-none">
-            <div>
-              <span className="block text-sm font-semibold text-wine-900">Jeg liker øl bedre</span>
-              <span className="block text-xs text-wine-500 mt-0.5">Bytter appen til øl-modus med øl-labels, logo og lagertekst.</span>
-            </div>
-            <div
-              role="switch"
-              aria-checked={prefersBeer}
-              tabIndex={0}
-              onClick={() => setPrefersBeer((current) => !current)}
-              onKeyDown={(e) => {
-                if (e.key === " " || e.key === "Enter") {
-                  e.preventDefault()
-                  setPrefersBeer((current) => !current)
-                }
-              }}
-              className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${prefersBeer ? "bg-gold-500" : "bg-cream-300"}`}
-            >
-              <div className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-1 transition-transform ${prefersBeer ? "translate-x-6" : "translate-x-1"}`} />
-            </div>
-          </label>
-        </div>
+        {!session.user.beerModeDisabled && (
+          <div className="rounded-2xl border border-cream-200 bg-cream-50 p-4">
+            <label className="flex items-center justify-between gap-4 cursor-pointer select-none">
+              <div>
+                <span className="block text-sm font-semibold text-wine-900">Jeg liker øl bedre</span>
+                <span className="block text-xs text-wine-500 mt-0.5">Bytter appen til øl-modus med øl-labels, logo og lagertekst.</span>
+              </div>
+              <div
+                role="switch"
+                aria-checked={prefersBeer}
+                tabIndex={0}
+                onClick={() => setPrefersBeer((current) => !current)}
+                onKeyDown={(e) => {
+                  if (e.key === " " || e.key === "Enter") {
+                    e.preventDefault()
+                    setPrefersBeer((current) => !current)
+                  }
+                }}
+                className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${prefersBeer ? "bg-gold-500" : "bg-cream-300"}`}
+              >
+                <div className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-1 transition-transform ${prefersBeer ? "translate-x-6" : "translate-x-1"}`} />
+              </div>
+            </label>
+          </div>
+        )}
 
         <button
           type="submit"

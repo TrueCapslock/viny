@@ -141,3 +141,8 @@ model ListShare {
 
   @@unique([ownerId, editorId])
 }
+
+model SiteSettings {
+  id                Int     @id @default(1)
+  beerModeDisabled  Boolean @default(false)
+}

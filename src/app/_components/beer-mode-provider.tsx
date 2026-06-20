@@ -15,7 +15,7 @@ export function useBeerMode() {
 
 export function BeerModeProvider({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession()
-  const isBeer = session?.user?.prefersBeer ?? false
+  const isBeer = session?.user?.beerModeDisabled ? false : (session?.user?.prefersBeer ?? false)
 
   useEffect(() => {
     document.documentElement.setAttribute("data-beer", isBeer ? "true" : "false")

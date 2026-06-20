@@ -16,6 +16,7 @@ declare module "next-auth" {
       image?: string | null
       prefersBeer?: boolean
       isAdmin?: boolean
+      beerModeDisabled?: boolean
     }
   }
 }
@@ -26,5 +27,6 @@ declare module "next-auth/jwt" {
     image?: string | null
     prefersBeer?: boolean
     isAdmin?: boolean
+    beerModeDisabled?: boolean
   }
 }

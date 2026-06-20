@@ -113,9 +113,11 @@ function UsersDialog({ onClose }: { onClose: () => void }) {
 }
 
 export default function AdminPage() {
-  const { data: session } = useSession()
+  const { data: session, update } = useSession()
   const router = useRouter()
   const [showUsers, setShowUsers] = useState(false)
+  const [beerModeDisabled, setBeerModeDisabled] = useState(false)
+  const [togglingBeer, setTogglingBeer] = useState(false)
 
   useEffect(() => {
     if (!session?.user) return
@@ -127,7 +129,24 @@ export default function AdminPage() {
         }
         return r.json()
       })
+    fetch("/api/admin/settings")
+      .then((r) => r.json())
+      .then((data) => setBeerModeDisabled(data.beerModeDisabled))
   }, [session, router])
+
+  async function toggleBeerGlobally() {
+    setTogglingBeer(true)
+    const res = await fetch("/api/admin/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ beerModeDisabled: !beerModeDisabled }),
+    })
+    if (res.ok) {
+      setBeerModeDisabled(!beerModeDisabled)
+      update({})
+    }
+    setTogglingBeer(false)
+  }
 
   if (!session) return null
 
@@ -145,6 +164,26 @@ export default function AdminPage() {
       </div>
 
       <div className="flex-1 px-4 -mt-2 pb-24 space-y-3">
+        <div className="bg-white rounded-2xl border border-cream-200 p-4 shadow-sm">
+          <label className="flex items-center justify-between gap-4 cursor-pointer select-none">
+            <div>
+              <p className="text-sm font-semibold text-wine-900">Deaktiver øl-modus</p>
+              <p className="text-xs text-wine-500 mt-0.5">Skrur av øl-funksjonalitet for alle brukere. Ingen vil kunne bruke øl-modus.</p>
+            </div>
+            <button
+              onClick={toggleBeerGlobally}
+              disabled={togglingBeer}
+              className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${
+                beerModeDisabled ? "bg-red-400" : "bg-cream-300"
+              } ${togglingBeer ? "opacity-50" : ""}`}
+            >
+              <div className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-1 transition-transform ${
+                beerModeDisabled ? "translate-x-6" : "translate-x-1"
+              }`} />
+            </button>
+          </label>
+        </div>
+
         <button
           onClick={() => setShowUsers(true)}
           className="w-full flex items-center justify-between rounded-2xl bg-white border border-cream-200 p-4 hover:border-wine-300 hover:bg-wine-50 transition-all text-left shadow-sm"
