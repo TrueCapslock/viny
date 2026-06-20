@@ -23,21 +23,25 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (session?.user && !session.user.isAdmin) {
-      router.push("/")
-      return
-    }
     if (!session?.user) return
 
     fetch("/api/admin/users")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) {
+          router.push("/")
+          return null
+        }
+        return r.json()
+      })
       .then((data) => {
-        setUsers(data)
+        if (Array.isArray(data)) {
+          setUsers(data)
+        }
         setLoading(false)
       })
   }, [session, router])
 
-  if (!session?.user?.isAdmin) return null
+  if (!session) return null
 
   return (
     <div className="flex-1 flex flex-col">
