@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { UserDialogSkeleton } from "@/app/_components/skeletons"
 
 type User = {
   id: number
@@ -57,8 +58,8 @@ function UsersDialog({ onClose }: { onClose: () => void }) {
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {loading ? (
-            <div className="flex items-center justify-center py-10">
-              <div className="w-8 h-8 border-3 border-wine-200 border-t-wine-600 rounded-full animate-spin" />
+            <div className="p-4">
+              <UserDialogSkeleton />
             </div>
           ) : (
             users.map((user) => (

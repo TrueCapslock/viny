@@ -6,6 +6,7 @@ import Link from "next/link"
 import { useState, useRef, useEffect } from "react"
 import { Grape } from "@/app/_components/icons"
 import { AvatarCropDialog } from "@/app/_components/avatar-crop-dialog"
+import { ProfileSkeleton } from "@/app/_components/skeletons"
 
 export default function ProfilePage() {
   const { data: session, update } = useSession()
@@ -90,6 +91,8 @@ export default function ProfilePage() {
   }
 
   const inputClass = "w-full rounded-xl border border-cream-200 bg-cream-50 px-3.5 py-2.5 text-sm text-wine-900 placeholder-wine-300 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none transition-all"
+
+  if (!loaded || !session) return <ProfileSkeleton />
 
   return (
     <div className="flex-1 px-4 pt-6 pb-24 animate-fade-in">

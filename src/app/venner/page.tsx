@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Users } from "@/app/_components/icons"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
+import { UserCardSkeleton } from "@/app/_components/skeletons"
 
 type UserInfo = { id: number; name: string | null; email: string; image: string | null }
 type Friend = UserInfo & { id: number; userId: number; sharedList: boolean }
@@ -140,10 +141,25 @@ export default function FriendsPage() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-10 h-10 border-3 border-wine-200 border-t-wine-600 rounded-full animate-spin mx-auto" />
-          <p className="text-wine-400 text-sm mt-3">Laster...</p>
+      <div className="flex-1 px-4 pt-4 pb-24">
+        <div className="flex items-center justify-between mb-4">
+          <div className="h-7 w-24 bg-cream-200 animate-pulse rounded-md" />
+          <div className="h-5 w-16 bg-cream-200 animate-pulse rounded-full" />
+        </div>
+        <div className="space-y-2 mb-6">
+          <div className="h-10 rounded-xl bg-cream-200 animate-pulse w-full" />
+        </div>
+        <div className="space-y-2 mb-6">
+          <div className="h-3 w-36 bg-cream-200 animate-pulse rounded mb-3" />
+          <UserCardSkeleton />
+          <UserCardSkeleton />
+        </div>
+        <div className="space-y-2">
+          <div className="h-3 w-24 bg-cream-200 animate-pulse rounded mb-3" />
+          <UserCardSkeleton />
+          <UserCardSkeleton />
+          <UserCardSkeleton />
+          <UserCardSkeleton />
         </div>
       </div>
     )

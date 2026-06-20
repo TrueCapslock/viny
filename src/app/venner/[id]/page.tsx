@@ -7,6 +7,7 @@ import { Users } from "@/app/_components/icons"
 import { StaticStars } from "@/app/_components/star-rating"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
 import { typeLabel } from "@/lib/beer"
+import { WineCardSkeletonList } from "@/app/_components/skeletons"
 
 export default function FriendWinesPage() {
   const { isBeer } = useBeerMode()
@@ -61,10 +62,19 @@ export default function FriendWinesPage() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-10 h-10 border-3 border-wine-200 border-t-wine-600 rounded-full animate-spin mx-auto" />
-          <p className="text-wine-400 text-sm mt-3">Laster...</p>
+      <div className="flex flex-col flex-1">
+        <div className="bg-wine-gradient px-4 pt-1 pb-6">
+          <div className="h-4 w-16 bg-white/20 animate-pulse rounded mb-4" />
+          <div className="flex items-center gap-3">
+            <div className="w-14 h-14 rounded-full bg-white/20 animate-pulse shrink-0" />
+            <div className="space-y-2">
+              <div className="h-5 w-32 bg-white/20 animate-pulse rounded" />
+              <div className="h-4 w-24 bg-white/20 animate-pulse rounded" />
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 px-4 -mt-2 pb-24 pt-4">
+          <WineCardSkeletonList count={4} />
         </div>
       </div>
     )
