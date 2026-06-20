@@ -33,6 +33,13 @@ export function AvatarCropDialog({
     return () => window.removeEventListener("resize", updateSize)
   }, [])
 
+  useEffect(() => {
+    if (!cropSize) return
+    const cs = cropSize
+    setPosition((prev) => clampPosition(prev, cs))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cropSize, zoom])
+
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     setDragging(true)
     setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y })
@@ -48,26 +55,30 @@ export function AvatarCropDialog({
 
   const handleMouseUp = useCallback(() => {
     setDragging(false)
-  }, [])
+    const cs = cropSize || 280
+    setPosition((prev) => clampPosition(prev, cs))
+  }, [cropSize, zoom])
+
+  function getDisplaySize(cs: number, z: number) {
+    const aspect = imageLoaded ? naturalSize.w / naturalSize.h : 1
+    if (aspect >= 1) {
+      const h = cs * z
+      return { w: h * aspect, h }
+    }
+    const w = cs * z
+    return { w, h: w / aspect }
+  }
 
   function doCrop() {
     const img = imageRef.current
-    if (!img) return
+    if (!img || !imageLoaded) return
 
-    const aspect = naturalSize.w / naturalSize.h
-    let imgW: number, imgH: number
-    if (aspect >= 1) {
-      imgW = cropSize * zoom
-      imgH = imgW / aspect
-    } else {
-      imgH = cropSize * zoom
-      imgW = imgH * aspect
-    }
+    const cs = cropSize || 280
+    const { w: imgW, h: imgH } = getDisplaySize(cs, zoom)
 
-    const scaleX = naturalSize.w / imgW
-    const scaleY = naturalSize.h / imgH
-    const left = (cropSize - imgW) / 2 + position.x
-    const top = (cropSize - imgH) / 2 + position.y
+    const scale = naturalSize.w / imgW
+    const left = (cs - imgW) / 2 + position.x
+    const top = (cs - imgH) / 2 + position.y
 
     const canvas = document.createElement("canvas")
     canvas.width = 400
@@ -77,20 +88,30 @@ export function AvatarCropDialog({
 
     ctx.drawImage(
       img,
-      -left * scaleX,
-      -top * scaleY,
-      cropSize * scaleX,
-      cropSize * scaleY,
-      0,
-      0,
-      400,
-      400,
+      -left * scale,
+      -top * scale,
+      cs * scale,
+      cs * scale,
+      0, 0, 400, 400,
     )
 
     canvas.toBlob((blob) => {
       if (blob) onCrop(blob)
     }, "image/jpeg", 0.9)
   }
+
+  function clampPosition(pos: { x: number; y: number }, cs: number) {
+    const { w: imgW, h: imgH } = getDisplaySize(cs, zoom)
+    const maxX = (imgW - cs) / 2
+    const maxY = (imgH - cs) / 2
+    return {
+      x: Math.min(maxX, Math.max(-maxX, pos.x)),
+      y: Math.min(maxY, Math.max(-maxY, pos.y)),
+    }
+  }
+
+  const cs = cropSize || 280
+  const { w: imgW, h: imgH } = getDisplaySize(cs, zoom)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -107,57 +128,41 @@ export function AvatarCropDialog({
           <div
             ref={containerRef}
             className="relative mx-auto overflow-hidden rounded-2xl bg-black/10"
-            style={{
-              width: cropSize || 280,
-              height: cropSize || 280,
-            }}
+            style={{ width: cs, height: cs }}
           >
             {!imageLoaded && (
               <div className="absolute inset-0 flex items-center justify-center text-wine-400 text-sm">
                 Laster bilde...
               </div>
             )}
-            {(() => {
-              const aspect = imageLoaded ? naturalSize.w / naturalSize.h : 1
-              let imgW: number, imgH: number
-              if (aspect >= 1) {
-                imgW = cropSize * zoom
-                imgH = imgW / aspect
-              } else {
-                imgH = cropSize * zoom
-                imgW = imgH * aspect
-              }
-              return (
-                <div
-                  className="w-full h-full cursor-grab active:cursor-grabbing select-none"
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseUp}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    ref={imageRef}
-                    src={imageUrl}
-                    alt=""
-                    draggable={false}
-                    onLoad={() => {
-                      if (imageRef.current) {
-                        setNaturalSize({ w: imageRef.current.naturalWidth, h: imageRef.current.naturalHeight })
-                        setImageLoaded(true)
-                      }
-                    }}
-                    className="absolute pointer-events-none"
-                    style={{
-                      width: imgW,
-                      height: imgH,
-                      left: (cropSize - imgW) / 2 + position.x,
-                      top: (cropSize - imgH) / 2 + position.y,
-                    }}
-                  />
-                </div>
-              )
-            })()}
+            <div
+              className="w-full h-full cursor-grab active:cursor-grabbing select-none"
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                ref={imageRef}
+                src={imageUrl}
+                alt=""
+                draggable={false}
+                onLoad={() => {
+                  if (imageRef.current) {
+                    setNaturalSize({ w: imageRef.current.naturalWidth, h: imageRef.current.naturalHeight })
+                    setImageLoaded(true)
+                  }
+                }}
+                className="absolute pointer-events-none"
+                style={{
+                  width: imgW,
+                  height: imgH,
+                  left: (cs - imgW) / 2 + position.x,
+                  top: (cs - imgH) / 2 + position.y,
+                }}
+              />
+            </div>
           </div>
 
         <div className="mt-4 flex items-center gap-3">
