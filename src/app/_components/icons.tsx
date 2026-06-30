@@ -40,3 +40,11 @@ export function Star({ className, filled }: { className?: string; filled?: boole
 export function Plus({ className }: { className?: string }) {
   return <Icon name="add_circle" size={24} className={className} />
 }
+
+export function Lists({ className }: { className?: string }) {
+  return <Icon name="bookmarks" size={24} className={className} />
+}
+
+export function PlaylistAdd({ className }: { className?: string }) {
+  return <Icon name="playlist_add" size={24} className={className} />
+}

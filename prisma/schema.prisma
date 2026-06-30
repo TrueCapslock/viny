@@ -51,6 +51,33 @@ model Wine {
   sharedListId  Int?
   sharedList    SharedList? @relation(fields: [sharedListId], references: [id])
   suggestions   WineSuggestion[]
+  inLists       ListWine[]
+}
+
+model List {
+  id        Int       @id @default(autoincrement())
+  name      String
+  userId    Int
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wines  ListWine[]
+
+  @@index([userId])
+}
+
+model ListWine {
+  listId   Int
+  wineId   Int
+  addedAt  DateTime  @default(now())
+
+  list     List      @relation(fields: [listId], references: [id], onDelete: Cascade)
+  wine     Wine      @relation(fields: [wineId], references: [id], onDelete: Cascade)
+
+  @@id([listId, wineId])
+  @@index([listId])
+  @@index([wineId])
 }
 
 model Tasting {
@@ -89,6 +116,7 @@ model User {
   sharedListMembers  SharedListMember[]
   sentSuggestions    WineSuggestion[]      @relation("SentSuggestions")
   receivedSuggestions WineSuggestion[]     @relation("ReceivedSuggestions")
+  lists              List[]
 }
 
 model WineSuggestion {

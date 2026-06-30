@@ -81,3 +81,42 @@ export function useWineDetail(id?: number) {
     mutate,
   }
 }
+
+type ListSummary = {
+  id: number
+  name: string
+  createdAt: string
+  updatedAt: string
+  _count?: { wines: number }
+}
+
+export function useLists() {
+  const { data, error, isLoading, isValidating, mutate } = useSWR("/api/lists", fetcher)
+  return {
+    lists: (data ?? []) as ListSummary[],
+    error,
+    loading: isLoading,
+    refreshing: isValidating && !isLoading,
+    mutate,
+  }
+}
+
+export function useListDetail(id?: number) {
+  const { data, error, isLoading, isValidating, mutate } = useSWR(id ? `/api/lists/${id}` : null, fetcher)
+  return {
+    list: data ?? null,
+    error,
+    loading: isLoading,
+    refreshing: isValidating && !isLoading,
+    mutate,
+  }
+}
+
+export function useWineLists(wineId?: number) {
+  const { data, error, mutate } = useSWR(wineId ? `/api/viner/${wineId}/lists` : null, fetcher)
+  return {
+    listIds: (data?.listIds ?? []) as number[],
+    error,
+    mutate,
+  }
+}

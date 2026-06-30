@@ -8,6 +8,7 @@ import { DeleteButton } from "@/app/_components/delete-button"
 import { ImageLightbox } from "@/app/_components/image-lightbox"
 import { CellarToggle } from "@/app/_components/cellar-toggle"
 import { SuggestWineButton } from "@/app/_components/suggest-wine-button"
+import { AddToListButton } from "@/app/_components/add-to-list-button"
 import { ModeLogo, ModeText, ModeTypeLabel } from "@/app/_components/mode-text"
 
 type Params = Promise<{ id: string }>
@@ -154,6 +155,8 @@ export default async function WineDetailPage({ params }: { params: Params }) {
           <div className="bg-white rounded-2xl border border-cream-200 shadow-lg shadow-wine-900/5 px-4 py-2 inline-flex items-center gap-3">
             {canEdit && (
               <>
+                <AddToListButton wineId={wine.id} wineName={wine.name} />
+                <span className="w-px h-5 bg-cream-200" />
                 <SuggestWineButton wineId={wine.id} wineName={wine.name} />
                 {canEdit && (
                   <>
@@ -172,6 +175,8 @@ export default async function WineDetailPage({ params }: { params: Params }) {
             )}
             {!canEdit && (
               <>
+                <AddToListButton wineId={wine.id} wineName={wine.name} />
+                <span className="w-px h-5 bg-cream-200" />
                 <SuggestWineButton wineId={wine.id} wineName={wine.name} />
                 <span className="text-sm text-wine-400 px-3.5 py-1.5">
                   {wine.user.name ?? wine.user.email} sin <ModeText wine="vin" beer="øl" />
