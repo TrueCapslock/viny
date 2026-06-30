@@ -31,6 +31,35 @@ export class WineapiError extends Error {
   }
 }
 
+/**
+ * Extract a results array from a wineapi.io response, handling both
+ * a bare JSON array and the common envelope shapes
+ * (`{ wines: [...] }`, `{ results: [...] }`, `{ data: [...] }`).
+ * Returns [] if no array can be located, so the caller renders an
+ * empty results state instead of crashing with a TypeError. Logs a
+ * warning with the actual top-level keys on mismatch so a future
+ * API shape change is detectable from the dev server logs.
+ */
+function pickResults(data: unknown): WineapiSearchResult[] {
+  if (Array.isArray(data)) return data as WineapiSearchResult[]
+  if (data && typeof data === "object") {
+    for (const key of ["wines", "results", "data"] as const) {
+      const candidate = (data as Record<string, unknown>)[key]
+      if (Array.isArray(candidate)) return candidate as WineapiSearchResult[]
+    }
+    console.warn(
+      "[wineapi/search] unrecognized response shape; expected array under one of: wines, results, data",
+      { topLevelKeys: Object.keys(data as Record<string, unknown>) },
+    )
+  } else {
+    console.warn(
+      "[wineapi/search] unrecognized response shape; expected array or object, got",
+      typeof data,
+    )
+  }
+  return []
+}
+
 export async function searchWines(
   apiKey: string,
   query: string,
@@ -52,7 +81,7 @@ export async function searchWines(
   }
 
   const data = await res.json()
-  return (data ?? []).map((item: WineapiSearchResult) => ({
+  return pickResults(data).map((item: WineapiSearchResult) => ({
     id: item.id,
     name: item.name,
     vintage: item.vintage ?? null,

@@ -35,6 +35,7 @@ export async function GET(request: Request) {
     if (error instanceof WineapiError) {
       return NextResponse.json({ error: error.message }, { status: error.status })
     }
+    console.error("[wineapi/search] unexpected error", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
