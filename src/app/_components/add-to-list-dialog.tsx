@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { createPortal } from "react-dom"
 import { Plus } from "@/app/_components/icons"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
 import { useLists, useWineLists } from "@/hooks/use-data"
@@ -92,7 +93,12 @@ export function AddToListDialog({
     }
   }
 
-  return (
+  // Portal to document.body: the dialog lives inside the floating action
+  // pill (which uses `translate-y-1/2`), and that translate creates a
+  // stacking context that would trap z-50 here. Without the portal the
+  // tasting-list collapse chevron — later in the DOM, in the root's
+  // stacking context — would bleed through on top of the dialog.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80" onClick={onClose} />
       <div className="relative bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl animate-scale-in">
@@ -205,6 +211,7 @@ export function AddToListDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
