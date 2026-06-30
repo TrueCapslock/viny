@@ -52,7 +52,7 @@ export async function searchWines(
   }
 
   const data = await res.json()
-  return (data ?? []).map((item: any) => ({
+  return (data ?? []).map((item: WineapiSearchResult) => ({
     id: item.id,
     name: item.name,
     vintage: item.vintage ?? null,
