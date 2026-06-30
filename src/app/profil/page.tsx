@@ -7,6 +7,7 @@ import { useState, useRef, useEffect } from "react"
 import { Icon } from "@/app/_components/icons"
 import { AvatarCropDialog } from "@/app/_components/avatar-crop-dialog"
 import { ProfileSkeleton } from "@/app/_components/skeletons"
+import { APP_VERSION } from "@/lib/version"
 
 export default function ProfilePage() {
   const { data: session, update } = useSession()
@@ -227,6 +228,16 @@ export default function ProfilePage() {
           )}
           <button
             type="button"
+            onClick={() => window.location.reload()}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-wine-700 rounded-xl hover:bg-wine-50 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+            </svg>
+            Last inn appen på nytt
+          </button>
+          <button
+            type="button"
             onClick={() => signOut({ callbackUrl: "/login" })}
             className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm text-red-600 font-medium rounded-xl hover:bg-red-50 transition-colors"
           >
@@ -237,6 +248,8 @@ export default function ProfilePage() {
           </button>
         </div>
       </form>
+
+      <p className="text-center text-xs text-wine-300 mt-6">Viny v{APP_VERSION}</p>
 
       {cropImage && (
         <AvatarCropDialog

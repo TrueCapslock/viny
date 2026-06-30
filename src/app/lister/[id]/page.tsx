@@ -227,7 +227,7 @@ export default function ListDetailPage() {
                   </Link>
                   {wine.inCellar && (
                     <span className="text-[10px] uppercase tracking-wider text-gold-700 bg-gold-50 border border-gold-200 rounded-full px-2 py-0.5">
-                      Kjeller
+                      Vinskap
                     </span>
                   )}
                   {rating !== null && (
