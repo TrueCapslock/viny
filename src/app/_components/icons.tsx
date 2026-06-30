@@ -13,10 +13,6 @@ export function WineGlass({ className }: { className?: string }) {
   return <Icon name="wine_bar" size={24} className={className} />
 }
 
-export function Grape({ className }: { className?: string }) {
-  return <Icon name="grapes" size={24} className={className} />
-}
-
 export function WineBottle({ className }: { className?: string }) {
   return <Icon name="liquor" size={24} className={className} />
 }
