@@ -7,6 +7,7 @@ declare module "next-auth" {
     image?: string | null
     prefersBeer?: boolean
     isAdmin?: boolean
+    wineapiKey?: string | null
   }
   interface Session {
     user: {
@@ -17,6 +18,7 @@ declare module "next-auth" {
       prefersBeer?: boolean
       isAdmin?: boolean
       beerModeDisabled?: boolean
+      wineapiKey?: string | null
     }
   }
 }
@@ -28,5 +30,6 @@ declare module "next-auth/jwt" {
     prefersBeer?: boolean
     isAdmin?: boolean
     beerModeDisabled?: boolean
+    wineapiKey?: string | null
   }
 }

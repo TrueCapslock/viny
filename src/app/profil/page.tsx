@@ -17,6 +17,7 @@ export default function ProfilePage() {
   const [email, setEmail] = useState("")
   const [image, setImage] = useState("")
   const [prefersBeer, setPrefersBeer] = useState(false)
+  const [wineapiKey, setWineapiKey] = useState("")
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -31,6 +32,7 @@ export default function ProfilePage() {
         setEmail(session.user.email ?? "")
         setImage(session.user.image ?? "")
         setPrefersBeer(session.user.prefersBeer ?? false)
+        setWineapiKey(session.user.wineapiKey ?? "")
         setLoaded(true)
       })
     }
@@ -76,7 +78,7 @@ export default function ProfilePage() {
     const res = await fetch("/api/profile", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, image: image || null, prefersBeer }),
+      body: JSON.stringify({ name, email, image: image || null, prefersBeer, wineapiKey: wineapiKey || null }),
     })
 
     if (!res.ok) {
@@ -164,6 +166,17 @@ export default function ProfilePage() {
             onChange={(e) => setEmail(e.target.value)}
             className={inputClass}
           />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-wine-700 mb-1.5">wineapi.io API-nøkkel</label>
+          <input
+            value={wineapiKey}
+            onChange={(e) => setWineapiKey(e.target.value)}
+            className={inputClass}
+            placeholder="Skriv inn din wineapi.io API-nøkkel"
+          />
+          <p className="text-xs text-wine-400 mt-1">wineapi.io gir utvidet vininformasjon. 100 kall/døgn på gratisplanen. Kan oppgraderes på wineapi.io.</p>
         </div>
 
         {!session.user.beerModeDisabled && (
