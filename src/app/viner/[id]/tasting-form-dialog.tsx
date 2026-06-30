@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { StarRating } from "@/app/_components/star-rating"
 
@@ -53,16 +54,13 @@ export function TastingFormDialog({ wineId }: { wineId: number }) {
 
   const inputClass = "w-full rounded-xl border border-cream-200 bg-cream-50 px-3.5 py-2.5 text-sm text-wine-900 placeholder-wine-300 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none transition-all"
 
-  return (
-    <>
-      <button
-        onClick={() => setOpen(true)}
-        className="rounded-full bg-wine-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-wine-700 transition-colors whitespace-nowrap shadow-sm"
-      >
-        + Legg til
-      </button>
-
-      {open && (
+  // Portal the overlay to document.body for consistency with
+  // AddToListDialog. Today this dialog has no transformed ancestor
+  // (so the z-50 would work fine), but portaling defends against
+  // future transforms on any ancestor that would otherwise trap
+  // z-50 in a stacking context.
+  const dialog = open
+    ? createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80" onClick={() => setOpen(false)} />
           <div className="relative bg-white rounded-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto p-6 shadow-2xl animate-scale-in">
@@ -164,8 +162,20 @@ export function TastingFormDialog({ wineId }: { wineId: number }) {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        </div>,
+        document.body,
+      )
+    : null
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="rounded-full bg-wine-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-wine-700 transition-colors whitespace-nowrap shadow-sm"
+      >
+        + Legg til
+      </button>
+      {dialog}
     </>
   )
 }
