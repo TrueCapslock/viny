@@ -93,6 +93,27 @@ export default {
       command: 'pkill -f "next-server" 2>/dev/null; echo "done"',
       group: 'Development',
     },
+    {
+      id: 'seed-test',
+      label: 'Seed test user',
+      description: 'Create test@test.no + a Testvin (idempotent).',
+      command: 'npm run seed:test',
+      group: 'Tests',
+    },
+    {
+      id: 'install-pw',
+      label: 'Install Playwright browser',
+      description: 'Download Chromium for Playwright (one-time, ~150MB).',
+      command: 'npx playwright install chromium',
+      group: 'Tests',
+    },
+    {
+      id: 'test-e2e',
+      label: 'E2E tests',
+      description: 'Run Playwright smoke tests against the dev server.',
+      command: 'npm run test:e2e',
+      group: 'Tests',
+    },
   ],
 
   profiles: {
