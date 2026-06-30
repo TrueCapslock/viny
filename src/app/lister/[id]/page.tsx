@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { fetcher } from "@/lib/api"
-import useSWR from "swr"
+import useSWR, { mutate } from "swr"
 import { Lists } from "@/app/_components/icons"
 import { ModeLogo, ModeText } from "@/app/_components/mode-text"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
@@ -32,7 +32,7 @@ export default function ListDetailPage() {
   const router = useRouter()
   const { isBeer } = useBeerMode()
   const listId = parseInt(params.id)
-  const { data, error, isLoading, mutate } = useSWR<ListDetail>(`/api/lists/${listId}`, fetcher)
+  const { data, error, isLoading, mutate: mutateList } = useSWR<ListDetail>(`/api/lists/${listId}`, fetcher)
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState("")
   const [saving, setSaving] = useState(false)
@@ -57,7 +57,7 @@ export default function ListDetailPage() {
     })
     setSaving(false)
     if (res.ok) {
-      mutate({ ...data, name: trimmed }, false)
+      mutateList({ ...data, name: trimmed }, false)
       setEditing(false)
     }
   }
@@ -66,7 +66,7 @@ export default function ListDetailPage() {
     setRemovingId(wineId)
     await fetch(`/api/viner/${wineId}/lists/${listId}`, { method: "DELETE" })
     if (data) {
-      mutate(
+      mutateList(
         { ...data, wines: data.wines.filter((w) => w.wine.id !== wineId) },
         false,
       )
@@ -78,7 +78,13 @@ export default function ListDetailPage() {
     if (!data) return
     if (!confirm("Slette denne listen? Vinene i den blir ikke slettet.")) return
     const res = await fetch(`/api/lists/${listId}`, { method: "DELETE" })
-    if (res.ok) router.push("/lister")
+    if (res.ok) {
+      // Trigger a /api/lists revalidation via SWR's global mutate.
+      // Without this, /lister's SWR cache still holds the just-deleted
+      // list and renders it instead of the empty state.
+      await mutate("/api/lists")
+      router.push("/lister")
+    }
   }
 
   if (isLoading) {
