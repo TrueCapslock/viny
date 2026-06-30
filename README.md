@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Viny
 
-## Getting Started
+Viny er en personlig vin- og øl-notatapp med kjellerstyring, vennefunksjoner, delte lister og nå også personlige samlinger av dine egne viner.
 
-First, run the development server:
+## Features
+
+- **Vinnotater / ølnotater** — smaksnotater med score, nese, gane, ettersmak, matpairing, pris og sted.
+- **Kjellerlager** — hold oversikt over hvor mange flasker du har av hver vin/øl.
+- **Venner** — legg til venner og foreslå viner/øl til hverandre.
+- **Delte lister** — slå sammen samlingen din med en venns i en felles liste (`/venner`).
+- **Personlige lister** (ny fra v0.4.0) — opprett dine egne lister («Favoritter», «Sommer 2024», …) og legg til viner fra hvilken som helst vinside. Lister finner du i den nye «Lister»-fanen i bunnmenyen.
+- **Øl-modus** — slå på/av i profilen for å bytte hele appen mellom vin- og øl-tekst (inkl. logo og fargepalett).
+- **Vinmonopolet-søk** og **wineapi.io-søk** for å fylle ut nye viner raskt.
+- **App-ikon** — Logoen brukes som tab-favicon, iOS home-screen-ikon og PWA-manifest.
+
+## Tech stack
+
+- [Next.js 16](https://nextjs.org/) (App Router) + React 19
+- [Prisma 7](https://www.prisma.io/) + PostgreSQL (Neon)
+- [NextAuth 5](https://authjs.dev/) med credentials-provider
+- [Vercel Blob](https://vercel.com/docs/storage/vercel-blob) for bildeopplasting
+- [Tailwind 4](https://tailwindcss.com/) + Material Symbols
+- [SWR](https://swr.vercel.app/) for klientdata
+
+## Kom i gang
 
 ```bash
+npm install
+npx prisma migrate dev
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Åpne http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Nyttige kommandoer
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Definert i `dcc.config.js`, kjørbar via `npx dcc`:
 
-## Learn More
+- `dev`, `build`, `lint`, `typecheck` — utvikling og kvalitetssjekk.
+- `studio` — Prisma Studio mot databasen.
+- `migrate-dev`, `generate`, `reset-db` — databaseverktøy.
+- `kill` — stopp dev-serveren på port 3000.
 
-To learn more about Next.js, take a look at the following resources:
+CI-profilen (`build`, `lint`, `typecheck`) og en «full check»-pipeline er også tilgjengelig.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Konvensjoner
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Tailwind 4 med Material Symbols-ikoner (`src/app/_components/icons.tsx`).
+- Alkoholmodus via `useBeerMode()` (`src/app/_components/beer-mode-provider.tsx`).
+- Norsk UI-tekst.
+- Spør AGENTS.md / docs i `node_modules/next/dist/docs/` før du skriver filkonvensjons-routes — denne Next-versjonen har adferdsendringer.
