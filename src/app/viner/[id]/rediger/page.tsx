@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { WineForm } from "@/app/_components/wine-form"
-import { Grape } from "@/app/_components/icons"
+import { ModeLogo } from "@/app/_components/mode-text"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
 import { useWineDetail } from "@/hooks/use-data"
 import { FormSkeleton } from "@/app/_components/skeletons"
@@ -69,9 +69,7 @@ export default function EditWinePage() {
           Tilbake
         </Link>
         <div className="flex items-center gap-3">
-          <div className="bg-white/15 rounded-xl p-1.5">
-            <Grape className="w-5 h-6 text-gold-300" />
-          </div>
+          <ModeLogo className="w-9 h-9" />
           <h1 className="text-xl font-bold">{isBeer ? "Rediger øl" : "Rediger vin"}</h1>
         </div>
       </div>

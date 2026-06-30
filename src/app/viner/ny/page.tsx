@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from "react"
 import { WineForm } from "@/app/_components/wine-form"
 import { VinmonopoletSearch } from "@/app/_components/vinmonopolet-search"
-import { Grape } from "@/app/_components/icons"
+import { ModeLogo } from "@/app/_components/mode-text"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
 
 type Prefill = {
@@ -113,9 +113,7 @@ export default function NewWinePage() {
     <div className="flex-1 flex flex-col">
       <div className="bg-wine-gradient text-white px-4 pt-1 pb-10 relative">
         <div className="flex items-center gap-3 mb-2">
-          <div className="bg-white/15 rounded-xl p-1.5">
-            <Grape className="w-5 h-6 text-gold-300" />
-          </div>
+          <ModeLogo className="w-9 h-9" />
           <div>
             <h1 className="text-xl font-bold">{isBeer ? "Nytt øl" : "Ny vin"}</h1>
             <p className="text-wine-200 text-sm">{isBeer ? "Søk etter øl eller fyll inn manuelt" : "Søk etter vin eller fyll inn manuelt"}</p>
