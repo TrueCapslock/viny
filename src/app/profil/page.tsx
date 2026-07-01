@@ -20,7 +20,7 @@ export default function ProfilePage() {
   const [prefersBeer, setPrefersBeer] = useState(false)
   const [wineapiKey, setWineapiKey] = useState("")
   const [openRouterKey, setOpenRouterKey] = useState("")
-  const [visionModel, setVisionModel] = useState("google/gemini-2.0-flash-exp:free")
+  const [visionModel, setVisionModel] = useState("nvidia/nemotron-nano-12b-v2-vl:free")
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -37,7 +37,7 @@ export default function ProfilePage() {
         setPrefersBeer(session.user.prefersBeer ?? false)
         setWineapiKey(session.user.wineapiKey ?? "")
         setOpenRouterKey(session.user.openRouterKey ?? "")
-        setVisionModel(session.user.visionModel ?? "google/gemini-2.0-flash-exp:free")
+        setVisionModel(session.user.visionModel ?? "nvidia/nemotron-nano-12b-v2-vl:free")
         setLoaded(true)
       })
     }
@@ -233,12 +233,12 @@ export default function ProfilePage() {
             value={visionModel}
             onChange={(e) => setVisionModel(e.target.value)}
             className={inputClass}
-            placeholder="google/gemini-2.0-flash-exp:free"
+            placeholder="nvidia/nemotron-nano-12b-v2-vl:free"
             autoComplete="off"
             spellCheck={false}
           />
           <p className="text-xs text-wine-400 mt-1">
-            OpenRouter roterer gratis-modeller. Standard er Gemini Flash. Bytt om den er avviklet.
+            OpenRouter roterer gratis-modeller. Standard er Nemotron Nano. Bytt modell her dersom skanningen slutter å fungere.
           </p>
         </div>
 

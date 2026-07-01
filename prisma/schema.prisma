@@ -104,11 +104,12 @@ model User {
   password  String
   image       String?
   wineapiKey  String?
-  // v0.12.0: OpenRouter free-vision OCR backend (Gemini Flash / Qwen-VL / Mistral OCR)
-  // for the photo-identification flow. opt-in; tesseract.js remains the
-  // no-key fallback.
+  // v0.12.0: OpenRouter free-vision OCR backend for the photo-identification
+  // flow. opt-in; tesseract.js remains the no-key fallback. The default
+  // visionModel below points to a free vision-language model on OpenRouter
+  // and is updated over time as OpenRouter rotates the free tier.
   openRouterKey  String?
-  visionModel    String?  @default("google/gemini-2.0-flash-exp:free")
+  visionModel    String?  @default("nvidia/nemotron-nano-12b-v2-vl:free")
   prefersBeer Boolean @default(false)
   isAdmin     Boolean @default(false)
   createdAt   DateTime  @default(now())
