@@ -46,7 +46,7 @@ export default function ListerPage() {
       <div className="bg-wine-gradient text-white px-4 pt-1 pb-10 relative">
         <div className="flex items-center gap-3 mb-2">
           <div className="bg-white/15 rounded-xl p-1.5">
-            <Lists className="w-5 h-6 text-gold-300" />
+            <Lists className="w-6 h-6 text-gold-300" />
           </div>
           <div>
             <h1 className="text-xl font-bold">Lister</h1>

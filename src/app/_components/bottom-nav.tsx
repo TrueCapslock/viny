@@ -41,7 +41,7 @@ export function BottomNav() {
                     : "bg-wine-600/90 text-white hover:bg-wine-700 shadow-sm"
                 }`}
               >
-                <Icon className="w-5 h-6" />
+                <Icon className="w-6 h-6" />
                 <span className="text-[10px] font-medium">{tab.label}</span>
               </Link>
             )

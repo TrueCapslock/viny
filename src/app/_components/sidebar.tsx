@@ -42,7 +42,7 @@ export function Sidebar() {
   const tabs = [
     { href: "/", label: isBeer ? "Ølsamling" : "Vinskap", icon: Shelf },
     { href: "/lister", label: "Lister", icon: Lists },
-    { href: "/viner/ny", label: "Legg til", icon: Plus, primary: true },
+    { href: "/viner/ny", label: "Finn vin", icon: Plus },
     { href: "/venner", label: "Venner", icon: Users },
     { href: "/profil", label: "Profil", icon: Corkscrew },
   ]
@@ -81,7 +81,9 @@ export function Sidebar() {
         </Link>
       </div>
 
-      {/* Primary nav */}
+      {/* Primary nav — equal-weight styling across all 5 desktop tabs.
+          (Mobile BottomNav keeps its red filled central button — primary
+          styling is reserved for mobile UX, gated by lg:hidden there.) */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {tabs.map((tab) => {
           const isActive =
@@ -92,21 +94,9 @@ export function Sidebar() {
           const base =
             "flex items-center gap-3 rounded-xl transition-all duration-200 group relative whitespace-nowrap"
           const sizing = collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"
-          const variants = tab.primary
-            ? isActive
-              // Active primary CTA: deeper wine + glow (no ring — avoids competing
-              // with the secondary tabs' ring on adjacent routes)
-              ? "bg-wine-700 text-white shadow-lg shadow-wine-700/40"
-              // Inactive primary CTA: Bg swap + shadow bump on hover (no scale —
-              // feels jittery at desktop distances)
-              : "bg-wine-600/90 text-white hover:bg-wine-600 shadow-sm hover:shadow-md"
-            : isActive
-              // Active nav item: bold + strong wine tint + ring outline.
-              // (No shadow-sm — ring-1 already carries the visual emphasis
-              // at the same radius; layering shadow-sm + ring would compete.)
-              ? "bg-wine-100 text-wine-900 font-semibold ring-1 ring-wine-300"
-              // Inactive nav item: text-only with hover backdrop
-              : "text-wine-600 hover:bg-cream-50 hover:text-wine-700"
+          const variants = isActive
+            ? "bg-wine-100 text-wine-900 font-semibold ring-1 ring-wine-300"
+            : "text-wine-600 hover:bg-cream-50 hover:text-wine-700"
           return (
             <Link
               key={tab.href}
@@ -115,7 +105,7 @@ export function Sidebar() {
               aria-current={isActive ? "page" : undefined}
               className={`${base} ${sizing} ${variants}`}
             >
-              <TabIcon className="w-5 h-6 shrink-0" />
+              <TabIcon className="w-6 h-6 shrink-0" />
               <span
                 className={`text-sm font-medium whitespace-nowrap overflow-hidden transition-[max-width,opacity] duration-300 ease-out ${
                   collapsed ? "max-w-0 opacity-0" : "max-w-[200px] opacity-100"
@@ -169,19 +159,20 @@ export function Sidebar() {
         }`}
         aria-label={collapsed ? "Utvid sidebar" : "Kollaps sidebar"}
         title={collapsed ? "Utvid sidebar" : "Kollaps sidebar"}
-      >          <Icon
-            name={collapsed ? "chevron_right" : "chevron_left"}
-            size={22}
-            className="shrink-0"
-          />
-          <span
-            className={`text-sm font-medium whitespace-nowrap overflow-hidden transition-[max-width,opacity] duration-300 ease-out ${
-              collapsed ? "max-w-0 opacity-0" : "max-w-[200px] opacity-100"
-            }`}
-            aria-hidden={collapsed}
-          >
-            Kollaps
-          </span>
+      >
+        <Icon
+          name={collapsed ? "chevron_right" : "chevron_left"}
+          size={22}
+          className="shrink-0"
+        />
+        <span
+          className={`text-sm font-medium whitespace-nowrap overflow-hidden transition-[max-width,opacity] duration-300 ease-out ${
+            collapsed ? "max-w-0 opacity-0" : "max-w-[200px] opacity-100"
+          }`}
+          aria-hidden={collapsed}
+        >
+          Kollaps
+        </span>
       </button>
     </aside>
   )
