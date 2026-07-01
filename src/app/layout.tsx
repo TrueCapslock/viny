@@ -35,15 +35,27 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    // suppressHydrationWarning on the html element: the inline script in
+    // <head> below mutates the html element's data-sidebar-hidden attribute
+    // synchronously on /login and /register to skip the 256px pl- before
+    // first paint. That mutation lands before React hydrates, so the DOM
+    // ends up with an attribute that React's virtual DOM does not have.
+    // The mismatch is intentional and the script's effect is exactly what
+    // we want, so silence the warning on this element only. (Does not
+    // suppress mismatches on children -- body, head, etc. still warn.)
     <html
       lang="nb"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <head>
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
         {/* Set html[data-sidebar-hidden] before first paint on /login|/register
             so the desktop main padding (added by globals.css) is skipped on
-            those routes during SSR — no blank 256px strip beside the form. */}
+            those routes during SSR — no blank 256px strip beside the form.
+            The corresponding React tree renders <html> without this attribute
+            (since it can't know the URL on the server), so we silence the
+            resulting hydration warning via suppressHydrationWarning above. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
