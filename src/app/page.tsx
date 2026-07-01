@@ -70,7 +70,7 @@ export default function HomePage() {
                 : "bg-cream-100 text-wine-600 hover:bg-cream-200 border border-cream-200"
             }`}
           >
-            {isBeer ? `På lager${cellarCount > 0 ? ` (${cellarCount})` : ""}` : `I vinskapet${cellarCount > 0 ? ` (${cellarCount})` : ""}`}
+            {isBeer ? `I ølkassen${cellarCount > 0 ? ` (${cellarCount})` : ""}` : `I vinskapet${cellarCount > 0 ? ` (${cellarCount})` : ""}`}
           </Link>
         </div>
         <SearchAndFilter key={`${query}-${typeFilter}`} initialQuery={query} initialType={typeFilter} />
@@ -90,7 +90,7 @@ export default function HomePage() {
                 ? "Prøv et annet søk eller filter"
                 : showAll
                   ? isBeer ? 'Trykk på "Legg til" nederst og registrer ditt første øl' : 'Trykk på "Legg til" nederst og registrer din første vin'
-                  : isBeer ? 'Merk øl som "På lager" for å se dem her' : 'Merk viner som "I mitt vinskap" for å se dem her'}
+                  : isBeer ? 'Merk øl som "I ølkassen" for å se dem her' : 'Merk viner som "I mitt vinskap" for å se dem her'}
             </p>
             {!query && !typeFilter && (
               <Link
@@ -152,7 +152,7 @@ export default function HomePage() {
                           )}
                           {wine.inCellar && (
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-gold-50 text-gold-700 border border-gold-200/80">
-                              {wine.quantity > 0 ? `${wine.quantity} ${isBeer ? "stk." : "fl."}` : isBeer ? "På lager" : "I vinskap"}
+                              {wine.quantity > 0 ? `${wine.quantity} ${isBeer ? "stk." : "fl."}` : isBeer ? "I ølkassen" : "I vinskap"}
                             </span>
                           )}
                         </div>
