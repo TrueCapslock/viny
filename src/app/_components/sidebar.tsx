@@ -40,7 +40,7 @@ export function Sidebar() {
   if (hide) return null
 
   const tabs = [
-    { href: "/", label: isBeer ? "Ølsamling" : "Vinskap", icon: Shelf },
+    { href: "/", label: isBeer ? "Ølkasse" : "Vinskap", icon: Shelf },
     { href: "/lister", label: "Lister", icon: Lists },
     { href: "/viner/ny", label: "Finn vin", icon: Plus },
     { href: "/venner", label: "Venner", icon: Users },

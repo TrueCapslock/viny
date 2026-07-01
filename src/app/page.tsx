@@ -45,7 +45,7 @@ export default function HomePage() {
       <div className="px-4 pt-4 pb-2 space-y-3">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-wine-900 tracking-tight">
-            {showAll ? (isBeer ? "Alt øl" : "Alle viner") : isBeer ? "Ølsamling" : "Vinskap"}
+            {showAll ? (isBeer ? "Alt øl" : "Alle viner") : isBeer ? "Ølkasse" : "Vinskap"}
           </h1>
           <span className="text-xs font-medium text-wine-400 bg-wine-50 border border-wine-100 rounded-full px-3 py-1">
             {filtered.length} {isBeer ? "øl" : filtered.length === 1 ? "vin" : "viner"}
