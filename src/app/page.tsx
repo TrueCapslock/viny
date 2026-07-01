@@ -103,7 +103,7 @@ export default function HomePage() {
             )}
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-4">
             {filtered.map((wine: any, i: number) => {
               const avg = wine.avgRating ?? 0
               return (

@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
 :root {
+  /* Collapsible desktop sidebar width — set by <SidebarProvider>
+     and overridden by [data-sidebar-collapsed] in the component. */
+  --sidebar-width: 256px;
+
   --wine-50: #fdf2f4;
   --wine-100: #fce7ea;
   --wine-200: #f9d0d8;
@@ -231,5 +235,16 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* Desktop sidebar reserve space inside <main>.
+ * <Sidebar> sets html[data-sidebar-hidden] on /login|/register so the
+ * padding is skipped there (no blank 256/72px strip beside the form). */
+@media (min-width: 1024px) {
+  html:not([data-sidebar-hidden]) main {
+    padding-left: var(--sidebar-width, 256px);
+    padding-bottom: 1.5rem;
+    transition: padding-left 300ms ease-in-out;
+  }
 }
 

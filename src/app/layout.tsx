@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { Header } from "./header";
 import { BottomNav } from "@/app/_components/bottom-nav";
+import { Sidebar } from "@/app/_components/sidebar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -40,11 +41,23 @@ export default function RootLayout({
     >
       <head>
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+        {/* Set html[data-sidebar-hidden] before first paint on /login|/register
+            so the desktop main padding (added by globals.css) is skipped on
+            those routes during SSR — no blank 256px strip beside the form. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{if(location.pathname==='/login'||location.pathname==='/register'){document.documentElement.dataset.sidebarHidden='true'}}catch(e){}",
+          }}
+        />
       </head>
       <body className="min-h-full flex flex-col bg-cream-50">
         <Providers>
+          <Sidebar />
           <Header />
-          <main className="flex-1 flex flex-col pb-20">{children}</main>
+          <main className="flex-1 flex flex-col pb-20 lg:pb-6">
+            {children}
+          </main>
           <BottomNav />
         </Providers>
       </body>
