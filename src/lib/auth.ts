@@ -46,6 +46,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (dbUser) {
           token.isAdmin = dbUser.isAdmin
           token.prefersBeer = dbUser.prefersBeer
+          token.name = dbUser.name
+          token.email = dbUser.email
+          token.image = dbUser.image
           token.wineapiKey = dbUser.wineapiKey
         }
       }

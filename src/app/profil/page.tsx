@@ -49,6 +49,24 @@ export default function ProfilePage() {
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    // Reject HEIC/HEIF: iPhones save photos as HEIC by default, and iOS
+    // Safari has a known bug where canvas.toBlob from a HEIC source
+    // produces a corrupted/blank JPEG, so the cropped avatar never
+    // renders. The user must either switch to JPEG (Settings > Camera >
+    // Formats > Most Compatible) or pick a different photo. We also
+    // check the filename since some HEIC files report an empty type.
+    if (
+      file.type === "image/heic" ||
+      file.type === "image/heif" ||
+      file.name.toLowerCase().endsWith(".heic") ||
+      file.name.toLowerCase().endsWith(".heif")
+    ) {
+      setError(
+        "iPhone-bilder lagres som HEIC, som ikke kan beskjæres i nettleseren. Endre kamerainnstillingene til «Mest kompatibel» (Innstillinger > Kamera > Formater) eller velg et annet bilde.",
+      )
+      if (fileRef.current) fileRef.current.value = ""
+      return
+    }
     const url = URL.createObjectURL(file)
     setCropImage(url)
     if (fileRef.current) fileRef.current.value = ""
