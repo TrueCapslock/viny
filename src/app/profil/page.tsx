@@ -210,7 +210,7 @@ export default function ProfilePage() {
           <p className="text-xs text-wine-400 mt-1">wineapi.io gir utvidet vininformasjon. 100 kall/døgn på gratisplanen. Kan oppgraderes på wineapi.io.</p>
         </div>
 
-        <div>
+        <div className="hidden">
           <label className="block text-xs font-semibold text-wine-700 mb-1.5">OpenRouter API-nøkkel</label>
           <input
             value={openRouterKey}
@@ -227,7 +227,7 @@ export default function ProfilePage() {
           </p>
         </div>
 
-        <div>
+        <div className="hidden">
           <label className="block text-xs font-semibold text-wine-700 mb-1.5">Visuell modell (OpenRouter)</label>
           <input
             value={visionModel}
