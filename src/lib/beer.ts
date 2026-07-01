@@ -85,20 +85,23 @@ export function isBeerType(type: string) {
   return beerTypes.some((t) => t.key === type)
 }
 
-// One flat list of every filterable type key. Used by SearchAndFilter so
-// the user can filter by either wine or beer types regardless of mode
-// (was previously split per-mode — both modes now show all).
-const allTypeKeys: readonly string[] = [
-  "",
-  ...wineTypes.map((t) => t.key),
-  ...beerTypes.map((t) => t.key),
-]
+// Filter chip row ordering: the current mode's types lead so the most
+// likely filter is visible at the left edge of the horizontally-scrolling
+// chip row, then the other mode's types follow.
+const allBeerTypeKeys = beerTypes.map((t) => t.key)
+// Beer-mode chips never show the generic "Øl" entry — by definition, the
+// user is in beer mode and wants the specific sub-types (none of which
+// are represented by the "beer" generic key).
+const wineTypeKeysForBeerMode = wineTypes
+  .filter((t) => t.key !== "beer")
+  .map((t) => t.key)
+const wineTypeKeysForWineMode = wineTypes.map((t) => t.key)
 
-// Single source of truth for the filter chip row — every type is shown
-// regardless of mode (wine-mode users can still filter their beer entries
-// and vice versa).
-export function getFilterKeys() {
-  return allTypeKeys
+export function getFilterKeys(isBeer: boolean) {
+  if (isBeer) {
+    return ["", ...allBeerTypeKeys, ...wineTypeKeysForBeerMode]
+  }
+  return ["", ...wineTypeKeysForWineMode, ...allBeerTypeKeys]
 }
 
 // Short labels for the filter chip row — only the ones we have short

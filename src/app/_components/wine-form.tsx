@@ -225,9 +225,18 @@ export function WineForm({
               >
                 <option value="">Velg type...</option>
                 {isBeer ? (
-                  // Grouped beer-style dropdown (no wine options while in
-                  // beer mode — keeps the choice coherent).
+                  // Beer-mode dropdown: wine types first (no generic "Øl"
+                  // entry, since the user is already in beer mode and
+                  // should pick a specific sub-style) then the 6 grouped
+                  // beer sub-style optgroups.
                   <>
+                    <optgroup label="Vin">
+                      {wineTypes
+                        .filter((t) => t.key !== "beer")
+                        .map((t) => (
+                          <option key={t.key} value={t.key}>{t.label}</option>
+                        ))}
+                    </optgroup>
                     {beerTypeGroups.map((group) => {
                       const items = beerTypes.filter((t) => t.group === group)
                       if (items.length === 0) return null

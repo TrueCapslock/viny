@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
 import { filterLabel, getFilterKeys } from "@/lib/beer"
@@ -17,7 +17,7 @@ export function SearchAndFilter({
   const { isBeer } = useBeerMode()
   const [query, setQuery] = useState(initialQuery)
   const [active, setActive] = useState(initialType)
-  const filterKeys = getFilterKeys()
+  const filterKeys = useMemo(() => getFilterKeys(isBeer), [isBeer])
 
   function apply(q: string, t: string) {
     const params = new URLSearchParams()
