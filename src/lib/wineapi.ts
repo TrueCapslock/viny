@@ -177,48 +177,6 @@ export async function getWineDetail(
   }
 }
 
-// POST /identify/image -- wine label/bottle identification by photo.
-// Endpoint accepts multipart/form-data with an `image` field (jpg/png/webp,
-// up to ~5MB). The API returns a ranked list of candidate matches, each
-// carrying a confidence `score` (0-1) and a `wine` sub-object. See
-// https://wineapi.io/docs/tag/identification/POST/identify/image
-// Note: deliberately NO `/v4/` prefix -- wineapi.io's other endpoints
-// (/wines/search, /wines/:id) don't carry a version segment in the URL,
-// so we match the convention here. v0.10.0 used /v4/identify/image and
-// wineapi.io returned 405 Method Not Allowed (caught with /v4/ removed).
-export type WineapiIdentifyMatchItem = {
-  wine: {
-    id: number
-    name: string
-    vintage: number | null
-    winery: string | null
-  }
-  score: number
-  region: string | null
-  varietal: string | null
-}
-
-const IDENTIFY_ENVELOPE_KEYS = [
-  "results",
-  "matches",
-  "wines",
-  "data",
-  "items",
-  "payload",
-  "records",
-] as const
-
-function findIdentifyArray(data: unknown): unknown[] | null {
-  if (Array.isArray(data)) return data
-  if (data && typeof data === "object") {
-    for (const key of IDENTIFY_ENVELOPE_KEYS) {
-      const candidate = (data as Record<string, unknown>)[key]
-      if (Array.isArray(candidate)) return candidate
-    }
-  }
-  return null
-}
-
 /**
  * Build a diagnostic-rich WineapiError from a non-2xx response. Reads
  * the body (truncated to 300 chars) and folds status + statusText +
@@ -251,45 +209,4 @@ async function formatHttpError(
     `wineapi.io ${method} ${path} -> ${res.status} ${res.statusText}${suffix}`,
     res.status,
   )
-}
-
-export async function identifyWineByImage(
-  apiKey: string,
-  image: ArrayBuffer,
-  contentType: string,
-): Promise<WineapiIdentifyMatchItem[]> {
-  const fd = new FormData()
-  // The wineapi server expects a multipart field named `image`. We
-  // never set Content-Type ourselves -- fetch appends the proper
-  // `multipart/form-data; boundary=...` header automatically.
-  fd.set("image", new Blob([image], { type: contentType }))
-
-  const path = "/identify/image"
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method: "POST",
-    headers: { "x-api-key": apiKey },
-    body: fd,
-  })
-
-  if (!res.ok) {
-    throw await formatHttpError("POST", path, res)
-  }
-
-  const data: unknown = await res.json()
-  const array = findIdentifyArray(data)
-  if (!array) {
-    console.warn(
-      "[wineapi/identify] unrecognized response shape; expected bare array or envelope with one of: " +
-        IDENTIFY_ENVELOPE_KEYS.join(", "),
-      {
-        topLevelType: Array.isArray(data) ? "array" : typeof data,
-        topLevelKeys:
-          data && typeof data === "object"
-            ? Object.keys(data as Record<string, unknown>)
-            : null,
-      },
-    )
-    return []
-  }
-  return array as WineapiIdentifyMatchItem[]
 }

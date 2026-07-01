@@ -5,6 +5,7 @@ import { WineForm } from "@/app/_components/wine-form"
 import { VinmonopoletSearch } from "@/app/_components/vinmonopolet-search"
 import { ModeLogo } from "@/app/_components/mode-text"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
+import { recognizeLabel, disposeLabelWorker } from "@/lib/ocr"
 
 type Prefill = {
   name: string
@@ -27,16 +28,19 @@ type WineapiHit = {
   averageRating: number | null
 }
 
-type PhotoIdentifyMatch = {
-  wine: {
-    id: number
-    name: string
-    vintage: number | null
-    winery: string | null
-  }
-  score: number
-  region: string | null
-  varietal: string | null
+type PhotoStatus =
+  | "idle"
+  | "ocr"
+  | "searching"
+  | "done"
+  | "no-text"
+  | "error"
+
+/** Friendly Norwegian label for the current OCR progress bucket. */
+function ocrProgressLabel(progress: number): string {
+  if (progress < 0.3) return "Forbereder tekstgjenkjenning\u2026"
+  if (progress < 0.7) return "Klargj\u00f8r bilde\u2026"
+  return "Leser tekst\u2026"
 }
 
 export default function NewWinePage() {
@@ -48,18 +52,15 @@ export default function NewWinePage() {
   const [noKey, setNoKey] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
-  // Photo-identification state. `photoResults === null` means the user
-  // hasn't picked a photo yet; an empty array means they did and the
-  // service returned nothing.
+  // Photo / OCR state -- the tesseract.js worker is module-singleton
+  // inside @/lib/ocr; we only own UI state here.
   const photoInputRef = useRef<HTMLInputElement>(null)
-  const [photoResults, setPhotoResults] = useState<PhotoIdentifyMatch[] | null>(null)
-  const [photoLoading, setPhotoLoading] = useState(false)
-  const [photoError, setPhotoError] = useState<string | null>(null)
   const [photoThumb, setPhotoThumb] = useState<string | null>(null)
-  // Mirrors the wineapi text-search `noKey` affordance -- a dedicated
-  // boolean that renders an amber "Legg til i profilen" hint instead of
-  // a generic red error when the user lacks an API key.
-  const [photoNoKey, setPhotoNoKey] = useState(false)
+  const [photoStatus, setPhotoStatus] = useState<PhotoStatus>("idle")
+  const [photoProgress, setPhotoProgress] = useState(0)
+  const [photoExtracted, setPhotoExtracted] = useState<string | null>(null)
+  const [photoVintage, setPhotoVintage] = useState<string | null>(null)
+  const [photoError, setPhotoError] = useState<string | null>(null)
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [prefill, setPrefill] = useState<Prefill | null>(null)
@@ -78,16 +79,16 @@ export default function NewWinePage() {
       const res = await fetch(`/api/wineapi/search?q=${encodeURIComponent(q)}`)
       if (res.status === 400) {
         const data = await res.json()
-        if (data.error?.includes("API-nøkkel")) {
+        if (data.error?.includes("API-n\u00f8kkel")) {
           setNoKey(true)
           setWineapiResults([])
           return
         }
-        throw new Error(data.error ?? "Søk feilet")
+        throw new Error(data.error ?? "S\u00f8k feilet")
       }
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.error ?? "Søk feilet")
+        throw new Error(data.error ?? "S\u00f8k feilet")
       }
       const data = await res.json()
       setWineapiResults(data)
@@ -120,87 +121,76 @@ export default function NewWinePage() {
     setWineapiResults([])
   }
 
-  // Photo-identify handlers
+  // -------------------------------------------------------------------------
+  // Photo / OCR handlers. The tesseract.js worker lives in @/lib/ocr as a
+  // module-level singleton so the first run pays a 5-10s cold start
+  // (lang-data download + WASM), and retries are cheap.
+  // -------------------------------------------------------------------------
+
   function handlePhotoClick() {
     setPhotoError(null)
-    setPhotoNoKey(false)
-    setPhotoResults(null)
+    setPhotoExtracted(null)
+    setPhotoVintage(null)
+    setPhotoStatus("idle")
     photoInputRef.current?.click()
   }
 
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    // Allow re-picking the same file later by clearing the input value.
     e.target.value = ""
     if (!file) return
 
     setPhotoError(null)
-    setPhotoResults(null)
-    setPhotoLoading(true)
+    setPhotoExtracted(null)
+    setPhotoVintage(null)
+    setPhotoProgress(0)
+    setPhotoStatus("ocr")
 
-    // Keep a tiny URL.createObjectURL preview so the user sees what they
-    // submitted; revoke it when a match is picked or we replace it.
     if (photoThumb) URL.revokeObjectURL(photoThumb)
     setPhotoThumb(URL.createObjectURL(file))
 
     try {
-      const fd = new FormData()
-      fd.set("image", file)
-      const res = await fetch("/api/wineapi/identify", { method: "POST", body: fd })
-      if (res.status === 400) {
-        const data = await res.json().catch(() => null)
-        if (typeof data?.error === "string" && data.error.includes("API-nøkkel")) {
-          setPhotoNoKey(true)
-          setPhotoResults([])
-          return
-        }
-        throw new Error(data?.error ?? "Identifisering feilet")
+      const ocr = await recognizeLabel(file, ({ progress }) =>
+        setPhotoProgress(progress),
+      )
+      if (!ocr.query) {
+        setPhotoStatus("no-text")
+        return
       }
-      if (!res.ok) {
-        const data = await res.json().catch(() => null)
-        throw new Error(data?.error ?? "Identifisering feilet")
-      }
-      setPhotoNoKey(false)
-      const data: PhotoIdentifyMatch[] = await res.json()
-      setPhotoResults(data)
-      // Note: photoNoKey stays false here because handlePhotoClick already
-      // reset it before opening the picker, so the noKey path can't carry
-      // into a successful response.
-      if (data.length === 0) {
-        setPhotoError("Ingen treff. Prøv et skarpere bilde av etiketten.")
-      }
+      setPhotoExtracted(ocr.query)
+      setPhotoVintage(ocr.vintage)
+      // Pipe the cleaned OCR query into the existing text-search so the
+      // wineapiResults list / prefill flow below is shared with the
+      // manual search box.
+      setPhotoStatus("searching")
+      setWineapiQuery(ocr.query)
+      await searchWineapi(ocr.query)
+      setPhotoStatus("done")
     } catch (err) {
-      setPhotoError(err instanceof Error ? err.message : "Ukjent feil")
-      setPhotoResults([])
+      setPhotoError(
+        err instanceof Error
+          ? err.message
+          : "Tekstgjenkjenning feilet. Bruk s\u00f8ket over.",
+      )
+      setPhotoStatus("error")
     }
-    setPhotoLoading(false)
   }
 
-  // Release any object URL we created for the photo thumbnail when it
-  // changes (or the page unmounts) to avoid leaking the underlying Blob.
-  // Pairs with the explicit revoke inside handlePhotoChange -- that one
-  // covers the user-picks-again case; this one covers the
-  // page-unmounts case.
+  // Release the photo thumbnail blob URL when it changes (user picks
+  // again) or when the page unmounts.
   useEffect(() => {
     return () => {
       if (photoThumb) URL.revokeObjectURL(photoThumb)
     }
   }, [photoThumb])
 
-  function handlePhotoMatchSelect(match: PhotoIdentifyMatch) {
-    setSelectedId(null)
-    setPrefill({
-      name: match.wine.name,
-      producer: match.wine.winery ?? "",
-      vintage: match.wine.vintage?.toString() ?? "",
-      varietal: match.varietal ?? "",
-      region: match.region ?? "",
-      country: "",
-      type: "",
-    })
-    setShowForm(true)
-    // Keep the photo thumbnail visible until the user picks again.
-  }
+  // Tear down the singleton OCR worker on page unmount so a 10MB+
+  // Worker + WASM + lang-data buffers don't leak past navigation.
+  useEffect(() => {
+    return () => {
+      disposeLabelWorker()
+    }
+  }, [])
 
   function handleVinmonopoletSelect(product: { productId: string; productShortName: string }) {
     if (!product.productId) {
@@ -216,14 +206,16 @@ export default function NewWinePage() {
     setShowForm(true)
   }
 
+  const isPhotoBusy = photoStatus === "ocr" || photoStatus === "searching"
+
   return (
     <div className="flex-1 flex flex-col">
       <div className="bg-wine-gradient text-white px-4 pt-1 pb-10 relative">
         <div className="flex items-center gap-3 mb-2">
           <ModeLogo className="w-9 h-9" />
           <div>
-            <h1 className="text-xl font-bold">{isBeer ? "Nytt øl" : "Ny vin"}</h1>
-            <p className="text-wine-200 text-sm">{isBeer ? "Søk etter øl eller fyll inn manuelt" : "Søk etter vin eller fyll inn manuelt"}</p>
+            <h1 className="text-xl font-bold">{isBeer ? "Nytt \u00f8l" : "Ny vin"}</h1>
+            <p className="text-wine-200 text-sm">{isBeer ? "S\u00f8k etter \u00f8l eller fyll inn manuelt" : "S\u00f8k etter vin eller fyll inn manuelt"}</p>
           </div>
         </div>
       </div>
@@ -232,13 +224,13 @@ export default function NewWinePage() {
         <div className="bg-white rounded-2xl border border-cream-200 p-5 shadow-sm space-y-4">
           <div className="space-y-2">
             <label className="block text-xs font-semibold text-wine-500 uppercase tracking-wider">
-              {isBeer ? "Søk etter øl" : "Søk etter vin"}
+              {isBeer ? "S\u00f8k etter \u00f8l" : "S\u00f8k etter vin"}
             </label>
             <div className="relative">
               <input
                 value={wineapiQuery}
                 onChange={(e) => handleWineapiQuery(e.target.value)}
-                placeholder={isBeer ? "Søk etter øl, produsent..." : "Søk etter vin, produsent..."}
+                placeholder={isBeer ? "S\u00f8k etter \u00f8l, produsent..." : "S\u00f8k etter vin, produsent..."}
                 className="w-full rounded-xl border border-cream-200 bg-cream-50 pl-10 pr-4 py-2.5 text-sm text-wine-900 placeholder-wine-300 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none transition-all"
               />
               <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-wine-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -250,13 +242,13 @@ export default function NewWinePage() {
               {wineapiLoading && (
                 <span className="flex items-center gap-2 text-xs text-wine-400">
                   <span className="w-3 h-3 border-2 border-wine-300 border-t-transparent rounded-full animate-spin" />
-                  Søker...
+                  S\u00f8ker...
                 </span>
               )}
               {wineapiError && <p className="text-xs text-red-500">{wineapiError}</p>}
               {noKey && (
                 <p className="text-xs text-amber-600">
-                  Ingen wineapi.io-nøkkel funnet.{isBeer ? "" : " "}
+                  Ingen wineapi.io-n\u00f8kkel funnet.{" "}
                   <a href="/profil" className="underline hover:text-amber-800">Legg til i profilen</a>
                 </p>
               )}
@@ -293,8 +285,11 @@ export default function NewWinePage() {
             </div>
           )}
 
-          {/* Photo-identification section -- uses the same wineapi key but
-              wineapi.io /identify/image to OCR the bottle label. */}
+          {/* Photo / OCR section -- user picks a JPG/PNG/WebP, we run
+              tesseract.js client-side (eng+nor) and pipe the cleaned
+              query into the wineapi search above. No API key needed
+              for OCR itself, only for the search step (noKey UX
+              already shown in the search card). */}
           <input
             ref={photoInputRef}
             type="file"
@@ -305,17 +300,17 @@ export default function NewWinePage() {
           <button
             type="button"
             onClick={handlePhotoClick}
-            disabled={photoLoading}
+            disabled={isPhotoBusy}
             className="w-full flex items-center justify-center gap-2 rounded-xl border border-cream-200 bg-white px-4 py-2.5 text-sm font-medium text-wine-600 hover:border-wine-300 hover:bg-wine-50 transition-all disabled:opacity-50"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h3l2-2h8l2 2h3a2 2 0 012 2v9a2 2 0 01-2 2H3a2 2 0 01-2-2V9a2 2 0 012-2zm9 3a4 4 0 100 8 4 4 0 000-8z" />
             </svg>
-            {photoLoading
-              ? "Identifiserer..."
-              : isBeer
-                ? "Identifiser fra bilde av etikett"
-                : "Identifiser fra bilde av etikett"}
+            {photoStatus === "ocr"
+              ? `Leser etiketten\u2026 ${Math.round(photoProgress * 100)}%`
+              : photoStatus === "searching"
+                ? "S\u00f8ker i vinregister\u2026"
+                : "Skann etikett med tekstgjenkjenning"}
           </button>
 
           {photoThumb && (
@@ -325,79 +320,50 @@ export default function NewWinePage() {
                 alt="Innsendt bilde"
                 className="w-20 h-20 rounded-xl object-cover border border-cream-200 shadow-sm shrink-0"
               />
-              <div className="flex-1 min-w-[0] text-xs text-wine-500">
-                {photoLoading && (
-                  <span className="flex items-center gap-2">
+              <div className="flex-1 min-w-[0] text-xs space-y-2 text-wine-500">
+                {photoStatus === "ocr" && (
+                  <>
+                    <div className="h-1.5 bg-cream-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-wine-400 transition-all duration-300"
+                        style={{ width: `${Math.round(photoProgress * 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-[10px] uppercase tracking-wider text-wine-400">
+                      {ocrProgressLabel(photoProgress)}
+                    </p>
+                  </>
+                )}
+                {photoStatus === "searching" && (
+                  <span className="flex items-center gap-2 text-wine-400">
                     <span className="w-3 h-3 border-2 border-wine-300 border-t-transparent rounded-full animate-spin" />
-                    wineapi.io ser på etiketten...
+                    S\u00f8ker i wineapi.io\u2026
                   </span>
                 )}
-                {photoError && !photoLoading && (
-                  <p className="text-red-500">{photoError}</p>
-                )}
-                {photoResults && !photoLoading && !photoError && !photoNoKey && (
+                {photoStatus === "done" && photoExtracted && (
                   <p>
-                    {photoResults.length === 1
-                      ? "1 forslag -- trykk for å fylle ut skjemaet."
-                      : `${photoResults.length} forslag sortert etter treffsikkerhet.`}
+                    Lest av etikett:{" "}
+                    <span className="font-medium text-wine-700">{photoExtracted}</span>
+                    {photoVintage && (
+                      <span className="ml-1 text-wine-400">(\u00e5rgang {photoVintage})</span>
+                    )}
                   </p>
                 )}
-                {photoNoKey && !photoLoading && (
+                {photoStatus === "no-text" && (
                   <p className="text-amber-600">
-                    Ingen wineapi.io-nøkkel funnet.{" "}
-                    <a href="/profil" className="underline hover:text-amber-800">Legg til i profilen</a>
+                    Klarte ikke \u00e5 lese etiketten. Bruk s\u00f8ket over eller fyll inn manuelt.
                   </p>
+                )}
+                {photoStatus === "error" && (
+                  <p className="text-red-500">{photoError}</p>
                 )}
               </div>
             </div>
           )}
 
-          {photoResults && photoResults.length > 0 && (
-            <div className="max-h-80 overflow-y-auto rounded-xl border border-cream-200 bg-white shadow-lg shadow-wine-900/5 animate-fade-in">
-              {photoResults.map((match, idx) => (
-                <button
-                  // Each match has no stable id from wineapi for the OCR list
-                  // (only the nested wine.id, which isn't always unique-ish),
-                  // so use the index as key after a stable stringification.
-                  key={`${match.wine.id}-${match.wine.vintage ?? "-"}-${match.wine.winery ?? "-"}-${idx}`}
-                  onClick={() => handlePhotoMatchSelect(match)}
-                  className="w-full text-left px-4 py-3 text-sm border-b border-cream-100 last:border-0 hover:bg-cream-50 transition-colors"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <span className="font-medium text-wine-800">{match.wine.name}</span>
-                      {match.wine.vintage && (
-                        <span className="text-wine-500 ml-1">({match.wine.vintage})</span>
-                      )}
-                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
-                        {match.wine.winery && <span className="text-xs text-wine-500">{match.wine.winery}</span>}
-                        {match.region && <span className="text-xs text-wine-400">{match.region}</span>}
-                        {match.varietal && <span className="text-xs text-wine-400">{match.varietal}</span>}
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <span
-                        className={`text-[10px] font-semibold tabular-nums px-2 py-0.5 rounded-full ${
-                          match.score >= 0.7
-                            ? "bg-gold-100 text-gold-700"
-                            : match.score >= 0.4
-                              ? "bg-cream-100 text-cream-700"
-                              : "bg-wine-50 text-wine-500"
-                        }`}
-                      >
-                        {Math.round(match.score * 100)}%
-                      </span>
-                      <p className="text-[10px] text-wine-400 mt-1 uppercase tracking-wider">match</p>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-
           <details className="group">
             <summary className="text-xs text-wine-500 cursor-pointer hover:text-wine-700 transition-colors select-none">
-              Søk i Vinmonopolet som fallback
+              S\u00f8k i Vinmonopolet som fallback
             </summary>
             <div className="mt-3">
               <VinmonopoletSearch selectedId={selectedId} onSelect={handleVinmonopoletSelect} />
