@@ -58,7 +58,7 @@ export function BottomNav() {
               {isActive && (
                 <span className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-wine-600" />
               )}
-              <Icon className="w-5 h-6" />
+              <Icon className="w-6 h-6" />
               <span className="text-[10px] font-medium">{tab.label}</span>
             </Link>
           )
