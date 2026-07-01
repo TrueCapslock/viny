@@ -14,6 +14,7 @@ export function TastingFormDialog({ wineId }: { wineId: number }) {
   const [foodPairing, setFoodPairing] = useState("")
   const [pricePaid, setPricePaid] = useState("")
   const [location, setLocation] = useState("")
+  const [comment, setComment] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
@@ -28,12 +29,13 @@ export function TastingFormDialog({ wineId }: { wineId: number }) {
       body: JSON.stringify({
         wineId,
         rating: rating || null,
-        nose: nose || null,
-        palate: palate || null,
-        finish: finish || null,
-        foodPairing: foodPairing || null,
+        nose: nose?.trim() || null,
+        palate: palate?.trim() || null,
+        finish: finish?.trim() || null,
+        foodPairing: foodPairing?.trim() || null,
         pricePaid: pricePaid ? parseFloat(pricePaid) : null,
-        location: location || null,
+        location: location?.trim() || null,
+        comment: comment?.trim() || null,
       }),
     })
     if (res.ok) {
@@ -45,6 +47,7 @@ export function TastingFormDialog({ wineId }: { wineId: number }) {
       setFoodPairing("")
       setPricePaid("")
       setLocation("")
+      setComment("")
       router.refresh()
     } else {
       setError("Noe gikk galt")
@@ -136,6 +139,17 @@ export function TastingFormDialog({ wineId }: { wineId: number }) {
                     placeholder="Hjemme"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-wine-700 mb-1">Generelle notater</label>
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  rows={3}
+                  className={inputClass + " resize-none"}
+                  placeholder="Andre observasjoner, kontekst, hvem du delte vinen med..."
+                />
               </div>
 
               {error && (

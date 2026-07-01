@@ -31,12 +31,13 @@ export async function POST(request: Request) {
     data: {
       wineId: body.wineId,
       rating: body.rating || null,
-      nose: body.nose || null,
-      palate: body.palate || null,
-      finish: body.finish || null,
-      foodPairing: body.foodPairing || null,
+      nose: body.nose?.trim() || null,
+      palate: body.palate?.trim() || null,
+      finish: body.finish?.trim() || null,
+      foodPairing: body.foodPairing?.trim() || null,
       pricePaid: body.pricePaid || null,
-      location: body.location || null,
+      location: body.location?.trim() || null,
+      comment: body.comment?.trim() || null,
     },
   })
   return NextResponse.json(tasting, { status: 201 })

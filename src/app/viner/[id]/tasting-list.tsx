@@ -8,7 +8,7 @@ export function TastingList({ tastings }: { tastings: Tasting[] }) {
   const [expanded, setExpanded] = useState<Record<number, boolean>>(() => {
     if (tastings.length === 0) return {}
     const first = tastings[0]
-    const firstHasContent = first.nose || first.palate || first.finish || first.foodPairing || first.pricePaid
+    const firstHasContent = first.nose || first.palate || first.finish || first.foodPairing || first.pricePaid || first.comment
     return firstHasContent ? { [first.id]: true } : {}
   })
 
@@ -34,7 +34,7 @@ export function TastingList({ tastings }: { tastings: Tasting[] }) {
     <div className="space-y-3">
       {tastings.map((tasting) => {
         const isOpen = expanded[tasting.id] ?? false
-        const hasContent = tasting.nose || tasting.palate || tasting.finish || tasting.foodPairing || tasting.pricePaid
+        const hasContent = tasting.nose || tasting.palate || tasting.finish || tasting.foodPairing || tasting.pricePaid || tasting.comment
         return (
           <div
             key={tasting.id}
@@ -122,6 +122,12 @@ export function TastingList({ tastings }: { tastings: Tasting[] }) {
                     <div>
                       <span className="text-[10px] font-semibold text-wine-400 uppercase tracking-widest">Mat</span>
                       <p className="mt-0.5 leading-relaxed">{tasting.foodPairing}</p>
+                    </div>
+                  )}
+                  {tasting.comment && (
+                    <div>
+                      <span className="text-[10px] font-semibold text-wine-400 uppercase tracking-widest">Notater</span>
+                      <p className="mt-0.5 leading-relaxed whitespace-pre-wrap">{tasting.comment}</p>
                     </div>
                   )}
                   {tasting.pricePaid && (

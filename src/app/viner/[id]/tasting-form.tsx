@@ -14,6 +14,7 @@ export function TastingForm({ wineId }: { wineId: number }) {
     foodPairing: "",
     pricePaid: "",
     location: "",
+    comment: "",
   })
   const [saving, setSaving] = useState(false)
 
@@ -23,15 +24,22 @@ export function TastingForm({ wineId }: { wineId: number }) {
     const res = await fetch("/api/smaking", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      // NOTE: if you add a field to the form state above, also add it here
+      // (the `...form` spread was removed so each field is trimmed explicitly).
       body: JSON.stringify({
-        ...form,
         wineId,
         rating: form.rating || null,
+        nose: form.nose?.trim() || null,
+        palate: form.palate?.trim() || null,
+        finish: form.finish?.trim() || null,
+        foodPairing: form.foodPairing?.trim() || null,
         pricePaid: form.pricePaid ? parseFloat(form.pricePaid) : null,
+        location: form.location?.trim() || null,
+        comment: form.comment?.trim() || null,
       }),
     })
     if (res.ok) {
-      setForm({ rating: 0, nose: "", palate: "", finish: "", foodPairing: "", pricePaid: "", location: "" })
+      setForm({ rating: 0, nose: "", palate: "", finish: "", foodPairing: "", pricePaid: "", location: "", comment: "" })
       router.refresh()
     }
     setSaving(false)
@@ -100,6 +108,16 @@ export function TastingForm({ wineId }: { wineId: number }) {
           onChange={(e) => setForm({ ...form, foodPairing: e.target.value })}
           className="w-full rounded-xl border border-cream-200 bg-cream-50 px-3.5 py-2.5 text-sm text-wine-900 placeholder-wine-300 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none transition-all"
           placeholder="Hva spiste du til?"
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-semibold text-wine-700 mb-1">Generelle notater</label>
+        <textarea
+          value={form.comment}
+          onChange={(e) => setForm({ ...form, comment: e.target.value })}
+          rows={3}
+          className="w-full rounded-xl border border-cream-200 bg-cream-50 px-3.5 py-2.5 text-sm text-wine-900 placeholder-wine-300 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none transition-all resize-none"
+          placeholder="Andre observasjoner, kontekst, hvem du delte vinen med..."
         />
       </div>
       <button

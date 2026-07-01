@@ -90,6 +90,7 @@ model Tasting {
   foodPairing String?
   pricePaid   Float?
   location    String?
+  comment     String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   wineId      Int

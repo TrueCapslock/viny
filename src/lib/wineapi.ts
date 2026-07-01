@@ -31,32 +31,66 @@ export class WineapiError extends Error {
   }
 }
 
+const ENVELOPE_KEYS = [
+  "wines",
+  "results",
+  "data",
+  "hits",
+  "items",
+  "payload",
+  "records",
+  "result",
+] as const
+
 /**
- * Extract a results array from a wineapi.io response, handling both
- * a bare JSON array and the common envelope shapes
- * (`{ wines: [...] }`, `{ results: [...] }`, `{ data: [...] }`).
- * Returns [] if no array can be located, so the caller renders an
- * empty results state instead of crashing with a TypeError. Logs a
- * warning with the actual top-level keys on mismatch so a future
- * API shape change is detectable from the dev server logs.
+ * Find an array of wines in an unknown JSON value, checking common
+ * envelope keys (`wines`, `results`, `data`, `hits`, `items`, `payload`,
+ * `records`, `result`) at the current level and one level deep. Returns
+ * the first matching array, or null.
  */
-function pickResults(data: unknown): WineapiSearchResult[] {
-  if (Array.isArray(data)) return data as WineapiSearchResult[]
+function findWinesArray(data: unknown): unknown[] | null {
+  if (Array.isArray(data)) return data
   if (data && typeof data === "object") {
-    for (const key of ["wines", "results", "data"] as const) {
+    for (const key of ENVELOPE_KEYS) {
       const candidate = (data as Record<string, unknown>)[key]
-      if (Array.isArray(candidate)) return candidate as WineapiSearchResult[]
+      if (Array.isArray(candidate)) return candidate
     }
-    console.warn(
-      "[wineapi/search] unrecognized response shape; expected array under one of: wines, results, data",
-      { topLevelKeys: Object.keys(data as Record<string, unknown>) },
-    )
-  } else {
-    console.warn(
-      "[wineapi/search] unrecognized response shape; expected array or object, got",
-      typeof data,
-    )
+    for (const value of Object.values(data as Record<string, unknown>)) {
+      if (value && typeof value === "object") {
+        for (const key of ENVELOPE_KEYS) {
+          const candidate = (value as Record<string, unknown>)[key]
+          if (Array.isArray(candidate)) return candidate
+        }
+      }
+    }
   }
+  return null
+}
+
+/**
+ * Extract a results array from a wineapi.io response, handling bare
+ * arrays, common envelope keys (see `findWinesArray`) at the top level
+ * and one level deep. Returns [] if no array can be located, so the
+ * caller renders an empty results state instead of crashing with a
+ * TypeError. Logs a warning with the actual top-level keys and a
+ * truncated body preview on mismatch so a future API shape change is
+ * diagnosable from the dev server logs.
+ */
+function pickResults(data: unknown, rawBody: string): WineapiSearchResult[] {
+  const array = findWinesArray(data)
+  if (array) return array as WineapiSearchResult[]
+  console.warn(
+    "[wineapi/search] unrecognized response shape; expected bare array or envelope with one of: " +
+      ENVELOPE_KEYS.join(", "),
+    {
+      topLevelType: Array.isArray(data) ? "array" : typeof data,
+      topLevelKeys:
+        data && typeof data === "object"
+          ? Object.keys(data as Record<string, unknown>)
+          : null,
+      bodyPreview: rawBody.slice(0, 800),
+    },
+  )
   return []
 }
 
@@ -80,8 +114,27 @@ export async function searchWines(
     )
   }
 
-  const data = await res.json()
-  return pickResults(data).map((item: WineapiSearchResult) => ({
+  // Read the body as text first so we can both parse it AND log a preview
+  // on parse failure or unrecognized shape.
+  const text = await res.text()
+  let data: unknown
+  try {
+    data = JSON.parse(text)
+  } catch (parseError) {
+    console.error(
+      "[wineapi/search] failed to parse JSON response from wineapi.io",
+      {
+        status: res.status,
+        contentType: res.headers.get("content-type"),
+        bodyPreview: text.slice(0, 500),
+      },
+    )
+    throw new WineapiError(
+      `Invalid JSON from wineapi.io: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+      502,
+    )
+  }
+  return pickResults(data, text).map((item: WineapiSearchResult) => ({
     id: item.id,
     name: item.name,
     vintage: item.vintage ?? null,
