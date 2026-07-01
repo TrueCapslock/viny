@@ -74,7 +74,7 @@ export function SearchAndFilter({
             {isBeer && idx === 1 + beerTypes.length && (
               <span
                 aria-hidden="true"
-                className="shrink-0 w-px h-5 bg-cream-300 rounded-full"
+                className="shrink-0 w-px h-5 bg-cream-300"
               />
             )}
             <button
