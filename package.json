@@ -1,6 +1,6 @@
 {
   "name": "viny",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -26,7 +26,8 @@
     "prisma": "^7.8.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "swr": "^2.4.1"
+    "swr": "^2.4.1",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@hartvig/developer-control-center": "^0.8.6",
