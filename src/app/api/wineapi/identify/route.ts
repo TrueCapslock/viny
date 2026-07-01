@@ -5,7 +5,7 @@ import { identifyWineByImage, WineapiError } from "@/lib/wineapi"
 
 // POST /api/wineapi/identify -- accepts a multipart/form-data upload with
 // a single `image` field (jpg/png/webp, max ~5MB per wineapi.io) and
-// proxies it to https://api.wineapi.io/v4/identify/image, authenticating
+// proxies it to https://api.wineapi.io/identify/image, authenticating
 // with the caller's saved wineapiKey. The user key never reaches the
 // browser. Returns a JSON array of match candidates with confidence
 // scores so the client can show ranked suggestions.

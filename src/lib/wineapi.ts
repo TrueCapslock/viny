@@ -108,10 +108,7 @@ export async function searchWines(
   })
 
   if (!res.ok) {
-    throw new WineapiError(
-      `wineapi.io error: ${res.statusText}`,
-      res.status,
-    )
+    throw await formatHttpError("GET", url.pathname, res)
   }
 
   // Read the body as text first so we can both parse it AND log a preview
@@ -156,10 +153,7 @@ export async function getWineDetail(
 
   if (!res.ok) {
     if (res.status === 404) return null
-    throw new WineapiError(
-      `wineapi.io error: ${res.statusText}`,
-      res.status,
-    )
+    throw await formatHttpError("GET", `/wines/${wineId}`, res)
   }
 
   const item = await res.json()
@@ -183,11 +177,15 @@ export async function getWineDetail(
   }
 }
 
-// POST /v4/identify/image — wine label/bottle identification by photo.
+// POST /identify/image -- wine label/bottle identification by photo.
 // Endpoint accepts multipart/form-data with an `image` field (jpg/png/webp,
-// up to 5MB). The API returns a ranked list of candidate matches, each
-// carrying a confidence `score` (0–1) and a `wine` sub-object. See
+// up to ~5MB). The API returns a ranked list of candidate matches, each
+// carrying a confidence `score` (0-1) and a `wine` sub-object. See
 // https://wineapi.io/docs/tag/identification/POST/identify/image
+// Note: deliberately NO `/v4/` prefix -- wineapi.io's other endpoints
+// (/wines/search, /wines/:id) don't carry a version segment in the URL,
+// so we match the convention here. v0.10.0 used /v4/identify/image and
+// wineapi.io returned 405 Method Not Allowed (caught with /v4/ removed).
 export type WineapiIdentifyMatchItem = {
   wine: {
     id: number
@@ -221,6 +219,40 @@ function findIdentifyArray(data: unknown): unknown[] | null {
   return null
 }
 
+/**
+ * Build a diagnostic-rich WineapiError from a non-2xx response. Reads
+ * the body (truncated to 300 chars) and folds status + statusText +
+ * method + path into the message so the next 405 / 404 / 5xx surfaces
+ * the upstream's actual reply instead of just "Method Not Allowed".
+ * For 405 specifically, also surfaces the upstream `Allow` header
+ * (per RFC 7231 the server MUST list the accepted methods there) --
+ * that's how we'll know whether to switch from POST to GET, or to a
+ * different content-type, on the next iteration. Swallows body-read
+ * errors so we never mask the original failure.
+ */
+async function formatHttpError(
+  method: string,
+  path: string,
+  res: Response,
+): Promise<WineapiError> {
+  let body = ""
+  try {
+    body = (await res.text()).slice(0, 300)
+  } catch {
+    // Body read failed -- keep the message informative without body.
+  }
+  let allowInfo = ""
+  if (res.status === 405) {
+    const allowed = res.headers.get("allow")
+    if (allowed) allowInfo = ` (allowed: ${allowed})`
+  }
+  const suffix = body || allowInfo ? `: ${body}${allowInfo}` : ""
+  return new WineapiError(
+    `wineapi.io ${method} ${path} -> ${res.status} ${res.statusText}${suffix}`,
+    res.status,
+  )
+}
+
 export async function identifyWineByImage(
   apiKey: string,
   image: ArrayBuffer,
@@ -232,17 +264,15 @@ export async function identifyWineByImage(
   // `multipart/form-data; boundary=...` header automatically.
   fd.set("image", new Blob([image], { type: contentType }))
 
-  const res = await fetch(`${BASE_URL}/v4/identify/image`, {
+  const path = "/identify/image"
+  const res = await fetch(`${BASE_URL}${path}`, {
     method: "POST",
     headers: { "x-api-key": apiKey },
     body: fd,
   })
 
   if (!res.ok) {
-    throw new WineapiError(
-      `wineapi.io identify error: ${res.statusText}`,
-      res.status,
-    )
+    throw await formatHttpError("POST", path, res)
   }
 
   const data: unknown = await res.json()

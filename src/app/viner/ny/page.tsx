@@ -294,7 +294,7 @@ export default function NewWinePage() {
           )}
 
           {/* Photo-identification section -- uses the same wineapi key but
-              wineapi.io /v4/identify/image to OCR the bottle label. */}
+              wineapi.io /identify/image to OCR the bottle label. */}
           <input
             ref={photoInputRef}
             type="file"
