@@ -1,4 +1,4 @@
-const BASE_URL = "https://www.wineapi.io/api/v1"
+const BASE_URL = "https://api.wineapi.io"
 
 export type WineapiSearchResult = {
   id: number
