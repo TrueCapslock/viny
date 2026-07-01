@@ -182,3 +182,84 @@ export async function getWineDetail(
     description: item.description ?? null,
   }
 }
+
+// POST /v4/identify/image — wine label/bottle identification by photo.
+// Endpoint accepts multipart/form-data with an `image` field (jpg/png/webp,
+// up to 5MB). The API returns a ranked list of candidate matches, each
+// carrying a confidence `score` (0–1) and a `wine` sub-object. See
+// https://wineapi.io/docs/tag/identification/POST/identify/image
+export type WineapiIdentifyMatchItem = {
+  wine: {
+    id: number
+    name: string
+    vintage: number | null
+    winery: string | null
+  }
+  score: number
+  region: string | null
+  varietal: string | null
+}
+
+const IDENTIFY_ENVELOPE_KEYS = [
+  "results",
+  "matches",
+  "wines",
+  "data",
+  "items",
+  "payload",
+  "records",
+] as const
+
+function findIdentifyArray(data: unknown): unknown[] | null {
+  if (Array.isArray(data)) return data
+  if (data && typeof data === "object") {
+    for (const key of IDENTIFY_ENVELOPE_KEYS) {
+      const candidate = (data as Record<string, unknown>)[key]
+      if (Array.isArray(candidate)) return candidate
+    }
+  }
+  return null
+}
+
+export async function identifyWineByImage(
+  apiKey: string,
+  image: ArrayBuffer,
+  contentType: string,
+): Promise<WineapiIdentifyMatchItem[]> {
+  const fd = new FormData()
+  // The wineapi server expects a multipart field named `image`. We
+  // never set Content-Type ourselves -- fetch appends the proper
+  // `multipart/form-data; boundary=...` header automatically.
+  fd.set("image", new Blob([image], { type: contentType }))
+
+  const res = await fetch(`${BASE_URL}/v4/identify/image`, {
+    method: "POST",
+    headers: { "x-api-key": apiKey },
+    body: fd,
+  })
+
+  if (!res.ok) {
+    throw new WineapiError(
+      `wineapi.io identify error: ${res.statusText}`,
+      res.status,
+    )
+  }
+
+  const data: unknown = await res.json()
+  const array = findIdentifyArray(data)
+  if (!array) {
+    console.warn(
+      "[wineapi/identify] unrecognized response shape; expected bare array or envelope with one of: " +
+        IDENTIFY_ENVELOPE_KEYS.join(", "),
+      {
+        topLevelType: Array.isArray(data) ? "array" : typeof data,
+        topLevelKeys:
+          data && typeof data === "object"
+            ? Object.keys(data as Record<string, unknown>)
+            : null,
+      },
+    )
+    return []
+  }
+  return array as WineapiIdentifyMatchItem[]
+}
