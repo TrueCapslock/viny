@@ -55,7 +55,15 @@ export default function RootLayout({
         <Providers>
           <Sidebar />
           <Header />
-          <main className="flex-1 flex flex-col pb-20 lg:pb-6">
+          {/* lg:pl-[var(--sidebar-width)] is the source of truth for the
+              sidebar offset on desktop. globals.css additionally gates this
+              to 0 on /login|/register via html[data-sidebar-hidden] (and
+              sets padding-bottom:0 on those routes as well).
+              transition-[padding-left] (not transition-[padding]) so only
+              padding-left animates as the sidebar collapses/expands.
+              pb-20 stays for mobile (BottomNav clearance); lg:pb-6 is
+              not needed — both CSS branches override it at lg+. */}
+          <main className="flex-1 flex flex-col pb-20 lg:pl-[var(--sidebar-width,256px)] transition-[padding-left] duration-300 ease-in-out">
             {children}
           </main>
           <BottomNav />

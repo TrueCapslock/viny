@@ -238,13 +238,21 @@ body {
 }
 
 /* Desktop sidebar reserve space inside <main>.
- * <Sidebar> sets html[data-sidebar-hidden] on /login|/register so the
- * padding is skipped there (no blank 256/72px strip beside the form). */
+ * layout.tsx sets lg:pl-[var(--sidebar-width)] inline; this rule is a
+ * gate that explicitly zeroes the padding on /login|/register (where
+ * <Sidebar> sets html[data-sidebar-hidden]). Both branches scoped to
+ * min-width 1024px (Tailwind's lg breakpoint).
+ * Specificity: html[...]|main = 0,2,0 + media → wins over the 0,1,0
+ * Tailwind utility class when this rule applies. */
 @media (min-width: 1024px) {
   html:not([data-sidebar-hidden]) main {
-    padding-left: var(--sidebar-width, 256px);
     padding-bottom: 1.5rem;
-    transition: padding-left 300ms ease-in-out;
+  }
+  /* Zero BOTH sides on /login|/register so the form is vertically
+   * centered exactly the same way it is on mobile (no bottom-nav space). */
+  html[data-sidebar-hidden] main {
+    padding-left: 0;
+    padding-bottom: 0;
   }
 }
 

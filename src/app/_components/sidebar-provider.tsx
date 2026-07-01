@@ -39,14 +39,17 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  // Persist + sync CSS variable
+  // Persist + sync CSS variable. (The --sidebar-width custom property is the
+  // single source of truth for both the sidebar's own width [via Tailwind
+  // width classes] and the <main> content padding [referencing the var].)
   useEffect(() => {
     try {
       localStorage.setItem(SIDEBAR_STORAGE_KEY, collapsed ? "1" : "0")
     } catch {}
-    const root = document.documentElement
-    root.style.setProperty("--sidebar-width", collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED)
-    root.dataset.sidebarCollapsed = collapsed ? "true" : "false"
+    document.documentElement.style.setProperty(
+      "--sidebar-width",
+      collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED,
+    )
   }, [collapsed])
 
   const toggle = () => setCollapsed((c) => !c)
