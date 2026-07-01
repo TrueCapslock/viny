@@ -3,7 +3,49 @@ import Credentials from "next-auth/providers/credentials"
 import { compare } from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 
+// Auth.js v5 defaults cookie SameSite=Lax. The Freebuff Cloud preview embeds
+// the app in a cross-origin iframe, and browsers refuse to attach Lax
+// cookies to a cross-site POST — so the CSRF cookie set on
+// GET /api/auth/csrf never reaches POST /api/auth/callback/credentials and
+// the server raises MissingCSRF. SameSite=None; Secure fixes the iframe,
+// but Secure is rejected on http://localhost, so we only turn it on in
+// production. We also match NextAuth's production cookie-name prefixes
+// (__Secure- for session/callback, __Host- for csrf) so the names line up
+// with what proxy.ts and server-side auth() look for.
+const useSecureCookies = process.env.NODE_ENV === "production"
+const cookiePrefix = useSecureCookies ? "__Secure-" : ""
+const hostPrefix = useSecureCookies ? "__Host-" : ""
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  cookies: {
+    sessionToken: {
+      name: `${cookiePrefix}authjs.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: useSecureCookies ? "none" : "lax",
+        path: "/",
+        secure: useSecureCookies,
+      },
+    },
+    csrfToken: {
+      name: `${hostPrefix}authjs.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: useSecureCookies ? "none" : "lax",
+        path: "/",
+        secure: useSecureCookies,
+      },
+    },
+    callbackUrl: {
+      name: `${cookiePrefix}authjs.callback-url`,
+      options: {
+        httpOnly: true,
+        sameSite: useSecureCookies ? "none" : "lax",
+        path: "/",
+        secure: useSecureCookies,
+      },
+    },
+  },
   providers: [
     Credentials({
       credentials: {
