@@ -4,39 +4,105 @@ export const wineTypes = [
   { key: "sparkling", label: "Mousserende" },
   { key: "rose", label: "Rosé" },
   { key: "dessert", label: "Dessertvin" },
+  { key: "beer", label: "Øl" },
 ] as const
 
+// Comprehensive beer style list with display order: IPA -> Ale -> Lager
+// -> Hvete -> Mørk -> Spesial. `group` is the optgroup label rendered in
+// the wine form's type dropdown when in beer mode.
 export const beerTypes = [
-  { key: "beer_dark", label: "Mørkt øl" },
-  { key: "beer_light", label: "Lyst øl" },
-  { key: "beer_pilsner", label: "Pilsner" },
-  { key: "beer_wheat", label: "Hveteøl" },
-  { key: "beer_special", label: "Spesialøl" },
+  // IPA & Pale Ale
+  { key: "beer_ipa", label: "IPA", group: "IPA & Pale Ale" },
+  { key: "beer_pale_ale", label: "Pale Ale", group: "IPA & Pale Ale" },
+  // Ale
+  { key: "beer_amber_ale", label: "Amber Ale", group: "Ale" },
+  { key: "beer_brown_ale", label: "Brown Ale", group: "Ale" },
+  { key: "beer_cream_ale", label: "Cream Ale", group: "Ale" },
+  // Lager
+  { key: "beer_pilsner", label: "Pilsner", group: "Lager" },
+  { key: "beer_lager", label: "Lager", group: "Lager" },
+  { key: "beer_helles", label: "Helles", group: "Lager" },
+  { key: "beer_kolsch", label: "Kölsch", group: "Lager" },
+  // Hvete
+  { key: "beer_wheat", label: "Hveteøl", group: "Hvete" },
+  { key: "beer_berliner_weisse", label: "Berliner Weisse", group: "Hvete" },
+  { key: "beer_gose", label: "Gose", group: "Hvete" },
+  // Mørk
+  { key: "beer_bock", label: "Bock", group: "Mørk" },
+  { key: "beer_dunkel", label: "Dunkel", group: "Mørk" },
+  { key: "beer_schwarzbier", label: "Schwarzbier", group: "Mørk" },
+  { key: "beer_stout", label: "Stout", group: "Mørk" },
+  { key: "beer_porter", label: "Porter", group: "Mørk" },
+  // Spesial
+  { key: "beer_saison", label: "Saison", group: "Spesial" },
+  { key: "beer_tripel", label: "Tripel", group: "Spesial" },
+  { key: "beer_dubbel", label: "Dubbel", group: "Spesial" },
+  { key: "beer_belgian_ale", label: "Belga ale", group: "Spesial" },
+  { key: "beer_sour", label: "Surøl", group: "Spesial" },
+  { key: "beer_barleywine", label: "Barleywine", group: "Spesial" },
+] as const
+
+// Display order of beer type groups in the form dropdown.
+export const beerTypeGroups = [
+  "IPA & Pale Ale",
+  "Ale",
+  "Lager",
+  "Hvete",
+  "Mørk",
+  "Spesial",
 ] as const
 
 export type WineTypeKey = (typeof wineTypes)[number]["key"]
 export type BeerTypeKey = (typeof beerTypes)[number]["key"]
 export type TypeKey = WineTypeKey | BeerTypeKey | ""
 
+// Auto-build long-form labels table from the source-of-truth arrays above.
+// Anything in the database that doesn't match falls back to the raw value.
 const typeLabels: Record<string, string> = {}
 for (const t of wineTypes) typeLabels[t.key] = t.label
 for (const t of beerTypes) typeLabels[t.key] = t.label
 
+// Back-compat fallback for the five legacy generic beer keys that were
+// shipped in v0.6–v0.7. They were dropped from the source-of-truth
+// `beerTypes` array when we expanded to 23 specific styles, but any
+// pre-existing Wine rows that still reference these keys need to render
+// a human-readable label instead of the raw enum string.
+const legacyTypeLabels: Record<string, string> = {
+  beer_dark: "Mørkt øl",
+  beer_light: "Lyst øl",
+  beer_pilsner: "Pilsner",
+  beer_wheat: "Hveteøl",
+  beer_special: "Spesialøl",
+}
+
 export function typeLabel(type: string) {
-  return typeLabels[type] ?? type
+  return typeLabels[type] ?? legacyTypeLabels[type] ?? type
 }
 
 export function isBeerType(type: string) {
+  // Match either the generic "Øl" entry OR any specific beer subtype.
+  if (type === "beer") return true
   return beerTypes.some((t) => t.key === type)
 }
 
-const wineFilterKeys = ["", "red", "white", "sparkling", "rose", "dessert"]
-const allFilterKeys = ["", ...wineFilterKeys.slice(1), ...beerTypes.map((t) => t.key)]
+// One flat list of every filterable type key. Used by SearchAndFilter so
+// the user can filter by either wine or beer types regardless of mode
+// (was previously split per-mode — both modes now show all).
+const allTypeKeys: readonly string[] = [
+  "",
+  ...wineTypes.map((t) => t.key),
+  ...beerTypes.map((t) => t.key),
+]
 
-export function getFilterKeys(isBeer: boolean) {
-  return isBeer ? allFilterKeys : wineFilterKeys
+// Single source of truth for the filter chip row — every type is shown
+// regardless of mode (wine-mode users can still filter their beer entries
+// and vice versa).
+export function getFilterKeys() {
+  return allTypeKeys
 }
 
+// Short labels for the filter chip row — only the ones we have short
+// labels for (the long beer styles fall back to their full label).
 const filterLabels: Record<string, string> = {
   "": "Alle",
   red: "Rød",
@@ -44,11 +110,30 @@ const filterLabels: Record<string, string> = {
   sparkling: "Bobler",
   rose: "Rosé",
   dessert: "Dessert",
-  beer_dark: "Mørk",
-  beer_light: "Lys",
+  beer: "Øl",
+  beer_ipa: "IPA",
+  beer_pale_ale: "Pale",
+  beer_amber_ale: "Amber",
+  beer_brown_ale: "Brown",
+  beer_cream_ale: "Cream",
   beer_pilsner: "Pils",
+  beer_lager: "Lager",
+  beer_helles: "Helles",
+  beer_kolsch: "Kölsch",
   beer_wheat: "Hvete",
-  beer_special: "Spesial",
+  beer_berliner_weisse: "Berliner",
+  beer_gose: "Gose",
+  beer_bock: "Bock",
+  beer_dunkel: "Dunkel",
+  beer_schwarzbier: "Schwarz",
+  beer_stout: "Stout",
+  beer_porter: "Porter",
+  beer_saison: "Saison",
+  beer_tripel: "Tripel",
+  beer_dubbel: "Dubbel",
+  beer_belgian_ale: "Belga",
+  beer_sour: "Sur",
+  beer_barleywine: "Barley",
 }
 
 export function filterLabel(key: string) {

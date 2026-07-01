@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
-import { wineTypes, beerTypes } from "@/lib/beer"
+import { wineTypes, beerTypes, beerTypeGroups } from "@/lib/beer"
 
 type WineFormData = {
   name: string
@@ -224,18 +224,32 @@ export function WineForm({
                 className={inputClass}
               >
                 <option value="">Velg type...</option>
-                {isBeer && (
-                  <optgroup label="Øl">
-                    {beerTypes.map((t) => (
+                {isBeer ? (
+                  // Grouped beer-style dropdown (no wine options while in
+                  // beer mode — keeps the choice coherent).
+                  <>
+                    {beerTypeGroups.map((group) => {
+                      const items = beerTypes.filter((t) => t.group === group)
+                      if (items.length === 0) return null
+                      return (
+                        <optgroup key={group} label={group}>
+                          {items.map((t) => (
+                            <option key={t.key} value={t.key}>{t.label}</option>
+                          ))}
+                        </optgroup>
+                      )
+                    })}
+                  </>
+                ) : (
+                  // Wine-mode dropdown: classic wine types + a generic
+                  // "Øl" entry for users who want to tag a wine-mode
+                  // entry as a beer without picking a sub-style.
+                  <optgroup label="Type">
+                    {wineTypes.map((t) => (
                       <option key={t.key} value={t.key}>{t.label}</option>
                     ))}
                   </optgroup>
                 )}
-                <optgroup label={isBeer ? "Vin" : "Type"}>
-                  {wineTypes.map((t) => (
-                    <option key={t.key} value={t.key}>{t.label}</option>
-                  ))}
-                </optgroup>
               </select>
             </div>
           </div>
