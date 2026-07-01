@@ -85,23 +85,20 @@ export function isBeerType(type: string) {
   return beerTypes.some((t) => t.key === type)
 }
 
-// Filter chip row ordering: the current mode's types lead so the most
-// likely filter is visible at the left edge of the horizontally-scrolling
-// chip row, then the other mode's types follow.
 const allBeerTypeKeys = beerTypes.map((t) => t.key)
-// Beer-mode chips never show the generic "Øl" entry — by definition, the
-// user is in beer mode and wants the specific sub-types (none of which
-// are represented by the "beer" generic key).
-const wineTypeKeysForBeerMode = wineTypes
-  .filter((t) => t.key !== "beer")
-  .map((t) => t.key)
+// Wine-mode chip row keeps the generic "Øl" so users can still filter to
+// entries tagged with the legacy "beer" key -- the keys themselves are
+// different from the 23 sub-style keys below, so the entry is reachable.
 const wineTypeKeysForWineMode = wineTypes.map((t) => t.key)
 
+// Filter chip row -- each mode shows only its own chips for a coherent
+// reading experience (no scrolling past 23 beer sub-style chips while in
+// wine mode; no cross-mode wine chips leaking into beer mode).
 export function getFilterKeys(isBeer: boolean) {
   if (isBeer) {
-    return ["", ...allBeerTypeKeys, ...wineTypeKeysForBeerMode]
+    return ["", ...allBeerTypeKeys]
   }
-  return ["", ...wineTypeKeysForWineMode, ...allBeerTypeKeys]
+  return ["", ...wineTypeKeysForWineMode]
 }
 
 // Short labels for the filter chip row — only the ones we have short
