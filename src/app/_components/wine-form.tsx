@@ -306,7 +306,7 @@ export function WineForm({
       </div>
 
       <div>
-        <h3 className="text-xs font-semibold text-wine-500 uppercase tracking-wider mb-3">{isBeer ? "Lager" : "Vinskap"}</h3>
+        <h3 className="text-xs font-semibold text-wine-500 uppercase tracking-wider mb-3">{isBeer ? "Ølkasse" : "Vinskap"}</h3>
         <div className="bg-cream-50 rounded-2xl border border-cream-200 p-4 space-y-4">
           <label className="flex items-center gap-3 cursor-pointer select-none">
             <div
