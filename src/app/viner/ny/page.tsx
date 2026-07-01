@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useCallback, useRef, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import { WineForm } from "@/app/_components/wine-form"
 import { VinmonopoletSearch } from "@/app/_components/vinmonopolet-search"
 import { ModeLogo } from "@/app/_components/mode-text"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
-import { recognizeLabel, disposeLabelWorker } from "@/lib/ocr"
+import { recognizeLabel, disposeLabelWorker, buildSearchQuery } from "@/lib/ocr"
 
 type Prefill = {
   name: string
@@ -36,6 +37,14 @@ type PhotoStatus =
   | "no-text"
   | "error"
 
+type AiStatus =
+  | "idle"
+  | "loading"
+  | "searching"
+  | "done"
+  | "no-text"
+  | "error"
+
 /** Friendly Norwegian label for the current OCR progress bucket. */
 function ocrProgressLabel(progress: number): string {
   if (progress < 0.3) return "Forbereder tekstgjenkjenning\u2026"
@@ -43,8 +52,53 @@ function ocrProgressLabel(progress: number): string {
   return "Leser tekst\u2026"
 }
 
+/**
+ * Resize an image to a maximum dimension (longest side) and re-encode
+ * as JPEG at the given quality. The OpenRouter route body lives behind
+ * a 4.5MB Vercel/Next.js limit so we can't ship a 5MB phone photo
+ * straight to the server -- resize to ~1024px which yields a 100-300KB
+ * JPEG for typical wine-label photos while preserving text legibility
+ * for the LLM.
+ */
+async function resizeImage(
+  file: Blob,
+  maxDim = 1024,
+  quality = 0.85,
+): Promise<Blob> {
+  const bitmap = await createImageBitmap(file)
+  const ratio = Math.min(
+    1,
+    maxDim / Math.max(bitmap.width, bitmap.height),
+  )
+  const w = Math.round(bitmap.width * ratio)
+  const h = Math.round(bitmap.height * ratio)
+  const canvas = document.createElement("canvas")
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext("2d")
+  if (!ctx) throw new Error("Canvas 2D context not available")
+  ctx.drawImage(bitmap, 0, 0, w, h)
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("canvas.toBlob returned null"))),
+      "image/jpeg",
+      quality,
+    )
+  })
+}
+
 export default function NewWinePage() {
   const { isBeer } = useBeerMode()
+  const { data: session, status: sessionStatus } = useSession()
+  // Only treat the OpenRouter key as missing once the session has
+  // resolved -- on the first render useSession() returns
+  // `status: "loading"` and `session === undefined`, so the
+  // hasOpenRouterKey derivation must defer to avoid falsely showing
+  // the noKey state on cold load and stranding the user in it.
+  const sessionLoaded = sessionStatus !== "loading"
+  const hasOpenRouterKey =
+    sessionLoaded && Boolean(session?.user?.openRouterKey)
+
   const [wineapiQuery, setWineapiQuery] = useState("")
   const [wineapiResults, setWineapiResults] = useState<WineapiHit[]>([])
   const [wineapiLoading, setWineapiLoading] = useState(false)
@@ -52,8 +106,8 @@ export default function NewWinePage() {
   const [noKey, setNoKey] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
-  // Photo / OCR state -- the tesseract.js worker is module-singleton
-  // inside @/lib/ocr; we only own UI state here.
+  // Local tesseract.js (v0.11.0) state. Stays as the no-key fallback
+  // for users without an OpenRouter key.
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [photoThumb, setPhotoThumb] = useState<string | null>(null)
   const [photoStatus, setPhotoStatus] = useState<PhotoStatus>("idle")
@@ -61,6 +115,17 @@ export default function NewWinePage() {
   const [photoExtracted, setPhotoExtracted] = useState<string | null>(null)
   const [photoVintage, setPhotoVintage] = useState<string | null>(null)
   const [photoError, setPhotoError] = useState<string | null>(null)
+
+  // OpenRouter free-vision (v0.12.0) state. Parallel state machine to
+  // the local tesseract one; both paths pipe their extracted text
+  // into the same handleWineapiQuery so the wineapiResults list is
+  // shared.
+  const aiInputRef = useRef<HTMLInputElement>(null)
+  const [aiThumb, setAiThumb] = useState<string | null>(null)
+  const [aiStatus, setAiStatus] = useState<AiStatus>("idle")
+  const [aiExtracted, setAiExtracted] = useState<string | null>(null)
+  const [aiError, setAiError] = useState<string | null>(null)
+  const [aiNoKey, setAiNoKey] = useState(false)
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [prefill, setPrefill] = useState<Prefill | null>(null)
@@ -122,9 +187,9 @@ export default function NewWinePage() {
   }
 
   // -------------------------------------------------------------------------
-  // Photo / OCR handlers. The tesseract.js worker lives in @/lib/ocr as a
-  // module-level singleton so the first run pays a 5-10s cold start
-  // (lang-data download + WASM), and retries are cheap.
+  // Local tesseract.js flow (v0.11.0 fallback). Cold start: 5-10s for
+  // lang-data + WASM download; subsequent picks are fast because the
+  // singleton worker is reused.
   // -------------------------------------------------------------------------
 
   function handlePhotoClick() {
@@ -159,9 +224,6 @@ export default function NewWinePage() {
       }
       setPhotoExtracted(ocr.query)
       setPhotoVintage(ocr.vintage)
-      // Pipe the cleaned OCR query into the existing text-search so the
-      // wineapiResults list / prefill flow below is shared with the
-      // manual search box.
       setPhotoStatus("searching")
       setWineapiQuery(ocr.query)
       await searchWineapi(ocr.query)
@@ -176,21 +238,111 @@ export default function NewWinePage() {
     }
   }
 
-  // Release the photo thumbnail blob URL when it changes (user picks
-  // again) or when the page unmounts.
   useEffect(() => {
     return () => {
       if (photoThumb) URL.revokeObjectURL(photoThumb)
     }
   }, [photoThumb])
 
-  // Tear down the singleton OCR worker on page unmount so a 10MB+
-  // Worker + WASM + lang-data buffers don't leak past navigation.
   useEffect(() => {
     return () => {
       disposeLabelWorker()
     }
   }, [])
+
+  // -------------------------------------------------------------------------
+  // OpenRouter free-vision flow (v0.12.0). Server-side route POSTs the
+  // resized image to https://openrouter.ai/api/v1/chat/completions
+  // using the user's saved key + vision model. Pipes the LLM text
+  // through buildSearchQuery for consistent query assembly.
+  // -------------------------------------------------------------------------
+
+  function handleAiPhotoClick() {
+    if (!sessionLoaded) return
+    if (!hasOpenRouterKey) {
+      setAiNoKey(true)
+      return
+    }
+    setAiNoKey(false)
+    setAiError(null)
+    setAiExtracted(null)
+    setAiStatus("idle")
+    aiInputRef.current?.click()
+  }
+
+  async function handleAiPhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (!file) return
+
+    if (!sessionLoaded || !hasOpenRouterKey) {
+      setAiNoKey(true)
+      return
+    }
+
+    setAiNoKey(false)
+    setAiError(null)
+    setAiExtracted(null)
+    setAiStatus("loading")
+
+    if (aiThumb) URL.revokeObjectURL(aiThumb)
+    setAiThumb(URL.createObjectURL(file))
+
+    try {
+      const resized = await resizeImage(file)
+      const fd = new FormData()
+      fd.set("image", resized, "label.jpg")
+      const res = await fetch("/api/ocr-vision", {
+        method: "POST",
+        body: fd,
+      })
+      if (res.status === 400) {
+        const data = await res.json().catch(() => null)
+        if (
+          typeof data?.error === "string" &&
+          data.error.includes("OpenRouter API-n\u00f8kkel")
+        ) {
+          setAiNoKey(true)
+          setAiStatus("idle")
+          return
+        }
+        throw new Error(data?.error ?? "AI-skann feilet")
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error ?? "AI-skann feilet")
+      }
+      const data = (await res.json()) as { text?: string }
+      const raw = typeof data.text === "string" ? data.text : ""
+      const { query } = buildSearchQuery(raw)
+      if (!query) {
+        setAiStatus("no-text")
+        return
+      }
+      setAiExtracted(query)
+      setAiStatus("searching")
+      setWineapiQuery(query)
+      await searchWineapi(query)
+      setAiStatus("done")
+    } catch (err) {
+      setAiError(
+        err instanceof Error ? err.message : "AI-skanning feilet",
+      )
+      setAiStatus("error")
+    }
+  }
+
+  // Mirror the tesseract.js pattern: release the thumbnail blob URL
+  // when the user picks again or on unmount.
+  useEffect(() => {
+    return () => {
+      if (aiThumb) URL.revokeObjectURL(aiThumb)
+    }
+  }, [aiThumb])
+
+  // -------------------------------------------------------------------------
+  // Vinmonopolet fallback selection (unchanged).
+  // -------------------------------------------------------------------------
 
   function handleVinmonopoletSelect(product: { productId: string; productShortName: string }) {
     if (!product.productId) {
@@ -207,6 +359,7 @@ export default function NewWinePage() {
   }
 
   const isPhotoBusy = photoStatus === "ocr" || photoStatus === "searching"
+  const isAiBusy = aiStatus === "loading" || aiStatus === "searching"
 
   return (
     <div className="flex-1 flex flex-col">
@@ -285,11 +438,7 @@ export default function NewWinePage() {
             </div>
           )}
 
-          {/* Photo / OCR section -- user picks a JPG/PNG/WebP, we run
-              tesseract.js client-side (eng+nor) and pipe the cleaned
-              query into the wineapi search above. No API key needed
-              for OCR itself, only for the search step (noKey UX
-              already shown in the search card). */}
+          {/* Local tesseract.js (v0.11.0) -- no-key, offline-capable fallback. */}
           <input
             ref={photoInputRef}
             type="file"
@@ -310,7 +459,7 @@ export default function NewWinePage() {
               ? `Leser etiketten\u2026 ${Math.round(photoProgress * 100)}%`
               : photoStatus === "searching"
                 ? "S\u00f8ker i vinregister\u2026"
-                : "Skann etikett med tekstgjenkjenning"}
+                : "Skann etikett (lokalt)"}
           </button>
 
           {photoThumb && (
@@ -342,7 +491,7 @@ export default function NewWinePage() {
                 )}
                 {photoStatus === "done" && photoExtracted && (
                   <p>
-                    Lest av etikett:{" "}
+                    Lokalt lest:{" "}
                     <span className="font-medium text-wine-700">{photoExtracted}</span>
                     {photoVintage && (
                       <span className="ml-1 text-wine-400">(\u00e5rgang {photoVintage})</span>
@@ -351,11 +500,80 @@ export default function NewWinePage() {
                 )}
                 {photoStatus === "no-text" && (
                   <p className="text-amber-600">
-                    Klarte ikke \u00e5 lese etiketten. Bruk s\u00f8ket over eller fyll inn manuelt.
+                    Klarte ikke \u00e5 lese etiketten lokalt. Pr\u00f8v AI-knappen under.
                   </p>
                 )}
                 {photoStatus === "error" && (
                   <p className="text-red-500">{photoError}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* OpenRouter free-vision (v0.12.0) -- server-side, better on
+              stylized labels but needs a saved OpenRouter key. */}
+          <input
+            ref={aiInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            hidden
+            onChange={handleAiPhotoChange}
+          />
+          <button
+            type="button"
+            onClick={handleAiPhotoClick}
+            disabled={isAiBusy || !sessionLoaded}
+            className="w-full flex items-center justify-center gap-2 rounded-xl border border-wine-200 bg-wine-50 px-4 py-2.5 text-sm font-medium text-wine-700 hover:border-wine-400 hover:bg-wine-100 transition-all disabled:opacity-50"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" />
+            </svg>
+            {aiStatus === "loading"
+              ? "AI leser etiketten\u2026"
+              : aiStatus === "searching"
+                ? "S\u00f8ker i vinregister\u2026"
+                : "Pr\u00f8v med AI (OpenRouter)"}
+          </button>
+
+          {aiThumb && (
+            <div className="flex items-start gap-3 animate-fade-in">
+              <img
+                src={aiThumb}
+                alt="Innsendt bilde (AI)"
+                className="w-20 h-20 rounded-xl object-cover border border-cream-200 shadow-sm shrink-0"
+              />
+              <div className="flex-1 min-w-[0] text-xs space-y-2 text-wine-500">
+                {aiStatus === "loading" && (
+                  <span className="flex items-center gap-2 text-wine-400">
+                    <span className="w-3 h-3 border-2 border-wine-300 border-t-transparent rounded-full animate-spin" />
+                    OpenRouter analyserer\u2026
+                  </span>
+                )}
+                {aiStatus === "searching" && (
+                  <span className="flex items-center gap-2 text-wine-400">
+                    <span className="w-3 h-3 border-2 border-wine-300 border-t-transparent rounded-full animate-spin" />
+                    S\u00f8ker i wineapi.io\u2026
+                  </span>
+                )}
+                {aiStatus === "done" && aiExtracted && (
+                  <p>
+                    AI leste:{" "}
+                    <span className="font-medium text-wine-700">{aiExtracted}</span>
+                  </p>
+                )}
+                {aiStatus === "no-text" && (
+                  <p className="text-amber-600">
+                    AI fant ikke nok tekst p\u00e5 etiketten. Bruk s\u00f8ket over eller fyll inn manuelt.
+                  </p>
+                )}
+                {aiStatus === "error" && (
+                  <p className="text-red-500">{aiError}</p>
+                )}
+                {aiNoKey && (
+                  <p className="text-amber-600">
+                    Ingen OpenRouter-n\u00f8kkel funnet.{" "}
+                    <a href="/profil" className="underline hover:text-amber-800">Legg til i profilen</a>
+                  </p>
                 )}
               </div>
             </div>

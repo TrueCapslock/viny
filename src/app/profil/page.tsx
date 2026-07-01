@@ -19,6 +19,8 @@ export default function ProfilePage() {
   const [image, setImage] = useState("")
   const [prefersBeer, setPrefersBeer] = useState(false)
   const [wineapiKey, setWineapiKey] = useState("")
+  const [openRouterKey, setOpenRouterKey] = useState("")
+  const [visionModel, setVisionModel] = useState("google/gemini-2.0-flash-exp:free")
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -34,6 +36,8 @@ export default function ProfilePage() {
         setImage(session.user.image ?? "")
         setPrefersBeer(session.user.prefersBeer ?? false)
         setWineapiKey(session.user.wineapiKey ?? "")
+        setOpenRouterKey(session.user.openRouterKey ?? "")
+        setVisionModel(session.user.visionModel ?? "google/gemini-2.0-flash-exp:free")
         setLoaded(true)
       })
     }
@@ -97,7 +101,15 @@ export default function ProfilePage() {
     const res = await fetch("/api/profile", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, image: image || null, prefersBeer, wineapiKey: wineapiKey || null }),
+      body: JSON.stringify({
+        name,
+        email,
+        image: image || null,
+        prefersBeer,
+        wineapiKey: wineapiKey || null,
+        openRouterKey: openRouterKey || null,
+        visionModel: visionModel || null,
+      }),
     })
 
     if (!res.ok) {
@@ -196,6 +208,38 @@ export default function ProfilePage() {
             placeholder="Skriv inn din wineapi.io API-nøkkel"
           />
           <p className="text-xs text-wine-400 mt-1">wineapi.io gir utvidet vininformasjon. 100 kall/døgn på gratisplanen. Kan oppgraderes på wineapi.io.</p>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-wine-700 mb-1.5">OpenRouter API-nøkkel</label>
+          <input
+            value={openRouterKey}
+            onChange={(e) => setOpenRouterKey(e.target.value)}
+            className={inputClass}
+            placeholder="sk-or-v1-..."
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <p className="text-xs text-wine-400 mt-1">
+            Brukes til AI-basert etikett-skanning. Hent nøkkelen p&aring;{" "}
+            <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="underline hover:text-wine-600">openrouter.ai/keys</a>.
+            Bildet sendes via v&aring;r server, aldri direkte fra nettleseren.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-wine-700 mb-1.5">Visuell modell (OpenRouter)</label>
+          <input
+            value={visionModel}
+            onChange={(e) => setVisionModel(e.target.value)}
+            className={inputClass}
+            placeholder="google/gemini-2.0-flash-exp:free"
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <p className="text-xs text-wine-400 mt-1">
+            OpenRouter roterer gratis-modeller. Standard er Gemini Flash. Bytt om den er avviklet.
+          </p>
         </div>
 
         {!session.user.beerModeDisabled && (

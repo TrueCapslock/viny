@@ -95,7 +95,7 @@ export async function disposeLabelWorker(): Promise<void> {
  * stray "13.5% vol" line doesn't crowd out the brand.
  */
 const SMALL_PRINT_RE =
-  /sulfit|sulphit|contains|contains\b|imported\s+by|bottled\s+by|produced\s+by|product\s+of|alc\.?\s*\d|%?\s*vol\.?\s*\d|\b\d+\s*ml\b|\b\d+\s*cl\b|\b\d+\s*l\b/i
+  /sulfit|sulphit|contains|contains\b|imported\s+by|bottled\s+by|produced\s+by|product\s+of|alc\.?\s*\d|%?\s*vol\.?\s*\d|\b\d+\s*ml\b|\b\d+\s*cl\b|\b\d+\s*l\b|here\s+is|i\s+can\s+see|the\s+text|output|result|extracted|label\s*:|transcription\s*:|reading\s*:/i
 function dedupeAdjacent(lines: string[]): string[] {
   const out: string[] = []
   for (const line of lines) {

@@ -8,7 +8,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Ikke innlogget" }, { status: 401 })
   }
 
-  const { name, email, image, prefersBeer, wineapiKey } = await request.json()
+  const { name, email, image, prefersBeer, wineapiKey, openRouterKey, visionModel } = await request.json()
   const userId = parseInt(session.user.id)
 
   if (email !== undefined && email !== session.user.email) {
@@ -26,8 +26,10 @@ export async function PUT(request: Request) {
       ...(image !== undefined ? { image: image || null } : {}),
       ...(prefersBeer !== undefined ? { prefersBeer } : {}),
       ...(wineapiKey !== undefined ? { wineapiKey } : {}),
+      ...(openRouterKey !== undefined ? { openRouterKey } : {}),
+      ...(visionModel !== undefined ? { visionModel } : {}),
     },
   })
 
-  return NextResponse.json({ id: updated.id, name: updated.name, email: updated.email, image: updated.image, prefersBeer: updated.prefersBeer })
+  return NextResponse.json({ id: updated.id, name: updated.name, email: updated.email, image: updated.image, prefersBeer: updated.prefersBeer, visionModel: updated.visionModel })
 }

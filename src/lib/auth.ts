@@ -22,7 +22,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const valid = await compare(password, user.password)
         if (!valid) return null
 
-        return { id: String(user.id), email: user.email, name: user.name, image: user.image, prefersBeer: user.prefersBeer, isAdmin: user.isAdmin, wineapiKey: user.wineapiKey }
+        return { id: String(user.id), email: user.email, name: user.name, image: user.image, prefersBeer: user.prefersBeer, isAdmin: user.isAdmin, wineapiKey: user.wineapiKey, openRouterKey: user.openRouterKey, visionModel: user.visionModel }
       },
     }),
   ],
@@ -50,6 +50,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.email = dbUser.email
           token.image = dbUser.image
           token.wineapiKey = dbUser.wineapiKey
+          token.openRouterKey = dbUser.openRouterKey
+          token.visionModel = dbUser.visionModel
         }
       }
       const settings = await prisma.siteSettings.findFirst()
@@ -64,6 +66,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.isAdmin = token.isAdmin as boolean | undefined
         session.user.beerModeDisabled = token.beerModeDisabled as boolean | undefined
         session.user.wineapiKey = token.wineapiKey as string | null | undefined
+        session.user.openRouterKey = token.openRouterKey as string | null | undefined
+        session.user.visionModel = token.visionModel as string | null | undefined
       }
       return session
     },
