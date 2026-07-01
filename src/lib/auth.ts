@@ -27,6 +27,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   session: { strategy: "jwt" },
+  // Vercel-style preview sandboxes and the Freebuff Cloud preview iframe
+  // proxy requests with a Host header that can differ from AUTH_URL /
+  // NEXTAUTH_URL (and from the URL the user sees when opening the preview
+  // in a new tab). NextAuth v5 defaults to trustHost: false, which causes
+  // /api/auth/callback/credentials to silently reject the POST in the
+  // iframe while succeeding in the new tab. Trusting the request Host is
+  // safe here because this app only uses the Credentials + JWT provider
+  // (no OAuth redirect-URI validation depends on AUTH_URL).
+  trustHost: true,
   pages: {
     signIn: "/login",
   },
