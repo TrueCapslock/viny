@@ -8,11 +8,22 @@ import { prisma } from "@/lib/prisma"
 // cookies to a cross-site POST — so the CSRF cookie set on
 // GET /api/auth/csrf never reaches POST /api/auth/callback/credentials and
 // the server raises MissingCSRF. SameSite=None; Secure fixes the iframe,
-// but Secure is rejected on http://localhost, so we only turn it on in
-// production. We also match NextAuth's production cookie-name prefixes
-// (__Secure- for session/callback, __Host- for csrf) so the names line up
-// with what proxy.ts and server-side auth() look for.
-const useSecureCookies = process.env.NODE_ENV === "production"
+// but Secure is rejected on plain-http://localhost, so we only flip it on
+// when one of these is true:
+//
+//   - production builds (`next build && next start`)
+//   - the Cloud preview (`VERCEL=1`, which Vercel-style sandboxes set)
+//   - explicit opt-in via `AUTH_TRUST_HOST=true` in the Cloud Keys tab
+//
+// On the local `http://localhost:3000` path None+Secure is dropped by the
+// browser, so the heuristic excludes it; flip AUTH_TRUST_HOST=true if you
+// need iframe-compatible dev too. We also match NextAuth's production
+// cookie-name prefixes (__Secure- for session/callback, __Host- for csrf)
+// so the names proxy.ts and server-side auth() look for line up.
+const useSecureCookies =
+  process.env.NODE_ENV === "production" ||
+  !!process.env.VERCEL ||
+  process.env.AUTH_TRUST_HOST === "true"
 const cookiePrefix = useSecureCookies ? "__Secure-" : ""
 const hostPrefix = useSecureCookies ? "__Host-" : ""
 
