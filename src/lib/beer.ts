@@ -90,13 +90,22 @@ const allBeerTypeKeys = beerTypes.map((t) => t.key)
 // entries tagged with the legacy "beer" key -- the keys themselves are
 // different from the 23 sub-style keys below, so the entry is reachable.
 const wineTypeKeysForWineMode = wineTypes.map((t) => t.key)
+// Beer-mode chip row also surfaces the wine-specific types at the end so
+// the user can still filter for entries they've tagged with a wine style.
+// The generic "Øl" chip is intentionally excluded -- beer mode is for
+// beer browsing, and the generic "Øl" key is not a sub-style.
+const wineTypeKeysForBeerMode = wineTypes
+  .filter((t) => t.key !== "beer")
+  .map((t) => t.key)
 
-// Filter chip row -- each mode shows only its own chips for a coherent
-// reading experience (no scrolling past 23 beer sub-style chips while in
-// wine mode; no cross-mode wine chips leaking into beer mode).
+// Filter chip row:
+//   - wine mode: Alle + the 6 wine types (incl. generic Øl).
+//   - beer mode: Alle + the 23 beer sub-styles first, then the 5 wine-
+//     specific types appended at the end so users can still reach wine-
+//     tagged entries from beer mode (e.g. a mis-tagged "red" chip).
 export function getFilterKeys(isBeer: boolean) {
   if (isBeer) {
-    return ["", ...allBeerTypeKeys]
+    return ["", ...allBeerTypeKeys, ...wineTypeKeysForBeerMode]
   }
   return ["", ...wineTypeKeysForWineMode]
 }
