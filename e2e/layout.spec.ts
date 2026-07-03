@@ -221,20 +221,26 @@ test.describe("/lister and /viner/ny - flat heading layout (no red banner)", () 
   })
 })
 
-test.describe("desktop sidebar - bottom accent (user wine sketch)", () => {
-  test("expanded sidebar shows the wine-bottle background; collapsed sidebar hides it", async ({
+test.describe("desktop sidebar - bottom accent (mode-driven sketch)", () => {
+  test("wine mode + expanded: shows /sidebar-bg-wine.png; collapsed: hides", async ({
     page,
   }) => {
     await forceSidebarExpanded(page)
 
+    // The bg class + data-sidebar-collapsed both live on the <nav>
+    // (not the <aside>): the nav is the scroll-surface for the tab
+    // list and the override rule scopes against the same element as
+    // the className so the toggle fires on the right element.
     await expect(
-      page.locator("aside.sidebar-bg-wine").first(),
-      "aside has the .sidebar-bg-wine class applied",
+      page.locator("nav.sidebar-bg-illustration").first(),
+      "nav has the .sidebar-bg-illustration class applied",
     ).toBeVisible()
 
-    // In wine mode + expanded the bg-image must resolve to the asset.
+    // In wine mode + expanded the CSS variable resolves to the wine
+    // asset URL at computed-style time; Playwright's toHaveCSS reads
+    // the resolved `--sidebar-bg-image`, not the var() literal.
     await expect(
-      page.locator("aside.sidebar-bg-wine").first(),
+      page.locator("nav.sidebar-bg-illustration").first(),
     ).toHaveCSS("background-image", /\/sidebar-bg-wine\.png/, {
       timeout: 1000,
     })
@@ -242,17 +248,17 @@ test.describe("desktop sidebar - bottom accent (user wine sketch)", () => {
     // The asset endpoint must serve the bytes -- a broken asset path
     // would otherwise silently leave the sidebar with just bg-white
     // and no visible change to regression-test against.
-    const status = await page.request.get("/sidebar-bg-wine.png")
-    expect(status.status(), "asset HTTP 200").toBe(200)
-    const bytes = await status.body()
-    expect(bytes.length, "asset > 1 KB").toBeGreaterThan(1000)
+    const wine = await page.request.get("/sidebar-bg-wine.png")
+    expect(wine.status(), "wine asset HTTP 200").toBe(200)
+    const wineBytes = await wine.body()
+    expect(wineBytes.length, "wine asset > 1 KB").toBeGreaterThan(1000)
     expect(
-      [bytes[0], bytes[1], bytes[2], bytes[3]],
+      [wineBytes[0], wineBytes[1], wineBytes[2], wineBytes[3]],
       "PNG magic header 89 50 4E 47",
     ).toEqual([0x89, 0x50, 0x4e, 0x47])
 
-    // Collapse -> html[data-sidebar-collapsed="true"] fires, the
-    // override rule then sets background-image: none on .sidebar-bg-wine.
+    // Collapse -> nav picks up data-sidebar-collapsed="true"; the
+    // override rule sets background-image: none on the SAME element.
     await page
       .getByRole("button", { name: /kollaps sidebar|utvid sidebar/i })
       .click()
@@ -260,7 +266,46 @@ test.describe("desktop sidebar - bottom accent (user wine sketch)", () => {
       timeout: 1000,
     })
     await expect(
-      page.locator("aside.sidebar-bg-wine").first(),
+      page.locator("nav.sidebar-bg-illustration").first(),
     ).toHaveCSS("background-image", "none", { timeout: 1000 })
+  })
+
+  test("beer mode: bg swaps to /sidebar-bg-beer.png via html[data-beer]", async ({
+    page,
+  }) => {
+    await forceSidebarExpanded(page)
+
+    // Toggle the document-level flag manually. We don't flip the
+    // React state -- CSS cascade re-evaluates the
+    // `html[data-beer="true"]` rule on attr change, and the
+    // var(--sidebar-bg-image) resolves at computed-style time.
+    // The BeerModeProvider writes the attr from session.user.prefersBeer
+    // only on mount/isBeer change -- these don't fire mid-test, so
+    // our manual attr sticks until we restore it below.
+    await page.evaluate(() => {
+      document.documentElement.setAttribute("data-beer", "true")
+    })
+
+    await expect(
+      page.locator("nav.sidebar-bg-illustration").first(),
+    ).toHaveCSS("background-image", /\/sidebar-bg-beer\.png/, {
+      timeout: 1000,
+    })
+
+    const beer = await page.request.get("/sidebar-bg-beer.png")
+    expect(beer.status(), "beer asset HTTP 200").toBe(200)
+    const beerBytes = await beer.body()
+    expect(beerBytes.length, "beer asset > 1 KB").toBeGreaterThan(1000)
+    expect(
+      [beerBytes[0], beerBytes[1], beerBytes[2], beerBytes[3]],
+      "PNG magic header 89 50 4E 47",
+    ).toEqual([0x89, 0x50, 0x4e, 0x47])
+
+    // Restore so we don't leak the attr to any test that runs after.
+    // Setting to "false" matches the BeerModeProvider's default branch
+    // for non-preferring users.
+    await page.evaluate(() => {
+      document.documentElement.setAttribute("data-beer", "false")
+    })
   })
 })

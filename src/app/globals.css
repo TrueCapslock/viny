@@ -237,33 +237,55 @@ body {
   background-clip: text;
 }
 
-/* Desktop sidebar bottom accent -- a hand-drawn wine bottle + glass +
- * grapes + grape-leaf sketch, user-provided custom artwork
- * (AI-generated via ChatGPT; no commercial licensing concerns).
- * Inlined as a 1254x1254 RGB PNG with an opaque white background;
- * `contain` against the sidebar's `bg-white` makes only the maroon
- * strokes of the sketch visible (no visible decorative border).
- * Renders into the empty visual space below the nav and above the
- * notifications/collapse row. Hidden in collapsed mode (64 px is too
- * narrow for the illustration) and in beer mode (the wine motif
- * clashes with the gold palette; swap in a hop variant if a beer-mode
- * accent is wanted later). */
-.sidebar-bg-wine {
-  background-image: url('/sidebar-bg-wine.png');
+/* Desktop sidebar bottom accent -- a hand-drawn sketch anchored to the
+ * bottom of the <nav> element (container of the 5 nav tabs). The URL is
+ * mode-driven via a CSS custom property so the same class works in
+ * both wine and beer mode:
+ *
+ *   - default (wine mode): a 1254x1254 RGB PNG with an opaque white
+ *     background showing a wine bottle + glass + grapes + grape-leaf,
+ *     user-provided custom artwork (AI-generated via ChatGPT; no
+ *     commercial licensing concerns). Against `bg-cream-50`/`bg-white`
+ *     only the maroon strokes of the sketch are visible.
+ *   - beer mode (`<html data-beer="true">`): the same shape of asset
+ *     (1254x1254 RGB opaque, AI-generated user artwork) but beer-themed.
+ *     The two files are visually interchangeable except for the motif.
+ *
+ * `background-size: contain` keeps the 1:1 aspect intact (renders as
+ * a ~256x256 block at the bottom-center of the 256 px-wide nav in
+ * expanded desktop).
+ *
+ * Hidden in collapsed mode (64 px is too narrow for the illustration).
+ * The `[data-beer="true"]` selector used to LIVE here as a hide-rule;
+ * it now lives upstream as the URL-override for the variable, so the
+ * bg stays visible in beer mode with a different illustration. */
+:root {
+  --sidebar-bg-image: url('/sidebar-bg-wine.png');
+}
+
+:root[data-beer="true"] {
+  --sidebar-bg-image: url('/sidebar-bg-beer.png');
+}
+
+/* Co-locate the collapsed flag with the nav itself -- the React
+ * sidebar-provider already toggles `collapsed` via useSidebar(), so
+ * we mirror it onto data-sidebar-collapsed here. That way the CSS
+ * override below targets the same element the class is on, no
+ * external state-machine wiring required. Specificity:
+ * `.sidebar-bg-illustration` = (0,1,0); the override below is
+ * `[data-sidebar-collapsed="true"].sidebar-bg-illustration` = (0,2,0).
+ *
+ * Note: `var(--sidebar-bg-image)` resolves at computed-style time,
+ * so `background-image: none` here cleanly defeats the CSS-var
+ * computed value (no fall-through to the URL). */
+.sidebar-bg-illustration {
+  background-image: var(--sidebar-bg-image);
   background-repeat: no-repeat;
   background-position: center bottom;
   background-size: contain;
 }
 
-/* Co-locate the collapsed flag with the aside itself -- the React
- * sidebar-provider already toggles `collapsed` via useSidebar(), so
- * we mirror it onto data-sidebar-collapsed here. That way the CSS
- * override below targets the same element the class is on, no
- * external state-machine wiring required. The selector also wins on
- * specificity: base `.sidebar-bg-wine` = (0,1,0); override
- * `[data-sidebar-collapsed="true"].sidebar-bg-wine` = (0,2,0). */
-[data-sidebar-collapsed="true"].sidebar-bg-wine,
-[data-beer="true"] .sidebar-bg-wine {
+[data-sidebar-collapsed="true"].sidebar-bg-illustration {
   background-image: none;
 }
 

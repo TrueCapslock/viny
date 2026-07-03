@@ -49,10 +49,9 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`hidden lg:flex fixed left-0 top-0 bottom-0 z-50 flex-col bg-white border-r border-cream-200/80 shadow-sm transition-[width] duration-300 ease-in-out overflow-hidden sidebar-bg-wine ${
+      className={`hidden lg:flex fixed left-0 top-0 bottom-0 z-50 flex-col bg-white border-r border-cream-200/80 shadow-sm transition-[width] duration-300 ease-in-out overflow-hidden ${
         collapsed ? "w-[64px]" : "w-64"
       }`}
-      data-sidebar-collapsed={collapsed ? "true" : undefined}
       aria-label="Hovednavigasjon"
     >
       {/* Brand */}
@@ -111,7 +110,16 @@ export function Sidebar() {
       {/* Primary nav — equal-weight styling across all 5 desktop tabs.
           (Mobile BottomNav keeps its red filled central button — primary
           styling is reserved for mobile UX, gated by lg:hidden there.) */}
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+      {/* The bg-illustration class + data-sidebar-collapsed live on the
+          <nav> itself (not the <aside>): the nav is the element that
+          scrolls if tab count grows, so anchoring the bg here keeps the
+          visual fill against the live scroll surface. The override rule
+          in globals.css reads `[data-sidebar-collapsed="true"]` directly
+          on the element to defeat the bg-image when collapsed. */}
+      <nav
+        className="flex-1 p-3 space-y-1 overflow-y-auto sidebar-bg-illustration"
+        data-sidebar-collapsed={collapsed ? "true" : undefined}
+      >
         {tabs.map((tab) => {
           const isActive =
             tab.href === "/"
