@@ -62,3 +62,10 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# local QA artifacts from manual / per-run iterations --
+# per-run logs (e.g. tests-output/baseline.log) and ad-hoc
+# screenshot folders (e.g. tests-output/sidebar-qa) used by
+# investigation scripts. The shipped e2e suite does not write
+# here; only ad-hoc verification work does.
+/tests-output/
