@@ -237,17 +237,17 @@ body {
   background-clip: text;
 }
 
-/* Desktop sidebar bottom accent -- a wine-bottles illustration
- * sourced from pngtree.com via Pinterest
- *   https://co.pinterest.com/pin/857302479058953771/
- * Inlined as a 256x256 transparent PNG (the icon is centered inside
- * transparent margins); `contain` against the sidebar's `bg-white`
- * blends naturally with no decorative border. Renders into the empty
- * visual space below the nav and above the notifications/collapse row.
- *
- * Licensing: pngtree.com is a commercial stock-image site; verify the
- * underlying pngtree license (free-tier attribution typically required)
- * before redistributing the asset commercially. */
+/* Desktop sidebar bottom accent -- a hand-drawn wine bottle + glass +
+ * grapes + grape-leaf sketch, user-provided custom artwork
+ * (AI-generated via ChatGPT; no commercial licensing concerns).
+ * Inlined as a 1254x1254 RGB PNG with an opaque white background;
+ * `contain` against the sidebar's `bg-white` makes only the maroon
+ * strokes of the sketch visible (no visible decorative border).
+ * Renders into the empty visual space below the nav and above the
+ * notifications/collapse row. Hidden in collapsed mode (64 px is too
+ * narrow for the illustration) and in beer mode (the wine motif
+ * clashes with the gold palette; swap in a hop variant if a beer-mode
+ * accent is wanted later). */
 .sidebar-bg-wine {
   background-image: url('/sidebar-bg-wine.png');
   background-repeat: no-repeat;

@@ -221,7 +221,7 @@ test.describe("/lister and /viner/ny - flat heading layout (no red banner)", () 
   })
 })
 
-test.describe("desktop sidebar - bottom accent (Pinterest wine bg)", () => {
+test.describe("desktop sidebar - bottom accent (user wine sketch)", () => {
   test("expanded sidebar shows the wine-bottle background; collapsed sidebar hides it", async ({
     page,
   }) => {
