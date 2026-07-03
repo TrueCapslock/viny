@@ -60,9 +60,35 @@ export function Sidebar() {
           collapsed ? "justify-center px-2" : "px-5"
         }`}
       >
+        {/* In collapsed mode the brandLink flips to a single-axis layout
+            (no `gap` + `justify-center` on the Link). Without an in-flow
+            gap, the Link's intrinsic width drops to 28px (just [img][span
+            max-w-0 0]), so the parent brandDiv's `justify-center px-2`
+            parks the Link at x=17.5..45.5 — the img, sitting at
+            flex-start of that 28-wide Link, lands at center x=31.5
+            (= aside content center x=31.5 after the 1px right-border),
+            in lockstep with the tab icons below.
+
+            Why we have to drop the gap rather than just adding
+            `justify-center` to the Link: with gap-2.5 unconditional the
+            Link's intrinsic (28+10+0 = 38) exactly matches its content
+            width, leaving `justify-content: center` zero free space to
+            redistribute — the img would still sit at flex-start of the
+            Link (this was the bug the earlier `safe center` attempt hit;
+            the runtime measurement confirmed the img stayed at x=13..41
+            / center x=27). Dropping the gap is what creates the freedom
+            for the brandDiv to actually center the Link (and hence img)
+            in the aside.
+
+            In expanded mode the gap returns (img + label lockup needs
+            breathing room), no justify-center on the Link — the Link
+            sits at flex-start of brandDiv (px-5) at x=20, giving the
+            lockup its left-aligned navbar look. */}
         <Link
           href="/"
-          className="flex items-center gap-2.5 min-w-0"
+          className={`flex items-center min-w-0 ${
+            collapsed ? "justify-center" : "gap-2.5"
+          }`}
           aria-label={isBeer ? "Humle" : "Uva"}
         >
           <img
