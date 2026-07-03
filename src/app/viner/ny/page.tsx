@@ -4,7 +4,6 @@ import { useState, useCallback, useRef, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { WineForm } from "@/app/_components/wine-form"
 import { VinmonopoletSearch } from "@/app/_components/vinmonopolet-search"
-import { ModeLogo } from "@/app/_components/mode-text"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
 import { recognizeLabel, disposeLabelWorker, buildSearchQuery } from "@/lib/ocr"
 
@@ -362,18 +361,17 @@ export default function NewWinePage() {
   const isAiBusy = aiStatus === "loading" || aiStatus === "searching"
 
   return (
-    <div className="flex-1 flex flex-col">
-      <div className="bg-wine-gradient text-white px-4 pt-1 pb-10 relative">
-        <div className="flex items-center gap-3 mb-2">
-          <ModeLogo className="w-9 h-9" />
-          <div>
-            <h1 className="text-xl font-bold">{isBeer ? "Nytt \u00f8l" : "Ny vin"}</h1>
-            <p className="text-wine-200 text-sm">{isBeer ? "S\u00f8k etter \u00f8l eller fyll inn manuelt" : "S\u00f8k etter vin eller fyll inn manuelt"}</p>
-          </div>
-        </div>
-      </div>
+    <div className="flex-1 flex flex-col px-4 pt-4 pb-24 animate-fade-in">
+      <h1 className="text-2xl font-bold text-wine-900 tracking-tight mb-1">
+        {isBeer ? "Nytt \u00f8l" : "Ny vin"}
+      </h1>
+      <p className="text-sm text-wine-500 mb-4">
+        {isBeer
+          ? "S\u00f8k etter \u00f8l eller fyll inn manuelt"
+          : "S\u00f8k etter vin eller fyll inn manuelt"}
+      </p>
 
-      <div className="flex-1 px-4 -mt-4 pb-24 space-y-4">
+      <div className="space-y-4">
         <div className="bg-white rounded-2xl border border-cream-200 p-5 shadow-sm space-y-4">
           <div className="space-y-2">
             <label className="block text-xs font-semibold text-wine-500 uppercase tracking-wider">
