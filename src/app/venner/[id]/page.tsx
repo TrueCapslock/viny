@@ -5,7 +5,7 @@ import { useParams } from "next/navigation"
 import Link from "next/link"
 import { Users } from "@/app/_components/icons"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
-import { typeLabel } from "@/lib/beer"
+import { WineCard, type WineCardData } from "@/app/_components/wine-card"
 import { useFriends, useWines } from "@/hooks/use-data"
 import { WineCardSkeletonList } from "@/app/_components/skeletons"
 
@@ -88,46 +88,26 @@ export default function FriendWinesPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {wines.map((wine: { id: number; name: string; producer: string; vintage: number | null; type: string | null; image: string | null; _count?: { tastings: number } }) => (
-              <Link
-                key={wine.id}
-                href={`/viner/${wine.id}`}
-                className="block rounded-2xl bg-white border border-cream-200/80 card-hover shadow-sm"
-              >
-                <div className="p-4">
-                  <div className="flex items-start gap-3.5">
-                    {wine.image ? (
-                      <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-cream-200 shadow-sm">
-                        <img src={wine.image} alt="" className="w-full h-full object-cover" />
-                      </div>
-                    ) : (
-                      <div className="w-14 h-14 rounded-xl bg-wine-50 border border-wine-100 flex items-center justify-center shrink-0">
-                        <img src={isBeer ? "/logo-humle.svg" : "/logo-uva.svg"} alt="" className="w-7 h-7 opacity-50" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0 pt-0.5">
-                      <h2 className="font-bold text-wine-900 truncate text-[15px]">{wine.name}</h2>
-                      <p className="text-sm text-wine-500 truncate">
-                        {wine.producer}
-                        {wine.vintage && `, ${wine.vintage}`}
-                      </p>
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {wine.type && (
-                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-wine-50 text-wine-600 border border-wine-100/80">
-                            {typeLabel(wine.type)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-end mt-3 pt-3 border-t border-cream-100/80">
-                    <span className="text-[11px] text-wine-400 font-medium">
-                      {wine._count?.tastings ?? 0} smaksnotat{wine._count?.tastings !== 1 ? "er" : ""}
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            ))}
+            {wines.map((wine: { id: number; name: string; producer: string; vintage: number | null; type: string | null; image: string | null; _count?: { tastings: number } }) => {
+              const card: WineCardData = {
+                id: wine.id,
+                name: wine.name,
+                producer: wine.producer,
+                vintage: wine.vintage,
+                image: wine.image,
+                type: wine.type,
+                tastingCount: wine._count?.tastings,
+              }
+              return (
+                <WineCard
+                  key={wine.id}
+                  wine={card}
+                  chipDensity="minimal"
+                  hideCellarBadge
+                  from={`/venner/${friendId}`}
+                />
+              )
+            })}
           </div>
         )}
       </div>

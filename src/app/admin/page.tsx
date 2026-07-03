@@ -78,7 +78,7 @@ function UsersDialog({ onClose }: { onClose: () => void }) {
                   {user.prefersBeer && (
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Øl</span>
                   )}
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-wine-50 text-wine-600 border border-wine-100">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-wine-50 text-wine-700 border border-wine-100">
                     {user._count.wines} viner
                   </span>
                   {user.isAdmin && (

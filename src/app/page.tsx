@@ -4,9 +4,8 @@ import { useMemo } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
-import { StaticStars } from "@/app/_components/star-rating"
+import { WineCard, type WineCardData } from "@/app/_components/wine-card"
 import { SearchAndFilter } from "./search-filter"
-import { typeLabel } from "@/lib/beer"
 import { useWines } from "@/hooks/use-data"
 import { HomeSkeleton } from "@/app/_components/skeletons"
 
@@ -15,6 +14,10 @@ export default function HomePage() {
   const query = searchParams.get("q")?.toLowerCase() ?? ""
   const typeFilter = searchParams.get("type") ?? ""
   const showAll = searchParams.get("all") === "1"
+  // Threaded onto each WineCard's link as `?from=…` so the wine-detail
+  // back-button restores the exact cellar view (incl. active filters)
+  // we came from. `/` when no filters are active; `/?…` otherwise.
+  const from = searchParams.toString() ? `/?${searchParams.toString()}` : "/"
   const { isBeer } = useBeerMode()
   const { wines, loading } = useWines()
 
@@ -105,70 +108,21 @@ export default function HomePage() {
         ) : (
           <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-4">
             {filtered.map((wine: any, i: number) => {
-              const avg = wine.avgRating ?? 0
+              const card: WineCardData = {
+                id: wine.id,
+                name: wine.name,
+                producer: wine.producer,
+                vintage: wine.vintage,
+                image: wine.image,
+                type: wine.type,
+                country: wine.country,
+                inCellar: wine.inCellar,
+                quantity: wine.quantity,
+                avgRating: wine.avgRating,
+                tastingCount: wine._count?.tastings,
+              }
               return (
-                <Link
-                  key={wine.id}
-                  href={`/viner/${wine.id}`}
-                  className="block rounded-2xl bg-white border border-cream-200/80 card-hover shadow-sm"
-                  style={{ animationDelay: `${i * 50}ms` }}
-                >
-                  <div className="p-4">
-                    <div className="flex items-start gap-3.5">
-                      {wine.image ? (
-                        <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-cream-200 shadow-sm">
-                          <img
-                            src={wine.image}
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ) : (
-                        <div className="w-14 h-14 rounded-xl bg-wine-50 border border-wine-100 flex items-center justify-center shrink-0">
-                          <img src={isBeer ? "/logo-humle.svg" : "/logo-uva.svg"} alt="" className="w-7 h-7 opacity-50" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0 pt-0.5">
-                        <h2 className="font-bold text-wine-900 truncate text-[15px]">{wine.name}</h2>
-                        <p className="text-sm text-wine-500 truncate">
-                          {wine.producer}
-                          {wine.vintage && `, ${wine.vintage}`}
-                        </p>
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                          {wine.type && (
-                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-wine-50 text-wine-600 border border-wine-100/80">
-                              {typeLabel(wine.type)}
-                            </span>
-                          )}
-                          {wine.varietal && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-cream-100 text-cream-700 border border-cream-200/80">
-                              {wine.varietal}
-                            </span>
-                          )}
-                          {wine.country && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-cream-100 text-cream-700 border border-cream-200/80">
-                              {wine.country}
-                            </span>
-                          )}
-                          {wine.inCellar && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-gold-50 text-gold-700 border border-gold-200/80">
-                              {wine.quantity > 0 ? `${wine.quantity} ${isBeer ? "stk." : "fl."}` : isBeer ? "I ølkassen" : "I vinskap"}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-cream-100/80">
-                      <div className="flex items-center gap-2">
-                        {avg > 0 && <StaticStars rating={avg} />}
-                      </div>
-                      <span className="text-[11px] text-wine-400 font-medium">
-                        {wine._count?.tastings ?? 0} smaksnotat{wine._count?.tastings !== 1 ? "er" : ""}
-                      </span>
-                    </div>
-                  </div>
-                </Link>
+                <WineCard key={wine.id} wine={card} animationDelay={i * 50} from={from} />
               )
             })}
           </div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { Icon } from "@/app/_components/icons"
 
 export function DeleteButton({
   wineId,
@@ -32,8 +33,9 @@ export function DeleteButton({
     <>
       <button
         onClick={() => setShowConfirm(true)}
-        className="text-sm font-medium text-red-400 hover:text-red-500 transition-colors px-3.5 py-1.5 rounded-xl hover:bg-red-50"
+        className="flex items-center gap-2.5 w-full px-3 py-2 text-sm font-medium text-red-700 hover:bg-cream-50 rounded-xl transition-colors"
       >
+        <Icon name="delete" size={18} className="text-red-500" />
         Slett
       </button>
 

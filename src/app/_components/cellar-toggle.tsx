@@ -8,10 +8,12 @@ export function CellarToggle({
   wineId,
   initialInCellar,
   initialQuantity,
+  variant = "default",
 }: {
   wineId: number
   initialInCellar: boolean
   initialQuantity: number
+  variant?: "default" | "pill"
 }) {
   const { isBeer } = useBeerMode()
   const [inCellar, setInCellar] = useState(initialInCellar)
@@ -34,18 +36,60 @@ export function CellarToggle({
     setLoading(false)
   }
 
+  const isPill = variant === "pill"
+
   if (!inCellar) {
     return (
       <button
         onClick={() => update({ inCellar: true, quantity: "1" })}
         disabled={loading}
-        className="text-sm font-medium text-gold-700 bg-gold-50 hover:bg-gold-100 active:bg-gold-200 transition-colors px-3.5 py-1.5 rounded-xl flex items-center gap-1.5"
+        className={
+          isPill
+            ? "bg-white shadow-lg shadow-wine-900/25 rounded-full px-4 py-2.5 text-sm font-semibold text-wine-700 hover:bg-cream-50 active:scale-[0.98] transition-all inline-flex items-center gap-1.5"
+            : "text-sm font-medium text-gold-700 bg-gold-50 hover:bg-gold-100 active:bg-gold-200 transition-colors px-3.5 py-1.5 rounded-xl flex items-center gap-1.5"
+        }
       >
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
         </svg>
         {loading ? "..." : isBeer ? "Legg i ølkasse" : "Legg i vinskap"}
       </button>
+    )
+  }
+
+  if (isPill) {
+    return (
+      <div className="bg-white shadow-lg shadow-wine-900/25 rounded-full px-3 py-1.5 inline-flex items-center gap-1">
+        <button
+          onClick={() => {
+            if (quantity <= 1) {
+              update({ inCellar: false, quantity: "0" })
+            } else {
+              update({ inCellar: true, quantity: String(quantity - 1) })
+            }
+          }}
+          disabled={loading}
+          title="Fjern én fra kjelleren"
+          className="w-7 h-7 rounded-full flex items-center justify-center text-wine-700 hover:bg-cream-50 active:scale-[0.95] transition-all disabled:opacity-50"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" d="M5 12h14" />
+          </svg>
+        </button>
+        <span className="text-sm font-semibold text-wine-900 tabular-nums min-w-[1.5rem] text-center">
+          {quantity}
+        </span>
+        <button
+          onClick={() => update({ inCellar: true, quantity: String(quantity + 1) })}
+          disabled={loading}
+          title="Legg til én i kjelleren"
+          className="w-7 h-7 rounded-full flex items-center justify-center text-wine-700 hover:bg-cream-50 active:scale-[0.95] transition-all disabled:opacity-50"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" d="M12 5v14M5 12h14" />
+          </svg>
+        </button>
+      </div>
     )
   }
 
@@ -77,14 +121,6 @@ export function CellarToggle({
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" d="M12 5v14M5 12h14" />
         </svg>
-      </button>
-      <span className="w-px h-6 bg-white/15" />
-      <button
-        onClick={() => update({ inCellar: false, quantity: "0" })}
-        disabled={loading}
-        className="text-sm font-medium text-red-300 hover:text-red-200 transition-colors"
-      >
-        Fjern
       </button>
     </div>
   )

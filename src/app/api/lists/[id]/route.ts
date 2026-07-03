@@ -26,7 +26,11 @@ export async function GET(_request: Request, { params }: { params: Params }) {
         include: {
           wine: {
             include: {
+              // take: 1 still extracts the latest tasting for the avg-rating
+              // read. Add _count alongside so callers can show the real
+              // total without the embed-array capping at 1.
               tastings: { orderBy: { date: "desc" }, take: 1 },
+              _count: { select: { tastings: true } },
             },
           },
         },
