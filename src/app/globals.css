@@ -242,17 +242,26 @@ body {
  * mode-driven via a CSS custom property so the same class works in
  * both wine and beer mode:
  *
- *   - default (wine mode): a 1920x1080 RGB WebP (~200 KB, was
- *     a 1.87 MB PNG before the q=80 optimization) with an opaque
- *     white background showing a wine bottle + glass + grapes +
- *     grape-leaf, user-provided custom artwork (AI-generated via
- *     ChatGPT; no commercial licensing concerns). Against the
- *     sidebar's bg-white only the maroon strokes of the sketch are
- *     visible. The 16:9 aspect renders as a ~256x143 horizontal
- *     strip pinned to the bottom-center of the 256 px-wide nav.
- *   - beer mode (`<html data-beer="true">`): the same shape (1920x1080
- *     WebP, ~200 KB) but beer-themed. The two files are visually
- *     interchangeable except for the motif.
+ *   - default (wine mode): a 1254x1254 RGB WebP (~125 KB, was a
+ *     ~1.45 MB PNG before the q=80 optimization) with an opaque
+ *     white background showing a wine-themed sketch (current asset:
+ *     bottle + glass + grapes + grape-leaf, user-provided custom
+ *     artwork AI-generated via ChatGPT; no commercial licensing
+ *     concerns). Against the sidebar's bg-white only the maroon
+ *     strokes of the sketch are visible. The 1:1 aspect renders as
+ *     a ~256x256 block pinned to the bottom-center of the 256 px-wide
+ *     nav.
+ *   - beer mode (`<html data-beer="true">`): a separate 1254x1254 RGB
+ *     WebP intended to be beer-themed. Both files share the same
+ *     1:1 aspect and roughly the same size, so `background-size:
+ *     contain` produces visually consistent layouts in each mode.
+ *     **STATUS**: this file is currently byte-identical to the old
+ *     committed wine image (a carry-over bug from commits 296af92
+ *     and 7bae7e8 -- the beer.png/beer.webp slot was generated from
+ *     a beer-themed prompt but the same source bytes slipped in
+ *     out-of-band). A real beer-themed illustration still needs to
+ *     be encoded into `public/sidebar-bg-beer.webp` for beer mode to
+ *     render differently from wine mode.
  *
  * `background-size: contain` keeps the 1:1 aspect intact (renders as
  * a ~256x256 block at the bottom-center of the 256 px-wide nav in
@@ -260,11 +269,16 @@ body {
  *
  * Hidden in collapsed mode (64 px is too narrow for the illustration).
  *
- * Asset format note: both files are WebP at quality 80 (~200 KB
- * each), converted from the original 1.87 MB PNGs via `Pillow.WebPImagePlugin`.
- * cwebp/ffmpeg are NOT installed in this environment; the PIL save
- * achieves roughly the same compression ratio as cwebp -q 80 on
- * these flat-color sketches (≈11% of original size).
+ * Asset format note: both files are WebP at quality 80 +
+ * method=6 (≈125–200 KB each), converted from the original ≥1 MB
+ * PNGs via `Pillow.WebPImagePlugin`. The exact output size depends on
+ * the source sketch's compressibility -- current wine.webp is ~124 KB
+ * (md5 `8e493b95…`) and current beer.webp is ~185 KB (md5
+ * `b2de2d72…`). cwebp/ffmpeg are NOT installed in this environment;
+ * the PIL save achieves roughly the same compression ratio as
+ * `cwebp -q 80 -m 6` on these flat-color sketches (≈10% of original
+ * size). The recipe is codified in `scripts/optimize-sidebar-bg.py`
+ * so future bg swaps do not re-invent the invocation.
  * The `[data-beer="true"]` selector used to LIVE here as a hide-rule;
  * it now lives upstream as the URL-override for the variable, so the
  * bg stays visible in beer mode with a different illustration. */
