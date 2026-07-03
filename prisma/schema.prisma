@@ -124,6 +124,23 @@ model User {
   sentSuggestions    WineSuggestion[]      @relation("SentSuggestions")
   receivedSuggestions WineSuggestion[]     @relation("ReceivedSuggestions")
   lists              List[]
+  resetTokens        PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  // SHA-256 hash of the 32-byte plaintext token. The plaintext only lives
+  // in the email we send and in the URL the user clicks; we never store
+  // it, so a DB leak does not let an attacker reset arbitrary accounts.
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model WineSuggestion {
