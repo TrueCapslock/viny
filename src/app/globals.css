@@ -237,6 +237,36 @@ body {
   background-clip: text;
 }
 
+/* Desktop sidebar bottom accent -- a wine-bottles illustration
+ * sourced from pngtree.com via Pinterest
+ *   https://co.pinterest.com/pin/857302479058953771/
+ * Inlined as a 256x256 transparent PNG (the icon is centered inside
+ * transparent margins); `contain` against the sidebar's `bg-white`
+ * blends naturally with no decorative border. Renders into the empty
+ * visual space below the nav and above the notifications/collapse row.
+ *
+ * Licensing: pngtree.com is a commercial stock-image site; verify the
+ * underlying pngtree license (free-tier attribution typically required)
+ * before redistributing the asset commercially. */
+.sidebar-bg-wine {
+  background-image: url('/sidebar-bg-wine.png');
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: contain;
+}
+
+/* Co-locate the collapsed flag with the aside itself -- the React
+ * sidebar-provider already toggles `collapsed` via useSidebar(), so
+ * we mirror it onto data-sidebar-collapsed here. That way the CSS
+ * override below targets the same element the class is on, no
+ * external state-machine wiring required. The selector also wins on
+ * specificity: base `.sidebar-bg-wine` = (0,1,0); override
+ * `[data-sidebar-collapsed="true"].sidebar-bg-wine` = (0,2,0). */
+[data-sidebar-collapsed="true"].sidebar-bg-wine,
+[data-beer="true"] .sidebar-bg-wine {
+  background-image: none;
+}
+
 /* Desktop sidebar reserve space inside <main>.
  * layout.tsx sets lg:pl-[var(--sidebar-width)] inline; this rule is a
  * gate that explicitly zeroes the padding on /login|/register (where

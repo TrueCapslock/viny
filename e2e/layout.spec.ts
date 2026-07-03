@@ -220,3 +220,47 @@ test.describe("/lister and /viner/ny - flat heading layout (no red banner)", () 
     ).toBeVisible()
   })
 })
+
+test.describe("desktop sidebar - bottom accent (Pinterest wine bg)", () => {
+  test("expanded sidebar shows the wine-bottle background; collapsed sidebar hides it", async ({
+    page,
+  }) => {
+    await forceSidebarExpanded(page)
+
+    await expect(
+      page.locator("aside.sidebar-bg-wine").first(),
+      "aside has the .sidebar-bg-wine class applied",
+    ).toBeVisible()
+
+    // In wine mode + expanded the bg-image must resolve to the asset.
+    await expect(
+      page.locator("aside.sidebar-bg-wine").first(),
+    ).toHaveCSS("background-image", /\/sidebar-bg-wine\.png/, {
+      timeout: 1000,
+    })
+
+    // The asset endpoint must serve the bytes -- a broken asset path
+    // would otherwise silently leave the sidebar with just bg-white
+    // and no visible change to regression-test against.
+    const status = await page.request.get("/sidebar-bg-wine.png")
+    expect(status.status(), "asset HTTP 200").toBe(200)
+    const bytes = await status.body()
+    expect(bytes.length, "asset > 1 KB").toBeGreaterThan(1000)
+    expect(
+      [bytes[0], bytes[1], bytes[2], bytes[3]],
+      "PNG magic header 89 50 4E 47",
+    ).toEqual([0x89, 0x50, 0x4e, 0x47])
+
+    // Collapse -> html[data-sidebar-collapsed="true"] fires, the
+    // override rule then sets background-image: none on .sidebar-bg-wine.
+    await page
+      .getByRole("button", { name: /kollaps sidebar|utvid sidebar/i })
+      .click()
+    await expect(page.locator("aside")).toHaveCSS("width", "64px", {
+      timeout: 1000,
+    })
+    await expect(
+      page.locator("aside.sidebar-bg-wine").first(),
+    ).toHaveCSS("background-image", "none", { timeout: 1000 })
+  })
+})

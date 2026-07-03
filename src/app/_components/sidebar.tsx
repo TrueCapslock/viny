@@ -49,9 +49,10 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`hidden lg:flex fixed left-0 top-0 bottom-0 z-50 flex-col bg-white border-r border-cream-200/80 shadow-sm transition-[width] duration-300 ease-in-out overflow-hidden ${
+      className={`hidden lg:flex fixed left-0 top-0 bottom-0 z-50 flex-col bg-white border-r border-cream-200/80 shadow-sm transition-[width] duration-300 ease-in-out overflow-hidden sidebar-bg-wine ${
         collapsed ? "w-[64px]" : "w-64"
       }`}
+      data-sidebar-collapsed={collapsed ? "true" : undefined}
       aria-label="Hovednavigasjon"
     >
       {/* Brand */}
