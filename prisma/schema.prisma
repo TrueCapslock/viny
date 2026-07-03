@@ -110,8 +110,9 @@ model User {
   // and is updated over time as OpenRouter rotates the free tier.
   openRouterKey  String?
   visionModel    String?  @default("nvidia/nemotron-nano-12b-v2-vl:free")
-  prefersBeer Boolean @default(false)
-  isAdmin     Boolean @default(false)
+  prefersBeer     Boolean @default(false)
+  prefersDarkMode Boolean @default(false)
+  isAdmin         Boolean @default(false)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   wines       Wine[]

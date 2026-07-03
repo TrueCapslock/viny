@@ -16,7 +16,7 @@ export async function PUT(request: Request) {
       console.error("[api/profile PUT] invalid JSON body", e)
       return {}
     })
-    const { name, email, image, prefersBeer, wineapiKey, openRouterKey, visionModel } = body
+    const { name, email, image, prefersBeer, prefersDarkMode, wineapiKey, openRouterKey, visionModel } = body
     const userId = parseInt(session.user.id)
 
     if (email !== undefined && email !== session.user.email) {
@@ -33,13 +33,14 @@ export async function PUT(request: Request) {
         ...(email !== undefined ? { email } : {}),
         ...(image !== undefined ? { image: image || null } : {}),
         ...(prefersBeer !== undefined ? { prefersBeer } : {}),
+        ...(prefersDarkMode !== undefined ? { prefersDarkMode } : {}),
         ...(wineapiKey !== undefined ? { wineapiKey } : {}),
         ...(openRouterKey !== undefined ? { openRouterKey } : {}),
         ...(visionModel !== undefined ? { visionModel } : {}),
       },
     })
 
-    return NextResponse.json({ id: updated.id, name: updated.name, email: updated.email, image: updated.image, prefersBeer: updated.prefersBeer, visionModel: updated.visionModel })
+    return NextResponse.json({ id: updated.id, name: updated.name, email: updated.email, image: updated.image, prefersBeer: updated.prefersBeer, prefersDarkMode: updated.prefersDarkMode, visionModel: updated.visionModel })
   } catch (err) {
     // Log the full error to Vercel so the next bug is debuggable from logs.
     console.error("[api/profile PUT]", err)

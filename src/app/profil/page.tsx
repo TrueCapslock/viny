@@ -18,6 +18,7 @@ export default function ProfilePage() {
   const [email, setEmail] = useState("")
   const [image, setImage] = useState("")
   const [prefersBeer, setPrefersBeer] = useState(false)
+  const [prefersDarkMode, setPrefersDarkMode] = useState(false)
   const [wineapiKey, setWineapiKey] = useState("")
   const [openRouterKey, setOpenRouterKey] = useState("")
   const [visionModel, setVisionModel] = useState("nvidia/nemotron-nano-12b-v2-vl:free")
@@ -35,6 +36,7 @@ export default function ProfilePage() {
         setEmail(session.user.email ?? "")
         setImage(session.user.image ?? "")
         setPrefersBeer(session.user.prefersBeer ?? false)
+        setPrefersDarkMode(session.user.prefersDarkMode ?? false)
         setWineapiKey(session.user.wineapiKey ?? "")
         setOpenRouterKey(session.user.openRouterKey ?? "")
         setVisionModel(session.user.visionModel ?? "nvidia/nemotron-nano-12b-v2-vl:free")
@@ -106,6 +108,7 @@ export default function ProfilePage() {
         email,
         image: image || null,
         prefersBeer,
+        prefersDarkMode,
         wineapiKey: wineapiKey || null,
         openRouterKey: openRouterKey || null,
         visionModel: visionModel || null,
@@ -119,7 +122,7 @@ export default function ProfilePage() {
       return
     }
 
-    update({ prefersBeer })
+    update({ prefersBeer, prefersDarkMode })
     router.refresh()
     setSaving(false)
   }
@@ -267,6 +270,30 @@ export default function ProfilePage() {
             </label>
           </div>
         )}
+
+        <div className="rounded-2xl border border-cream-200 bg-cream-50 p-4">
+          <label className="flex items-center justify-between gap-4 cursor-pointer select-none">
+            <div>
+              <span className="block text-sm font-semibold text-wine-900">Mørk modus</span>
+              <span className="block text-xs text-wine-500 mt-0.5">Bytt til et mørkere fargevalg for hele appen.</span>
+            </div>
+            <div
+              role="switch"
+              aria-checked={prefersDarkMode}
+              tabIndex={0}
+              onClick={() => setPrefersDarkMode((current) => !current)}
+              onKeyDown={(e) => {
+                if (e.key === " " || e.key === "Enter") {
+                  e.preventDefault()
+                  setPrefersDarkMode((current) => !current)
+                }
+              }}
+              className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${prefersDarkMode ? "bg-gold-500" : "bg-cream-300"}`}
+            >
+              <div className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-1 transition-transform ${prefersDarkMode ? "translate-x-6" : "translate-x-1"}`} />
+            </div>
+          </label>
+        </div>
 
         <button
           type="submit"

@@ -331,3 +331,171 @@ body {
   }
 }
 
+/* ============================================================
+ * DARK MODE
+ * ============================================================
+ *
+ * Implemented via the `data-theme="dark"` attribute on <html>,
+ * co-located with the existing `data-beer="true"` wine/beer axis
+ * so the user can independently toggle:
+ *
+ *   - light wine (default)    root vs [:root][data-theme="dark"]
+ *   - light beer              [data-beer="true"]
+ *   - dark  wine              [:root][data-theme="dark"]
+ *   - dark  beer              [data-beer="true"][data-theme="dark"]
+ *
+ * Specificity / cascade (later wins):
+ *   0,1,0 :  :root                          (light wine)
+ *   0,1,1 :  :root[data-theme="dark"]      (dark wine -- overrides :root)
+ *   0,1,1 :  [data-beer="true"]            (light beer -- overrides :root)
+ *   0,1,2 :  [data-beer="true"][data-theme="dark"] (dark beer -- overrides all)
+ *
+ * The same wine-50..950 / gold-50..900 / cream-50..900 / --background /
+ * --foreground tokens are REdefined, so existing Tailwind classes (e.g.
+ * `bg-cream-50`, `text-wine-900`) re-bind to the new values without any
+ * per-component edits. The single global `.bg-white` override below
+ * handles the few hard-coded `bg-white` Tailwind classes used on cards,
+ * sidebars, and modals so the visual hierarchy (slightly-lighter card
+ * on a slightly-darker page bg) survives the theme switch.
+ *
+ * ThemeProvider (`src/app/_components/theme-provider.tsx`) writes the
+ * `data-theme` attribute from session.user.prefersDarkMode on every
+ * session change; BeerModeProvider does the same for `data-beer`. */
+
+:root[data-theme="dark"] {
+  --background: #15100f;
+  --foreground: #f3dfd4;
+
+  --cream-50: #1e1411;
+  --cream-100: #271915;
+  --cream-200: #36221c;
+  --cream-300: #462c24;
+  --cream-400: #5d3b30;
+  --cream-500: #784c3e;
+  --cream-600: #91614e;
+  --cream-700: #ae7c66;
+  --cream-800: #cba18b;
+  --cream-900: #e6c7b3;
+
+  --wine-50: #1c0810;
+  --wine-100: #2a0e18;
+  --wine-200: #3b1424;
+  --wine-300: #501c33;
+  --wine-400: #682545;
+  --wine-500: #823158;
+  --wine-600: #9e3f6c;
+  --wine-700: #b85280;
+  --wine-800: #d17595;
+  --wine-900: #e6a0ba;
+  --wine-950: #f3cdd9;
+
+  --gold-50: #1d1606;
+  --gold-100: #2a2009;
+  --gold-200: #3d3014;
+  --gold-300: #54421f;
+  --gold-400: #71592d;
+  --gold-500: #977841;
+  --gold-600: #b69455;
+  --gold-700: #ccac6e;
+  --gold-800: #dcc692;
+  --gold-900: #ecdcbb;
+}
+
+[data-beer="true"][data-theme="dark"] {
+  --background: #15110a;
+  --foreground: #f0e2c8;
+
+  --cream-50: #1f1810;
+  --cream-100: #2a2117;
+  --cream-200: #38291a;
+  --cream-300: #4a3520;
+  --cream-400: #634729;
+  --cream-500: #7e5b34;
+  --cream-600: #977143;
+  --cream-700: #ae8a5b;
+  --cream-800: #c7a779;
+  --cream-900: #dcc39a;
+
+  --wine-50: #1c0e02;
+  --wine-100: #281506;
+  --wine-200: #3a2009;
+  --wine-300: #522e10;
+  --wine-400: #6d3f19;
+  --wine-500: #8b5424;
+  --wine-600: #a86834;
+  --wine-700: #c3814c;
+  --wine-800: #d9a072;
+  --wine-900: #ebb98a;
+  --wine-950: #f5dab4;
+
+  --gold-50: #0e1807;
+  --gold-100: #172810;
+  --gold-200: #243a1b;
+  --gold-300: #325024;
+  --gold-400: #476c33;
+  --gold-500: #608c46;
+  --gold-600: #80a95e;
+  --gold-700: #a3c47e;
+  --gold-800: #c5dba3;
+  --gold-900: #dfeac9;
+}
+
+:root[data-theme="dark"] ::selection {
+  background: var(--wine-700);
+  color: var(--foreground);
+}
+
+:root[data-theme="dark"] .bg-wine-gradient {
+  background: linear-gradient(135deg, var(--wine-700), var(--wine-950));
+}
+
+:root[data-theme="dark"] .bg-wine-gradient-light {
+  background: linear-gradient(135deg, var(--cream-50), var(--cream-100));
+}
+
+:root[data-theme="dark"] .bg-subtle {
+  background-image: radial-gradient(var(--cream-100) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+:root[data-theme="dark"] .text-gradient {
+  background: linear-gradient(135deg, var(--wine-700), var(--wine-900));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+[data-beer="true"][data-theme="dark"] .bg-wine-gradient {
+  background: linear-gradient(135deg, var(--wine-700), var(--wine-950));
+}
+
+[data-beer="true"][data-theme="dark"] .bg-wine-gradient-light {
+  background: linear-gradient(135deg, var(--cream-50), var(--cream-100));
+}
+
+[data-beer="true"][data-theme="dark"] .bg-subtle {
+  background-image: radial-gradient(var(--cream-100) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+[data-beer="true"][data-theme="dark"] .text-gradient {
+  background: linear-gradient(135deg, var(--wine-700), var(--wine-900));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Targeted override: most card / sidebar / modal surfaces use
+ * `bg-white` (hardcoded white, not a token). Bridge them to the
+ * dark palette so the visual hierarchy (lighter card on slightly
+ * darker page bg) is preserved. Inputs are NOT in this group --
+ * they keep their existing `bg-white` for high contrast against
+ * the dark form background. */
+:root[data-theme="dark"] .bg-white {
+  background-color: var(--cream-50);
+}
+
+[data-beer="true"][data-theme="dark"] .bg-white {
+  background-color: var(--cream-50);
+}
+

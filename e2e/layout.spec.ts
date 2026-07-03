@@ -319,3 +319,59 @@ test.describe("desktop sidebar - bottom accent (mode-driven sketch)", () => {
     })
   })
 })
+
+test.describe("dark mode (theme axis)", () => {
+  test("flips html[data-theme] and re-cascades body background to dark token", async ({
+    page,
+  }) => {
+    await forceSidebarExpanded(page)
+
+    // Default: ThemeProvider writes data-theme="light" on mount.
+    // Verify the baseline so we have a sized fallback for the dark
+    // case below -- proves the cascade catches the switch without a
+    // page reload.
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light", {
+      timeout: 1000,
+    })
+
+    // In light mode --background resolves to cream-50 (#fefcf9).
+    // Pin the baseline so the dark assertion below has a meaningful
+    // before/after comparison.
+    const lightBg = await page.evaluate(() =>
+      getComputedStyle(document.body).backgroundColor,
+    )
+    expect(lightBg, "body bg in light mode").toBe("rgb(254, 252, 249)")
+
+    // Toggle the attribute manually, the same way ThemeProvider does
+    // on a session change. The :root[data-theme="dark"] rule resolves
+    // synchronously and the var(--background) inside body picks up the
+    // dark token (#15100f) on the next read.
+    await page.evaluate(() => {
+      document.documentElement.setAttribute("data-theme", "dark")
+    })
+
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark", {
+      timeout: 1000,
+    })
+
+    // Use toHaveCSS (which polls internally up to its timeout)
+    // instead of a single-shot getComputedStyle read. This is robust
+    // against Next.js dev-server CSS HMR replays -- the cascade lands
+    // eventually, and the test waits for it.
+    await expect(page.locator("body")).toHaveCSS(
+      "background-color",
+      "rgb(21, 16, 15)",
+      { timeout: 3000 },
+    )
+
+    // Restore the attribute so we don't leak it to any test that runs
+    // after. Setting to "light" matches ThemeProvider's default branch
+    // for non-preferring users.
+    await page.evaluate(() => {
+      document.documentElement.setAttribute("data-theme", "light")
+    })
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light", {
+      timeout: 1000,
+    })
+  })
+})
