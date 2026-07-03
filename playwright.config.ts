@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test"
 
 /**
- * Playwright config for the Viny smoke tests.
+ * Playwright config for the Uva smoke tests.
  *
  * - Single chromium project (one desktop viewport for the smoke run).
  * - workers: 1 / fullyParallel: false because the suite forces the seeded

@@ -172,7 +172,7 @@ export default function ResetPasswordPage() {
 function LogoHeader({ isBeer }: { isBeer: boolean }) {
   return (
     <div className="w-16 h-16 rounded-2xl bg-wine-gradient shadow-lg shadow-wine-900/20 flex items-center justify-center mx-auto">
-      <img src={isBeer ? "/logo-beer.svg" : "/logo.svg"} alt={isBeer ? "Øly" : "Viny"} className="w-9 h-9" />
+      <img src={isBeer ? "/logo-humle.svg" : "/logo-uva.svg"} alt={isBeer ? "Humle" : "Uva"} className="w-9 h-9" />
     </div>
   )
 }

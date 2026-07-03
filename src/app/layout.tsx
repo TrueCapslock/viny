@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Viny - Vinnotater",
+  title: "Uva - Vinnotater",
   description: "Hold oversikt over viner du har smakt",
 };
 

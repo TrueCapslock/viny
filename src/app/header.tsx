@@ -17,8 +17,8 @@ export function Header() {
     <header className="bg-wine-gradient text-white sticky top-0 z-40">
       <div className="flex items-center gap-2 px-4 py-2.5">
         <Link href="/" className="flex items-center gap-2 lg:hidden">
-          <img src={isBeer ? "/logo-beer.svg" : "/logo.svg"} alt="Viny" className="w-7 h-7" />
-          <span className="text-base font-bold tracking-wide">{isBeer ? "Øly" : "Viny"}</span>
+          <img src={isBeer ? "/logo-humle.svg" : "/logo-uva.svg"} alt="Uva" className="w-7 h-7" />
+          <span className="text-base font-bold tracking-wide">{isBeer ? "Humle" : "Uva"}</span>
         </Link>
         {session?.user && (
           <div className="flex items-center gap-2 ml-auto">

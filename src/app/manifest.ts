@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next"
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Viny - Vinnotater",
-    short_name: "Viny",
+    name: "Uva - Vinnotater",
+    short_name: "Uva",
     description: "Hold oversikt over viner du har smakt",
     start_url: "/",
     display: "standalone",

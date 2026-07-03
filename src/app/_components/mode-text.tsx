@@ -14,5 +14,5 @@ export function ModeTypeLabel({ type }: { type: string }) {
 
 export function ModeLogo({ className }: { className?: string }) {
   const { isBeer } = useBeerMode()
-  return <img src={isBeer ? "/logo-beer.svg" : "/logo.svg"} alt="" className={className} />
+  return <img src={isBeer ? "/logo-humle.svg" : "/logo-uva.svg"} alt="" className={className} />
 }

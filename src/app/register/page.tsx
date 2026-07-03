@@ -53,10 +53,10 @@ export default function RegisterPage() {
       <div className="w-full max-w-sm animate-fade-in-up">
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-2xl bg-wine-gradient shadow-lg shadow-wine-900/20 flex items-center justify-center mx-auto">
-            <img src={isBeer ? "/logo-beer.svg" : "/logo.svg"} alt={isBeer ? "Øly" : "Viny"} className="w-9 h-9" />
+            <img src={isBeer ? "/logo-humle.svg" : "/logo-uva.svg"} alt={isBeer ? "Humle" : "Uva"} className="w-9 h-9" />
           </div>
           <h1 className="text-2xl font-bold text-wine-900 mt-4">Registrer deg</h1>
-          <p className="text-sm text-wine-400 mt-1">Opprett din konto på {isBeer ? "Øly" : "Viny"}</p>
+          <p className="text-sm text-wine-400 mt-1">Opprett din konto på {isBeer ? "Humle" : "Uva"}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg shadow-wine-900/5 border border-cream-200 p-6 space-y-4">

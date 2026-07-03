@@ -1,6 +1,6 @@
-# Viny
+# Uva
 
-Viny er en personlig vin- og øl-notatapp med kjellerstyring, vennefunksjoner, delte lister og nå også personlige samlinger av dine egne viner.
+Uva er en personlig vin- og øl-notatapp med kjellerstyring, vennefunksjoner, delte lister og nå også personlige samlinger av dine egne viner.
 
 ## Features
 

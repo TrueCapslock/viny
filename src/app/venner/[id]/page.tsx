@@ -82,7 +82,7 @@ export default function FriendWinesPage() {
         {wines.length === 0 && !winesLoading ? (
           <div className="text-center py-16 animate-fade-in">
             <div className="w-16 h-16 rounded-2xl bg-wine-50 border border-wine-100 flex items-center justify-center mx-auto">
-              <img src={isBeer ? "/logo-beer.svg" : "/logo.svg"} alt="" className="w-8 h-8 opacity-40" />
+              <img src={isBeer ? "/logo-humle.svg" : "/logo-uva.svg"} alt="" className="w-8 h-8 opacity-40" />
             </div>
             <p className="text-wine-700 font-semibold mt-4">{isBeer ? "Ingen øl ennå" : "Ingen viner ennå"}</p>
           </div>
@@ -102,7 +102,7 @@ export default function FriendWinesPage() {
                       </div>
                     ) : (
                       <div className="w-14 h-14 rounded-xl bg-wine-50 border border-wine-100 flex items-center justify-center shrink-0">
-                        <img src={isBeer ? "/logo-beer.svg" : "/logo.svg"} alt="" className="w-7 h-7 opacity-50" />
+                        <img src={isBeer ? "/logo-humle.svg" : "/logo-uva.svg"} alt="" className="w-7 h-7 opacity-50" />
                       </div>
                     )}
                     <div className="flex-1 min-w-0 pt-0.5">

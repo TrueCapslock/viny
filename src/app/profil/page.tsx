@@ -311,7 +311,7 @@ export default function ProfilePage() {
         </div>
       </form>
 
-      <p className="text-center text-xs text-wine-300 mt-6">Viny v{APP_VERSION}</p>
+      <p className="text-center text-xs text-wine-300 mt-6">Uva v{APP_VERSION}</p>
 
       {cropImage && (
         <AvatarCropDialog

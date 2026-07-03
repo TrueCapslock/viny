@@ -80,10 +80,10 @@ export default function HomePage() {
         {filtered.length === 0 ? (
           <div className="text-center py-20 animate-fade-in">
             <div className="w-20 h-20 rounded-2xl bg-wine-50 border border-wine-100 flex items-center justify-center mx-auto">
-              <img src={isBeer ? "/logo-beer.svg" : "/logo.svg"} alt="" className="w-10 h-10 opacity-40" />
+              <img src={isBeer ? "/logo-humle.svg" : "/logo-uva.svg"} alt="" className="w-10 h-10 opacity-40" />
             </div>
             <p className="text-wine-800 font-semibold mt-5 text-lg">
-              {query || typeFilter ? "Ingen treff" : showAll ? (isBeer ? "Velkommen til Øly" : "Velkommen til Viny") : isBeer ? "Tom ølkasse" : "Tomt vinskap"}
+              {query || typeFilter ? "Ingen treff" : showAll ? (isBeer ? "Velkommen til Humle" : "Velkommen til Uva") : isBeer ? "Tom ølkasse" : "Tomt vinskap"}
             </p>
             <p className="text-wine-400 text-sm mt-1.5 max-w-xs mx-auto leading-relaxed">
               {query || typeFilter
@@ -125,7 +125,7 @@ export default function HomePage() {
                         </div>
                       ) : (
                         <div className="w-14 h-14 rounded-xl bg-wine-50 border border-wine-100 flex items-center justify-center shrink-0">
-                          <img src={isBeer ? "/logo-beer.svg" : "/logo.svg"} alt="" className="w-7 h-7 opacity-50" />
+                          <img src={isBeer ? "/logo-humle.svg" : "/logo-uva.svg"} alt="" className="w-7 h-7 opacity-50" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0 pt-0.5">

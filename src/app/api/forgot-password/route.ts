@@ -74,21 +74,21 @@ async function handleResetRequest(
 }
 
 async function sendResetEmail(to: string, resetUrl: string) {
-  const subject = "Tilbakestill passordet ditt på Viny"
+  const subject = "Tilbakestill passordet ditt på Uva"
 
   const text =
     `Hei!\n\n` +
-    `Vi har mottatt en forespørsel om å tilbakestille passordet ditt på Viny.\n` +
+    `Vi har mottatt en forespørsel om å tilbakestille passordet ditt på Uva.\n` +
     `Klikk på lenken under for å velge et nytt passord:\n\n` +
     `${resetUrl}\n\n` +
     `Lenken er gyldig i 24 timer. Hvis du ikke har bedt om dette, kan du\n` +
     `ignorere e-posten – passordet ditt blir ikke endret.\n\n` +
-    `– Viny`
+    `– Uva`
 
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 560px; margin: 0 auto; color: #1f2937;">
       <div style="background: linear-gradient(135deg, #7f1d1d 0%, #881337 100%); padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
-        <h1 style="margin: 0; color: #fff; font-size: 20px; font-weight: 600;">Viny</h1>
+        <h1 style="margin: 0; color: #fff; font-size: 20px; font-weight: 600;">Uva</h1>
       </div>
       <div style="background: #fff; padding: 28px 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
         <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.5;">
@@ -119,7 +119,7 @@ async function sendResetEmail(to: string, resetUrl: string) {
   `
 
   const apiKey = process.env.RESEND_API_KEY
-  const from = process.env.EMAIL_FROM ?? "Viny <noreply@viny.no>"
+  const from = process.env.EMAIL_FROM ?? "Uva <noreply@uva.no>"
 
   if (!apiKey) {
     // No key configured – act as no-op so the generic 200 still flows back.

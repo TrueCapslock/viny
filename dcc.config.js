@@ -1,5 +1,5 @@
 export default {
-  name: 'Viny',
+  name: 'Uva',
   menuRows: 10,
 
   commands: [
