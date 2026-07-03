@@ -222,7 +222,7 @@ test.describe("/lister and /viner/ny - flat heading layout (no red banner)", () 
 })
 
 test.describe("desktop sidebar - bottom accent (mode-driven sketch)", () => {
-  test("wine mode + expanded: shows /sidebar-bg-wine.png; collapsed: hides", async ({
+  test("wine mode + expanded: shows /sidebar-bg-wine.webp; collapsed: hides", async ({
     page,
   }) => {
     await forceSidebarExpanded(page)
@@ -241,21 +241,27 @@ test.describe("desktop sidebar - bottom accent (mode-driven sketch)", () => {
     // the resolved `--sidebar-bg-image`, not the var() literal.
     await expect(
       page.locator("nav.sidebar-bg-illustration").first(),
-    ).toHaveCSS("background-image", /\/sidebar-bg-wine\.png/, {
+    ).toHaveCSS("background-image", /\/sidebar-bg-wine\.webp/, {
       timeout: 1000,
     })
 
     // The asset endpoint must serve the bytes -- a broken asset path
     // would otherwise silently leave the sidebar with just bg-white
     // and no visible change to regression-test against.
-    const wine = await page.request.get("/sidebar-bg-wine.png")
+    const wine = await page.request.get("/sidebar-bg-wine.webp")
     expect(wine.status(), "wine asset HTTP 200").toBe(200)
     const wineBytes = await wine.body()
     expect(wineBytes.length, "wine asset > 1 KB").toBeGreaterThan(1000)
+    // WebP header: "RIFF" at 0..3 + file size at 4..7 (LE) + "WEBP" at 8..11.
+    // We check BOTH markers so a RIFFed AVI/WAV would not falsely pass.
     expect(
       [wineBytes[0], wineBytes[1], wineBytes[2], wineBytes[3]],
-      "PNG magic header 89 50 4E 47",
-    ).toEqual([0x89, 0x50, 0x4e, 0x47])
+      "WebP RIFF marker 52 49 46 46",
+    ).toEqual([0x52, 0x49, 0x46, 0x46])
+    expect(
+      [wineBytes[8], wineBytes[9], wineBytes[10], wineBytes[11]],
+      "WebP WEBP marker 57 45 42 50",
+    ).toEqual([0x57, 0x45, 0x42, 0x50])
 
     // Collapse -> nav picks up data-sidebar-collapsed="true"; the
     // override rule sets background-image: none on the SAME element.
@@ -270,7 +276,7 @@ test.describe("desktop sidebar - bottom accent (mode-driven sketch)", () => {
     ).toHaveCSS("background-image", "none", { timeout: 1000 })
   })
 
-  test("beer mode: bg swaps to /sidebar-bg-beer.png via html[data-beer]", async ({
+  test("beer mode: bg swaps to /sidebar-bg-beer.webp via html[data-beer]", async ({
     page,
   }) => {
     await forceSidebarExpanded(page)
@@ -288,18 +294,22 @@ test.describe("desktop sidebar - bottom accent (mode-driven sketch)", () => {
 
     await expect(
       page.locator("nav.sidebar-bg-illustration").first(),
-    ).toHaveCSS("background-image", /\/sidebar-bg-beer\.png/, {
+    ).toHaveCSS("background-image", /\/sidebar-bg-beer\.webp/, {
       timeout: 1000,
     })
 
-    const beer = await page.request.get("/sidebar-bg-beer.png")
+    const beer = await page.request.get("/sidebar-bg-beer.webp")
     expect(beer.status(), "beer asset HTTP 200").toBe(200)
     const beerBytes = await beer.body()
     expect(beerBytes.length, "beer asset > 1 KB").toBeGreaterThan(1000)
     expect(
       [beerBytes[0], beerBytes[1], beerBytes[2], beerBytes[3]],
-      "PNG magic header 89 50 4E 47",
-    ).toEqual([0x89, 0x50, 0x4e, 0x47])
+      "WebP RIFF marker 52 49 46 46",
+    ).toEqual([0x52, 0x49, 0x46, 0x46])
+    expect(
+      [beerBytes[8], beerBytes[9], beerBytes[10], beerBytes[11]],
+      "WebP WEBP marker 57 45 42 50",
+    ).toEqual([0x57, 0x45, 0x42, 0x50])
 
     // Restore so we don't leak the attr to any test that runs after.
     // Setting to "false" matches the BeerModeProvider's default branch

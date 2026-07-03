@@ -242,29 +242,38 @@ body {
  * mode-driven via a CSS custom property so the same class works in
  * both wine and beer mode:
  *
- *   - default (wine mode): a 1254x1254 RGB PNG with an opaque white
- *     background showing a wine bottle + glass + grapes + grape-leaf,
- *     user-provided custom artwork (AI-generated via ChatGPT; no
- *     commercial licensing concerns). Against `bg-cream-50`/`bg-white`
- *     only the maroon strokes of the sketch are visible.
- *   - beer mode (`<html data-beer="true">`): the same shape of asset
- *     (1254x1254 RGB opaque, AI-generated user artwork) but beer-themed.
- *     The two files are visually interchangeable except for the motif.
+ *   - default (wine mode): a 1920x1080 RGB WebP (~200 KB, was
+ *     a 1.87 MB PNG before the q=80 optimization) with an opaque
+ *     white background showing a wine bottle + glass + grapes +
+ *     grape-leaf, user-provided custom artwork (AI-generated via
+ *     ChatGPT; no commercial licensing concerns). Against the
+ *     sidebar's bg-white only the maroon strokes of the sketch are
+ *     visible. The 16:9 aspect renders as a ~256x143 horizontal
+ *     strip pinned to the bottom-center of the 256 px-wide nav.
+ *   - beer mode (`<html data-beer="true">`): the same shape (1920x1080
+ *     WebP, ~200 KB) but beer-themed. The two files are visually
+ *     interchangeable except for the motif.
  *
  * `background-size: contain` keeps the 1:1 aspect intact (renders as
  * a ~256x256 block at the bottom-center of the 256 px-wide nav in
  * expanded desktop).
  *
  * Hidden in collapsed mode (64 px is too narrow for the illustration).
+ *
+ * Asset format note: both files are WebP at quality 80 (~200 KB
+ * each), converted from the original 1.87 MB PNGs via `Pillow.WebPImagePlugin`.
+ * cwebp/ffmpeg are NOT installed in this environment; the PIL save
+ * achieves roughly the same compression ratio as cwebp -q 80 on
+ * these flat-color sketches (≈11% of original size).
  * The `[data-beer="true"]` selector used to LIVE here as a hide-rule;
  * it now lives upstream as the URL-override for the variable, so the
  * bg stays visible in beer mode with a different illustration. */
 :root {
-  --sidebar-bg-image: url('/sidebar-bg-wine.png');
+  --sidebar-bg-image: url('/sidebar-bg-wine.webp');
 }
 
 :root[data-beer="true"] {
-  --sidebar-bg-image: url('/sidebar-bg-beer.png');
+  --sidebar-bg-image: url('/sidebar-bg-beer.webp');
 }
 
 /* Co-locate the collapsed flag with the nav itself -- the React
