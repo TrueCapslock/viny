@@ -50,7 +50,7 @@ export function Sidebar() {
   return (
     <aside
       className={`hidden lg:flex fixed left-0 top-0 bottom-0 z-50 flex-col bg-white border-r border-cream-200/80 shadow-sm transition-[width] duration-300 ease-in-out overflow-hidden ${
-        collapsed ? "w-[72px]" : "w-64"
+        collapsed ? "w-[64px]" : "w-64"
       }`}
       aria-label="Hovednavigasjon"
     >
@@ -63,10 +63,10 @@ export function Sidebar() {
         <Link
           href="/"
           className="flex items-center gap-2.5 min-w-0"
-          aria-label={isBeer ? "Øly" : "Viny"}
+          aria-label={isBeer ? "Humle" : "Uva"}
         >
           <img
-            src={isBeer ? "/logo-beer.svg" : "/logo.svg"}
+            src={isBeer ? "/logo-humle.svg" : "/logo-uva.svg"}
             alt=""
             className="w-7 h-7 shrink-0"
           />
@@ -76,7 +76,7 @@ export function Sidebar() {
             }`}
             aria-hidden={collapsed}
           >
-            {isBeer ? "Øly" : "Viny"}
+            {isBeer ? "Humle" : "Uva"}
           </span>
         </Link>
       </div>
@@ -93,10 +93,22 @@ export function Sidebar() {
           const TabIcon = tab.icon
           const base =
             "flex items-center gap-3 rounded-xl transition-all duration-200 group relative whitespace-nowrap"
-          const sizing = collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"
+          const sizing = collapsed ? "px-2 py-2.5" : "px-3 py-2.5"
           const variants = isActive
             ? "bg-wine-100 text-wine-900 font-semibold ring-1 ring-wine-300"
             : "text-wine-600 hover:bg-cream-50 hover:text-wine-700"
+          // safe-center inline style only when collapsed: tab flex children
+          // [icon 24][gap-3 12][label max-w-0 0] = 36px in a 24px tab content
+          // box (after nav p-3 + tab px-2 at 64px) -- 12px of overflow.
+          // Tailwind's `justify-center` resolves to `unsafe center`, which
+          // would distribute the overflow symmetrically (~6px each side) and
+          // shift the icon ~6px left of the bar's true center. safe-center
+          // clips the overflow at the start edge instead, which at 64px wide
+          // bar coincidentally lands the 24px icon exactly on the bar's
+          // center (icon x=20..44, aside center x=32). Keeping gap-3
+          // unconditional also sidesteps a transient off-center blip during
+          // the 300ms expand transition (gap isn't transitionable; toggling
+          // it would snap while the label's max-w animation runs).
           return (
             <Link
               key={tab.href}
@@ -104,6 +116,7 @@ export function Sidebar() {
               title={collapsed ? tab.label : undefined}
               aria-current={isActive ? "page" : undefined}
               className={`${base} ${sizing} ${variants}`}
+              style={collapsed ? { justifyContent: "safe center" } : undefined}
             >
               <TabIcon className="w-6 h-6 shrink-0" />
               <span
