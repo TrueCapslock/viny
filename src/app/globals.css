@@ -603,3 +603,14 @@ body {
   opacity: 1;
 }
 
+/* Hide the placeholder on focus for every form control, so the
+ * field's "empty" affordance disappears the moment the user clicks
+ * or tabs in (rather than persisting until they type their first
+ * character). Specificity (0,1,2) beats the per-class placeholder
+ * color rules above (0,1,1) so the focus-hide wins regardless of
+ * which placeholder-* utility the input uses. */
+input:focus::placeholder,
+textarea:focus::placeholder {
+  opacity: 0;
+}
+
