@@ -13,8 +13,6 @@ export async function POST(request: Request) {
   if (!wine) return NextResponse.json({ error: "Not found" }, { status: 404 })
   if (wine.userId !== userId) {
     // v0.14.0: write access is owner or SharedListMember of wine.sharedListId.
-    // ListShare is retired (its rows were migrated to SharedListMember rows in
-    // the v0.14.0 migration, so semantically nothing changed here).
     if (!wine.sharedListId) {
       return NextResponse.json({ error: "Not found" }, { status: 404 })
     }

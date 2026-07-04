@@ -98,8 +98,8 @@ export async function POST(request: Request) {
   if (targetUserId) {
     const targetId = parseInt(targetUserId)
     if (targetId !== userId) {
-      // v0.14.0: editors on someone else's cellar must now be a
-      // SharedListMember of that user's Vinskapet (replace ListShare).
+      // v0.14.0: editors on someone else's cellar must be a
+      // SharedListMember of that user's Vinskapet.
       const target = await prisma.user.findUnique({
         where: { id: targetId },
         select: { defaultSharedListId: true },

@@ -51,10 +51,8 @@ async function canAccessWine(wineId: number, userId: number) {
   return null
 }
 
-// v0.14.0: write access. The owner OR any SharedListMember of the wine's
-// sharedListId. The legacy ListShare editor fallback is removed — both new
-// invites and old ListShare rows resolve to a SharedListMember row by
-// construction (see migration 20260703235530).
+// v0.14.0: write access is owner OR any SharedListMember of the wine's
+// sharedListId.
 async function canEditWine(wineId: number, userId: number) {
   const wine = await prisma.wine.findUnique({ where: { id: wineId } })
   if (!wine) return null

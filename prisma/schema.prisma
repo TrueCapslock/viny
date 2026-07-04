@@ -124,9 +124,7 @@ model User {
 
   sentFriendships   Friend[]     @relation("SentFriendships")
   receivedFriendships Friend[]   @relation("ReceivedFriendships")
-  ownedShares        ListShare[]           @relation("ListOwners")
-  editorShares       ListShare[]           @relation("ListEditors")
-  sharedListMembers  SharedListMember[]
+  sharedListMembers  SharedListMember[]  
   sentSuggestions    WineSuggestion[]      @relation("SentSuggestions")
   receivedSuggestions WineSuggestion[]     @relation("ReceivedSuggestions")
   lists              List[]
@@ -187,18 +185,6 @@ model Friend {
   addressee   User     @relation("ReceivedFriendships", fields: [addresseeId], references: [id], onDelete: Cascade)
 
   @@unique([requesterId, addresseeId])
-}
-
-model ListShare {
-  id        Int      @id @default(autoincrement())
-  ownerId   Int
-  editorId  Int
-  createdAt DateTime @default(now())
-
-  owner     User     @relation("ListOwners", fields: [ownerId], references: [id], onDelete: Cascade)
-  editor    User     @relation("ListEditors", fields: [editorId], references: [id], onDelete: Cascade)
-
-  @@unique([ownerId, editorId])
 }
 
 model SiteSettings {

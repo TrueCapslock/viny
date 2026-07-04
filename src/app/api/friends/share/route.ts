@@ -2,9 +2,9 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
-// v0.14.0: the share button now adds the friend as a SharedListMember of my
-// per-user Vinskapet (replaces the old ListShare editor-row model). Friend
-// status still gates visibility, and only members can write into my cellar.
+// v0.14.0: the share button adds the friend as a SharedListMember of my
+// per-user Vinskapet. Friend status still gates visibility; only members
+// can write into my cellar.
 export async function POST(request: Request) {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
