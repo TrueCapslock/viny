@@ -1,7 +1,7 @@
 "use client"
 
 import { useSession } from "next-auth/react"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { createPortal } from "react-dom"
 import Link from "next/link"
 import { UserDialogSkeleton } from "@/app/_components/skeletons"
@@ -28,10 +28,21 @@ type BlobImage = {
 
 function UsersDialog({ onClose }: { onClose: () => void }) {
   const { users, loading, mutate } = useAdminUsers()
+  const [searchQuery, setSearchQuery] = useState("")
   const [toggling, setToggling] = useState<number | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<{ id: number; name: string; wines: number } | null>(null)
   const [deletingUserId, setDeletingUserId] = useState<number | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const filtered = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim()
+    if (!q) return users
+    return users.filter(
+      (u: User) =>
+        (u.name ?? "").toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q),
+    )
+  }, [users, searchQuery])
 
   async function toggleBeer(userId: number, current: boolean) {
     setToggling(userId)
@@ -72,13 +83,23 @@ function UsersDialog({ onClose }: { onClose: () => void }) {
             </svg>
           </button>
         </div>
+        <div className="px-4 pt-3">
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Søk etter navn eller e-post…"
+            className="w-full rounded-xl border border-cream-200 bg-cream-50 px-3.5 py-2 text-sm text-wine-900 placeholder-wine-300 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none transition-all"
+          />
+        </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {loading ? (
             <div className="p-4">
               <UserDialogSkeleton />
             </div>
+          ) : filtered.length === 0 ? (
+            <p className="text-center py-8 text-sm text-wine-400">Ingen brukere matchet søket</p>
           ) : (
-            users.map((user: User) => (
+            filtered.map((user: User) => (
               <div key={user.id} className="bg-cream-50 rounded-xl border border-cream-200 p-3 flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-wine-100 flex items-center justify-center shrink-0 overflow-hidden">
                   {user.image ? (
