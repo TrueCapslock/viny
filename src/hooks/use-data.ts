@@ -1,7 +1,6 @@
 "use client"
 
 import useSWR from "swr"
-import useSWRMutation from "swr/mutation"
 import { fetcher, apiUrl } from "@/lib/api"
 
 export function useWines(userId?: number | null) {

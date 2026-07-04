@@ -1,4 +1,4 @@
-export default {
+const dccConfig = {
   name: 'Uva',
   menuRows: 10,
 
@@ -139,3 +139,5 @@ export default {
     },
   ],
 }
+
+export default dccConfig

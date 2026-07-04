@@ -131,7 +131,6 @@ export function buildSearchQuery(rawText: string): OcrResult {
     .map((l) => l.trim())
     .filter(Boolean)
 
-  const allowedAlnum = new RegExp(`[${ALNUM}]`)
   const allowedLetter = new RegExp(`[${LETTER}]`)
   const alnumCounter = new RegExp(`[${ALNUM}]`, "g")
   const useful = splitLines.filter((line) => {

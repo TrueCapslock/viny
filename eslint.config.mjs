@@ -26,10 +26,23 @@ const eslintConfig = defineConfig([
   //     legitimate `any` uses for third-party API response shapes
   //     and dynamic Prisma include projections; tightening requires
   //     a larger type-narrowing pass. Tracked as a known issue.
+  //   - @next/next/no-img-element: the codebase uses raw <img> tags
+  //     extensively (28 occurrences across components, pages, dialogs).
+  //     Migrating to next/image requires width/height on every <img>,
+  //     remotePatterns config for the Vercel Blob CDN, and a layout-
+  //     shift audit. Tracked as a known issue — revisit in a dedicated
+  //     commit that does the migration end-to-end.
+  //   - @next/next/no-page-custom-font: the Material Symbols font is
+  //     loaded via a <link> tag in layout.tsx. Migrating to
+  //     next/font/google requires the CSS-class-to-font-class plumbing
+  //     to be rewired (the current Icon component uses the CSS class
+  //     to look up icon glyphs by name). Tracked as a known issue.
   {
     rules: {
       "react-hooks/set-state-in-effect": "warn",
       "@typescript-eslint/no-explicit-any": "warn",
+      "@next/next/no-img-element": "warn",
+      "@next/next/no-page-custom-font": "warn",
     },
   },
 ]);

@@ -1,7 +1,6 @@
 "use client"
 
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
 import { useState } from "react"
 import Link from "next/link"
 import { UserDialogSkeleton } from "@/app/_components/skeletons"
@@ -221,7 +220,6 @@ function ImagesDialog({ onClose }: { onClose: () => void }) {
 
 export default function AdminPage() {
   const { data: session, update } = useSession()
-  const router = useRouter()
   const [showUsers, setShowUsers] = useState(false)
   const [showImages, setShowImages] = useState(false)
   const { settings, mutate: mutateSettings } = useAdminSettings()
