@@ -35,6 +35,15 @@ export function WineForm({
   const fileRef = useRef<HTMLInputElement>(null)
   const imageRef = useRef(initial?.image ?? "")
   const savedRef = useRef(false)
+  // Synchronous re-entry guard for handleSubmit. The button's
+  // `disabled={saving || uploading}` prop is the visual cue, but
+  // pressing Enter in any text input fires form submit (bypassing
+  // the button-disabled state) and React's `setSaving(true)` flushes
+  // asynchronously — a rapid double-Enter can fire handleSubmit
+  // twice before the state update lands, producing two POSTs and
+  // two Wine rows. A ref flips synchronously on first invocation
+  // and bails on re-entry; reset on error so the user can retry.
+  const submittingRef = useRef(false)
   const [form, setForm] = useState<WineFormData>(
     initial ?? {
       name: "",
@@ -118,17 +127,29 @@ export function WineForm({
       setError("Vent til bildet er ferdig lastet opp")
       return
     }
+    // Synchronous guard against double-submit (rapid Enter, double
+    // click before React flushes `setSaving(true)`). See the
+    // submittingRef declaration above for the why.
+    if (submittingRef.current) return
+    submittingRef.current = true
     setSaving(true)
     setError(null)
     const res = await onSave({ ...form, image: imageRef.current || form.image })
     if (res.ok) {
       savedRef.current = true
+      // Don't reset submittingRef on success — we're navigating
+      // away, so the guard just blocks any late submits racing the
+      // navigation transition. The unmount drops the ref.
       router.push("/")
       router.refresh()
-    } else {
-      setError(res.error ?? "Noe gikk galt")
+      // setSaving(false) intentionally NOT called on success: the
+      // form unmounts as `router.push` lands, so a final state tick
+      // would just be wasted React work before the unmount.
+      return
     }
+    submittingRef.current = false // allow retry on error
     setSaving(false)
+    setError(res.error ?? "Noe gikk galt")
   }
 
   const inputClass = "w-full rounded-xl border border-cream-200 bg-cream-50 px-3.5 py-2.5 text-sm text-wine-900 placeholder-wine-300 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none transition-all"

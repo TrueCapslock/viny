@@ -88,6 +88,8 @@ export async function GET(request: Request) {
   })
 
   // Compute average rating per wine (cheap; ≤ a handful per page).
+  // Note: we dedupe by wineId below, so this array must feed the
+  // dedupe-aware output builder — we hash by lw.wineId, not lw.id.
   const wineIds = listWines.map((lw) => lw.wineId)
   const ratings = wineIds.length
     ? await prisma.tasting.groupBy({
@@ -101,8 +103,38 @@ export async function GET(request: Request) {
     ratingByWine.set(r.wineId, Math.round(r._avg.rating ?? 0))
   }
 
+  // Group listWines by wineId. A wine on both MainList and a Custom
+  // List produces two (listId, wineId) rows with the same Wine.id —
+  // without dedup the home page (`<WineCard key={wine.id}>`) renders
+  // the same wine twice in "Alle viner" / cellar views, which the
+  // user reads as "duplicate".
+  //
+  // Pick the row whose owning list IS the user's MainList when both
+  // exist (the home view's authoritative source: a wine the owner
+  // has marked as in-cellar must surface as in-cellar, even if it's
+  // also pinned on a Custom List). For wines on Custom Lists only,
+  // pick the most-recently-added row (the existing orderBy: { addedAt:
+  // "desc" } pre-sorts so the first row we see is the freshest, and
+  // the `uniqueByWineId.has()` check skips older duplicates).
+  //
+  // Friend-peek (targetUserId set) usually shows a single MainList,
+  // so the input set already has at most one row per wineId — this
+  // dedup is a no-op for that path, just a defensive belt-and-braces
+  // that costs ~O(n) work.
+  const uniqueByWineId = new Map<number, (typeof listWines)[number]>()
+  for (const lw of listWines) {
+    if (lw.listId === mainListId) {
+      // MainList row always wins over any Custom List pin.
+      uniqueByWineId.set(lw.wineId, lw)
+      continue
+    }
+    if (!uniqueByWineId.has(lw.wineId)) {
+      uniqueByWineId.set(lw.wineId, lw)
+    }
+  }
+
   // Stable order: most-recently-added ListWine first.
-  const out = listWines.map((lw) => ({
+  const out = Array.from(uniqueByWineId.values()).map((lw) => ({
     ...lw.wine,
     listId: lw.listId,
     inCellar: lw.inCellar,
