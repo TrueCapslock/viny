@@ -2,6 +2,25 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 
+// ─────────────────────────────────────────────────────────────────────
+// eslint pinned to ^9 (not ^10) — unpin path
+// ─────────────────────────────────────────────────────────────────────
+// eslint-plugin-react@7.37.5 (bundled by eslint-config-next@16) still
+// calls context.getFilename(), which ESLint 10 removed (kept as a
+// compat shim through v9). Pinning eslint to ^9 keeps the
+// `react/display-name` rule loadable; ESLint 10 crashes the loader
+// with "contextOrFilename.getFilename is not a function".
+//
+// Unpin path: when eslint-plugin-react v8 lands with ESLint 10 support,
+// bump eslint back to ^10, re-run `npx eslint` on any .tsx, confirm
+// the display-name rule loads cleanly (no getFilename TypeError), then
+// remove this comment.
+//
+// (Previously a `"//"`-prefixed string field in package.json documented
+// this; the Vercel build environment parsed it as a dependency and
+// failed with EINVALIDPACKAGENAME. Moved here where npm can't touch it.)
+// ─────────────────────────────────────────────────────────────────────
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
