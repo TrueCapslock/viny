@@ -511,4 +511,135 @@ test.describe("v0.15.1 list-merge invite-then-accept flow", () => {
       await cleanupMergePair(ctx, [])
     }
   })
+
+  test("merge: all wines from both lists survive on the shared list", async ({
+    browser,
+  }) => {
+    const ctx = await setupMergePair(browser, Date.now())
+    let callerWineId = -1
+    let friendWineId = -1
+    try {
+      // Seed a wine on each side so we can verify both survive the
+      // non-destructive merge (collision handling: wines that exist on
+      // only one list migrate; wines unique to each side are the
+      // simple case).
+      const callerWine = await ctx.callerPage.request.post("/api/viner", {
+        data: {
+          name: `E2E merge caller ${Date.now()}`,
+          producer: "merge produsent A",
+          type: "red",
+          inCellar: false,
+          quantity: 0,
+        },
+      })
+      expect(callerWine.ok(), "seed caller wine succeeds").toBeTruthy()
+      callerWineId = ((await callerWine.json()) as { id: number }).id
+
+      const friendWine = await ctx.friendPage.request.post("/api/viner", {
+        data: {
+          name: `E2E merge friend ${Date.now()}`,
+          producer: "merge produsent B",
+          type: "white",
+          inCellar: true,
+          quantity: 1,
+        },
+      })
+      expect(friendWine.ok(), "seed friend wine succeeds").toBeTruthy()
+      friendWineId = ((await friendWine.json()) as { id: number }).id
+
+      // UI flow: open the dialog, click the new "Slå sammen" button.
+      await ctx.callerPage.goto("/venner")
+      await ctx.callerPage
+        .getByRole("button", { name: /^Del liste$/ })
+        .first()
+        .click()
+      await expect(
+        ctx.callerPage.getByTestId("share-merge"),
+        "share-merge button visible inside dialog",
+      ).toBeVisible()
+      await expect(
+        ctx.callerPage.getByTestId("share-mine"),
+        "share-mine button still visible (3-button dialog)",
+      ).toBeVisible()
+      await expect(
+        ctx.callerPage.getByTestId("share-theirs"),
+        "share-theirs button still visible (3-button dialog)",
+      ).toBeVisible()
+      await ctx.callerPage.getByTestId("share-merge").click()
+
+      // Dialog closes on success; pending badge appears.
+      await expect(
+        ctx.callerPage.getByTestId("share-merge"),
+        "share-merge is hidden after success (dialog unmounted)",
+      ).toBeHidden({ timeout: 15_000 })
+      await expect(
+        ctx.callerPage.getByTestId("share-row-pending"),
+        "share-row-pending badge visible after share-merge",
+      ).toBeVisible({ timeout: 15_000 })
+
+      // Friend accepts. Cross-context caveat: poll the API first
+      // (deterministic), then re-mount caller and assert via the
+      // stable data-testid.
+      await ctx.friendPage.goto("/venner")
+      await expect(
+        ctx.friendPage.getByTestId("share-invite-received"),
+        "share-invite-received card visible on friend side for merge",
+      ).toBeVisible({ timeout: 15_000 })
+      await ctx.friendPage.getByTestId("share-invite-accept").click()
+
+      await expect(async () => {
+        const r = await ctx.callerPage.request.get("/api/friends")
+        const d = await r.json()
+        const row = (
+          d.friends as Array<{ userId: number; sharedMainList: boolean }>
+        ).find((f) => f.userId === ctx.friendId)
+        expect(row?.sharedMainList, "API: sharedMainList=true after merge accept").toBe(true)
+      }).toPass({ timeout: 15_000 })
+
+      await ctx.callerPage.reload()
+      await expect(
+        ctx.callerPage.getByTestId("share-row-shared"),
+        "shared badge after merge + friend accept",
+      ).toBeVisible({ timeout: 15_000 })
+
+      // Verify the merge was non-destructive: both wines are reachable
+      // from the caller's /api/viner (which is filtered by the caller's
+      // mainListId — the shared list after merge).
+      const callerWinesRes = await ctx.callerPage.request.get("/api/viner")
+      const callerWines = (await callerWinesRes.json()) as Array<{
+        id: number
+        name: string
+      }>
+      expect(
+        callerWines.find((w) => w.id === callerWineId),
+        "caller's seeded wine survives the merge on the shared list",
+      ).toBeTruthy()
+      expect(
+        callerWines.find((w) => w.id === friendWineId),
+        "friend's seeded wine is now visible on the caller's shared list",
+      ).toBeTruthy()
+
+      // And the friend's side sees the same shared list.
+      const friendWinesRes = await ctx.friendPage.request.get("/api/viner")
+      const friendWines = (await friendWinesRes.json()) as Array<{
+        id: number
+        name: string
+      }>
+      expect(
+        friendWines.find((w) => w.id === callerWineId),
+        "caller's wine visible from the friend's side too",
+      ).toBeTruthy()
+      expect(
+        friendWines.find((w) => w.id === friendWineId),
+        "friend's wine visible from the friend's side too",
+      ).toBeTruthy()
+    } finally {
+      // cleanupMergePair only handles caller-side wine IDs; delete the
+      // friend's wine explicitly on the friend context.
+      if (friendWineId > 0) {
+        await ctx.friendPage.request.delete(`/api/viner/${friendWineId}`)
+      }
+      await cleanupMergePair(ctx, callerWineId > 0 ? [callerWineId] : [])
+    }
+  })
 })

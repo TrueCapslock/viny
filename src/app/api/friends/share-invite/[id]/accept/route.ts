@@ -12,11 +12,14 @@ type Params = Promise<{ id: string }>
  * loser from the invite's stored `winner` enum:
  *   - winner="mine"   -> winnerUserId = invite.fromUserId
  *   - winner="theirs" -> winnerUserId = invite.toUserId
+ *   - winner="merge"  -> winnerUserId = invite.fromUserId (inviter's
+ *     list is the base; the invitee's wines are migrated in)
  *
  * The merge runs inside a single Prisma transaction so the invite's
  * status flip to "accepted" and the data-side merge are a single
  * atomic operation. `migrateLoserWines` was captured at invite time
- * and is passed verbatim into the helper.
+ * and is passed verbatim into the helper — it's true for "merge"
+ * (non-destructive) and false for "mine"/"theirs" (destructive).
  *
  * `mergeMainlistsForShareInvite` re-checks "winner mainListId != loser
  * mainListId" inside its tx body, so a concurrent split (DELETE
@@ -42,8 +45,12 @@ export async function POST(_request: Request, { params }: { params: Params }) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  const winnerUserId = invite.winner === "mine" ? invite.fromUserId : invite.toUserId
-  const loserUserId = invite.winner === "mine" ? invite.toUserId : invite.fromUserId
+  // "merge" uses the inviter as the base (consistent with "mine"); the
+  // distinction is purely UI on the picker side.
+  const winnerUserId =
+    invite.winner === "theirs" ? invite.toUserId : invite.fromUserId
+  const loserUserId =
+    invite.winner === "theirs" ? invite.fromUserId : invite.toUserId
 
   try {
     const result = await prisma.$transaction(async (tx) => {

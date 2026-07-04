@@ -188,9 +188,24 @@ model ShareInvite {
   // toUserId). Persisted at invite time so the recipient's "Godta"
   // button doesn't have to re-pick a winner — the inviter has already
   // committed to a directional preference.
+  // "merge" = neither list wins; both are combined into one shared
+  // list. Mechanically identical to "mine" with migrateLoserWines=true
+  // (inviter's list is the base, invitee's wines are migrated in,
+  // collisions are OR-summed). The distinction is purely UI: the
+  // inviter's dialog labels it "Slå sammen" so the recipient sees
+  // "Listene slås sammen" on accept.
   winner            String
-  // Safe-default: loser wines migrate to winner on accept. Future
-  // "slett vennens" advance option could flip this to false.
+  // mine/theirs: false (destructive — the loser's wines are dropped on
+  // accept; their ListWine rows are cascade-deleted with the loser
+  // list, and any Wine rows left orphaned are cascade-deleted too).
+  // merge: true (non-destructive — all wines from both lists survive
+  // on the shared list, with collision handling: OR on inCellar, sum
+  // on quantity, keep the earlier addedAt).
+  // The @default(true) is a Prisma-level default for the column; the
+  // POST /api/friends/share-invite route always passes an explicit
+  // value derived from `winner`, so this default only applies to any
+  // rows that might be inserted by other code paths (migrations, raw
+  // SQL, future endpoints).
   migrateLoserWines Boolean  @default(true)
   // "pending" -> "accepted" | "declined" | "cancelled".
   // Only the "pending" rows participate in

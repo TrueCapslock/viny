@@ -7,11 +7,18 @@ import { useBeerMode } from "./beer-mode-provider"
 /**
  * v0.15.0 list-merge share dialog.
  *
- * Replaces the v0.14.x `/api/shared-lists` UI. The new flow is a 2-button
- * "pick winner" picker; both buttons post to `/api/friends/share` with
- * `{ friendUserId, winner, migrateLoserWines: true }` so loser-list wines
- * are bulk-relocated into the winner list (the safe default — never
- * silently destroys anyone's wines on a merge).
+ * Replaces the v0.14.x `/api/shared-lists` UI. The new flow is a 3-button
+ * picker; each button posts to `/api/friends/share-invite` with a
+ * distinct `winner` value. `migrateLoserWines` is derived server-side
+ * from the winner so the three options are meaningfully distinct:
+ *
+ *   - "merge"  (primary, non-destructive): all wines from both lists
+ *     survive on the shared list. Collision handling: OR on inCellar,
+ *     sum on quantity, keep the earlier addedAt.
+ *   - "mine"   (secondary, destructive): caller's list wins; the
+ *     invitee's wines are cascade-deleted.
+ *   - "theirs" (secondary, destructive): invitee's list wins; the
+ *     caller's wines are cascade-deleted.
  *
  * Errors render inline. The parent only knows success/failure via the
  * `onShared` + `onClose` callbacks; the API endpoint choice lives here so
@@ -26,6 +33,7 @@ type FriendInfo = {
   name: string | null
   email: string
 }
+type ShareMode = "mine" | "theirs" | "merge"
 
 export function ShareMainlistDialog({
   friend,
@@ -37,20 +45,18 @@ export function ShareMainlistDialog({
   onClose: () => void
 }) {
   const { isBeer } = useBeerMode()
-  const [sharing, setSharing] = useState<"mine" | "theirs" | null>(null)
+  const [sharing, setSharing] = useState<ShareMode | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  async function handleShare(winner: "mine" | "theirs") {
+  async function handleShare(winner: ShareMode) {
     setSharing(winner)
     setError(null)
     try {
       // v0.15.1: list-share is now invite-then-accept. Posting to
       // /api/friends/share-invite only creates a *pending* ShareInvite
       // row; the merge happens later when the recipient accepts via
-      // /api/friends/share-invite/[id]/accept. The shared row
-      // (migrateLoserWines: true) is captured verbatim on the invite
-      // and survives the round-trip to acceptance. Safe default: never
-      // destroy the loser's wines on a merge.
+      // /api/friends/share-invite/[id]/accept. The migrateLoserWines
+      // flag is derived from the winner server-side (see the route).
       const res = await fetch("/api/friends/share-invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -73,6 +79,7 @@ export function ShareMainlistDialog({
   }
 
   const itemLabel = isBeer ? "øl" : "vin"
+  const itemLabelPlural = isBeer ? "ølene" : "vinene"
   const friendName = friend.name ?? friend.email
 
   return createPortal(
@@ -97,12 +104,34 @@ export function ShareMainlistDialog({
           {isBeer ? "Del ølliste" : "Del vinliste"}
         </h2>
         <p className="text-sm text-wine-500 mb-5">
-          Velg hvem sin liste som blir den felles. Listene slås sammen
-          og begge kan redigere den videre.{" "}
+          Hvordan vil dere slå sammen listene?{" "}
           <span className="font-medium text-wine-700">Med {friendName}.</span>
         </p>
 
         <div className="space-y-2">
+          {/* Primary: merge — non-destructive, all wines preserved. */}
+          <button
+            onClick={() => handleShare("merge")}
+            disabled={sharing !== null}
+            data-testid="share-merge"
+            className="group w-full text-left rounded-xl border-2 border-wine-300 bg-wine-50/60 p-4 hover:border-wine-500 hover:bg-wine-50 transition-all disabled:opacity-50"
+          >
+            <div className="flex items-center gap-2">
+              <span className="inline-flex w-7 h-7 rounded-full bg-wine-600 text-white items-center justify-center text-xs font-bold">
+                A+B
+              </span>
+              <p className="text-sm font-semibold text-wine-900">
+                Slå sammen listene
+              </p>
+            </div>
+            <p className="text-xs text-wine-600 mt-1.5 leading-relaxed">
+              Alle {itemLabelPlural} bevares. Den felles listen tar vare på
+              både dine og {friendName}s {itemLabel}, og begge kan
+              redigere videre.
+            </p>
+          </button>
+
+          {/* Secondary: mine — destructive, invitee's wines are dropped. */}
           <button
             onClick={() => handleShare("mine")}
             disabled={sharing !== null}
@@ -118,10 +147,12 @@ export function ShareMainlistDialog({
               </p>
             </div>
             <p className="text-xs text-wine-500 mt-1.5 leading-relaxed">
-              {friendName}s {itemLabel} flyttes inn i din hovedliste.
-              Vinskapet følger felleslisten.
+              {friendName}s {itemLabelPlural} <span className="font-medium text-red-600">blir slettet</span>.
+              Den felles listen blir din hovedliste.
             </p>
           </button>
+
+          {/* Secondary: theirs — destructive, caller's wines are dropped. */}
           <button
             onClick={() => handleShare("theirs")}
             disabled={sharing !== null}
@@ -137,8 +168,8 @@ export function ShareMainlistDialog({
               </p>
             </div>
             <p className="text-xs text-wine-500 mt-1.5 leading-relaxed">
-              Dine {itemLabel} flyttes inn i {friendName}s hovedliste.
-              Vinskapet følger felleslisten.
+              Dine {itemLabelPlural} <span className="font-medium text-red-600">blir slettet</span>.
+              Den felles listen blir {friendName}s hovedliste.
             </p>
           </button>
         </div>
@@ -149,9 +180,11 @@ export function ShareMainlistDialog({
             className="flex items-center justify-center gap-2 mt-4 text-sm text-wine-500"
           >
             <div className="w-4 h-4 border-2 border-wine-400 border-t-transparent rounded-full animate-spin" />
-            {sharing === "mine"
-              ? "Slår sammen din liste med vennens…"
-              : "Flytter dine viner inn i vennens liste…"}
+            {sharing === "merge"
+              ? "Oppretter invitasjon til sammenslåing…"
+              : sharing === "mine"
+                ? `Oppretter invitasjon — ${friendName}s ${itemLabelPlural} blir slettet ved godkjenning…`
+                : "Oppretter invitasjon — dine viner blir slettet ved godkjenning…"}
           </div>
         )}
 

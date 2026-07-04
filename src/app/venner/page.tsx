@@ -27,13 +27,13 @@ type Suggestion = {
 type PendingShareInviteSent = {
   id: number
   toUserId: number
-  winner: "mine" | "theirs"
+  winner: "mine" | "theirs" | "merge"
   toUser: { id: number; name: string | null; email: string; image: string | null }
 }
 type PendingShareInviteReceived = {
   id: number
   fromUserId: number
-  winner: "mine" | "theirs"
+  winner: "mine" | "theirs" | "merge"
   fromUser: { id: number; name: string | null; email: string; image: string | null }
 }
 
@@ -341,10 +341,20 @@ export default function FriendsPage() {
             {pendingShareInvitesReceived.map((i: PendingShareInviteReceived) => {
               const sender = i.fromUser
               const senderLabel = sender?.name ?? sender?.email ?? "en venn"
-              const subtitle =
-                i.winner === "mine"
-                  ? `Senderens liste blir den felles — vinskapet slås sammen.`
-                  : `Din liste blir den felles — senderens viner flyttes inn i din hovedliste.`
+              // winner="merge" is the non-destructive path: all wines
+              // survive. mine/theirs are now destructive — the loser's
+              // wines are dropped on accept. Lookup map (not a nested
+              // ternary) so TS catches an unhandled winner at compile
+              // time and the copy is easier to scan.
+              const subtitleByWinner: Record<
+                PendingShareInviteReceived["winner"],
+                string
+              > = {
+                merge: `${senderLabel} foreslår å slå sammen listene — alle viner bevares i den felles listen.`,
+                mine: `Senderens liste blir den felles — ${senderLabel}s viner blir slettet.`,
+                theirs: `Din liste blir den felles — dine viner blir slettet.`,
+              }
+              const subtitle = subtitleByWinner[i.winner]
               return (
                 <div
                   key={i.id}
@@ -391,7 +401,23 @@ export default function FriendsPage() {
           <div className="space-y-2">
             {pendingShareInvitesSent.map((i: PendingShareInviteSent) => {
               const targetEmail = i.toUser?.email
+              // Prefer the friend display name over their email for the
+              // "blir slettet" copy — e.g. "Olas viner blir slettet"
+              // rather than "e2e-merge-12345@viny.tests viner blir
+              // slettet", which is ungrammatical Norwegian.
+              const targetName =
+                i.toUser?.name ?? i.toUser?.email ?? "vennen"
               const sentTail = targetEmail ? ` til ${targetEmail}` : ""
+              const tailByWinner: Record<
+                PendingShareInviteSent["winner"],
+                string
+              > = {
+                merge:
+                  "Venter på svar — listene slås sammen og alle viner bevares.",
+                mine: `Venter på svar — ${targetName}s viner blir slettet ved godkjenning.`,
+                theirs:
+                  "Venter på svar — dine viner blir slettet ved godkjenning.",
+              }
               return (
                 <div
                   key={i.id}
@@ -406,9 +432,7 @@ export default function FriendsPage() {
                       Sendt forespørsel om å dele {isBeer ? "ølliste" : "vinliste"}{sentTail}
                     </p>
                     <p className="text-xs text-wine-400 truncate">
-                      {i.winner === "mine"
-                        ? "Venter på svar — vinneren av sammenslåingen blir din liste."
-                        : "Venter på svar — vinneren av sammenslåingen blir vennens liste."}
+                      {tailByWinner[i.winner]}
                     </p>
                   </div>
                   <button

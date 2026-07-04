@@ -6,7 +6,7 @@ import { auth } from "@/lib/auth"
  * v0.15.1: list-share is now invite-then-accept.
  *
  * POST /api/friends/share-invite
- *   body: { friendUserId, winner: "mine"|"theirs" }
+ *   body: { friendUserId, winner: "mine"|"theirs"|"merge" }
  *
  * Sender creates a pending ShareInvite row. Cross-checks:
  *   - accepted friendship with the target;
@@ -19,6 +19,16 @@ import { auth } from "@/lib/auth"
  * cancelled) are kept for audit. Caller must pick a single winner per
  * pair across the lifetime of the session — that's why the picker is
  * modal, not persistently configurable.
+ *
+ * `migrateLoserWines` is derived from `winner` so the three options are
+ * meaningfully distinct in the UI:
+ *   - "mine"   -> migrateLoserWines=false (destructive; invitee's
+ *     wines are dropped on accept)
+ *   - "theirs" -> migrateLoserWines=false (destructive; caller's wines
+ *     are dropped on accept)
+ *   - "merge"  -> migrateLoserWines=true  (non-destructive; all wines
+ *     from both lists survive on the shared list, with collision
+ *     handling: OR on inCellar, sum on quantity)
  */
 export async function POST(request: Request) {
   const session = await auth()
@@ -27,10 +37,13 @@ export async function POST(request: Request) {
   const userId = parseInt(session.user.id)
   const { friendUserId, winner } = (await request.json()) as {
     friendUserId: number
-    winner: "mine" | "theirs"
+    winner: "mine" | "theirs" | "merge"
   }
 
-  if (!friendUserId || (winner !== "mine" && winner !== "theirs")) {
+  if (
+    !friendUserId ||
+    (winner !== "mine" && winner !== "theirs" && winner !== "merge")
+  ) {
     return NextResponse.json({ error: "Ugyldig forespørsel" }, { status: 400 })
   }
   if (friendUserId === userId) {
@@ -66,6 +79,10 @@ export async function POST(request: Request) {
   // we co-order pending rows out before inserting to keep the UI
   // invariant "at most one pending invite per pair". Terminal rows
   // (accepted | declined | cancelled) are preserved for audit.
+  // `migrateLoserWines` is derived from the winner: destructive for
+  // mine/theirs (the loser's wines are dropped), non-destructive for
+  // merge (all wines preserved on the shared list).
+  const migrateLoserWines = winner === "merge"
   const invite = await prisma.$transaction(async (tx) => {
     await tx.shareInvite.deleteMany({
       where: {
@@ -79,7 +96,7 @@ export async function POST(request: Request) {
         fromUserId: userId,
         toUserId: friendUserId,
         winner,
-        migrateLoserWines: true,
+        migrateLoserWines,
         status: "pending",
       },
     })
