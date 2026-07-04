@@ -16,23 +16,45 @@ export function DeleteButton({
   const router = useRouter()
   const [showConfirm, setShowConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function handleDelete() {
     setDeleting(true)
-    const res = await fetch(`/api/viner/${wineId}`, {
-      method: "DELETE",
-    })
-    if (res.ok) {
-      router.push("/")
-      router.refresh()
+    setError(null)
+    try {
+      const res = await fetch(`/api/viner/${wineId}`, {
+        method: "DELETE",
+      })
+      if (res.ok) {
+        router.push("/")
+        router.refresh()
+        return
+      }
+      // Non-2xx: surface a readable message so the user knows the
+      // delete didn't happen. Without this the dialog re-enabled the
+      // button silently and the user thought the click "didn't work"
+      // — which is exactly the bug that motivated the FK-constraint
+      // + handler fix in the same commit.
+      const data = (await res.json().catch(() => null)) as {
+        error?: string
+      } | null
+      setError(data?.error ?? `Kunne ikke slette (HTTP ${res.status})`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Nettverksfeil")
+    } finally {
+      setDeleting(false)
     }
-    setDeleting(false)
+  }
+
+  function openConfirm() {
+    setError(null)
+    setShowConfirm(true)
   }
 
   return (
     <>
       <button
-        onClick={() => setShowConfirm(true)}
+        onClick={openConfirm}
         className="flex items-center gap-2.5 w-full px-3 py-2 text-sm font-medium text-red-700 hover:bg-cream-50 rounded-xl transition-colors"
       >
         <Icon name="delete" size={18} className="text-red-500" />
@@ -53,6 +75,14 @@ export function DeleteButton({
                 ? `${tastingCount} smaksnotat${tastingCount === 1 ? "" : "er"} vil også bli slettet.`
                 : "Denne handlingen kan ikke angres."}
             </p>
+            {error && (
+              <p
+                role="alert"
+                className="mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-center"
+              >
+                {error}
+              </p>
+            )}
             <div className="mt-6 flex gap-3">
               <button
                 onClick={() => setShowConfirm(false)}

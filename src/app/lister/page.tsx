@@ -7,6 +7,7 @@ import { Plus } from "@/app/_components/icons"
 import { ModeLogo, ModeText } from "@/app/_components/mode-text"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
 import { useLists } from "@/hooks/use-data"
+import { SwipeableListRow } from "@/app/_components/swipeable-list-row"
 
 export default function ListerPage() {
   const { isBeer } = useBeerMode()
@@ -101,35 +102,40 @@ export default function ListerPage() {
             {lists.map((list) => {
               const count = list._count?.wines ?? 0
               return (
-                <div key={list.id} className="flex items-center gap-2 p-4">
-                  <Link href={`/lister/${list.id}`} className="flex-1 min-w-0">
-                    <p className="font-semibold text-wine-900 truncate">{list.name}</p>
-                    <p className="text-xs text-wine-500 mt-0.5">
-                      {count} {count === 1 ? (isBeer ? "øl" : "vin") : isBeer ? "øl" : "viner"}
-                    </p>
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => deleteList(list.id)}
-                    title="Slett liste"
-                    aria-label="Slett liste"
-                    className="text-wine-400 hover:text-red-600 transition-colors p-2 rounded-full hover:bg-red-50"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
+                <SwipeableListRow
+                  key={list.id}
+                  onDelete={() => deleteList(list.id)}
+                >
+                  <div className="flex items-center gap-2 p-4">
+                    <Link href={`/lister/${list.id}`} className="flex-1 min-w-0">
+                      <p className="font-semibold text-wine-900 truncate">{list.name}</p>
+                      <p className="text-xs text-wine-500 mt-0.5">
+                        {count} {count === 1 ? (isBeer ? "øl" : "vin") : isBeer ? "øl" : "viner"}
+                      </p>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => deleteList(list.id)}
+                      title="Slett liste"
+                      aria-label="Slett liste"
+                      className="text-wine-400 hover:text-red-600 transition-colors p-2 rounded-full hover:bg-red-50"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a2 2 0 012-2h2a2 2 0 012 2v3"
-                      />
-                    </svg>
-                  </button>
-                </div>
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a2 2 0 012-2h2a2 2 0 012 2v3"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </SwipeableListRow>
               )
             })}
           </div>

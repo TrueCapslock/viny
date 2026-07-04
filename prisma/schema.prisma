@@ -162,7 +162,15 @@ model WineSuggestion {
 
   fromUser  User     @relation("SentSuggestions", fields: [fromUserId], references: [id], onDelete: Cascade)
   toUser    User     @relation("ReceivedSuggestions", fields: [toUserId], references: [id], onDelete: Cascade)
-  wine      Wine?    @relation(fields: [wineId], references: [id])
+  // onDelete: SetNull — a suggestion is a historical record. If the
+  // suggested wine is later deleted by its owner, the suggestion stays
+  // in the recipient's inbox with its denormalized name/producer/vintage
+  // intact (the WineSuggestion model snapshots those fields at suggest
+  // time, so a SetNull'd wineId doesn't lose any visible data). Without
+  // this, DELETE /api/viner/[id] throws Prisma P2003 (FK violation)
+  // for any wine that was ever suggested, and the user's delete
+  // silently no-ops.
+  wine      Wine?    @relation(fields: [wineId], references: [id], onDelete: SetNull)
 }
 
 model Friend {
