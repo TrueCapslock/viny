@@ -44,17 +44,19 @@ export function ShareMainlistDialog({
     setSharing(winner)
     setError(null)
     try {
-      const res = await fetch("/api/friends/share", {
+      // v0.15.1: list-share is now invite-then-accept. Posting to
+      // /api/friends/share-invite only creates a *pending* ShareInvite
+      // row; the merge happens later when the recipient accepts via
+      // /api/friends/share-invite/[id]/accept. The shared row
+      // (migrateLoserWines: true) is captured verbatim on the invite
+      // and survives the round-trip to acceptance. Safe default: never
+      // destroy the loser's wines on a merge.
+      const res = await fetch("/api/friends/share-invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           friendUserId: friend.userId,
           winner,
-          // Safe default: never destroy the loser's wines on a merge.
-          // The destructive path (migrateLoserWines: false) is reserved
-          // for an explicit "slett vennens" advance option we'll add if
-          // users ask for one.
-          migrateLoserWines: true,
         }),
       })
       if (!res.ok) {

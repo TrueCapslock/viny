@@ -22,6 +22,8 @@ export function useFriends() {
     friends: data?.friends ?? [],
     pendingSent: data?.pendingSent ?? [],
     pendingReceived: data?.pendingReceived ?? [],
+    pendingShareInvitesSent: data?.pendingShareInvitesSent ?? [],
+    pendingShareInvitesReceived: data?.pendingShareInvitesReceived ?? [],
     sharedLists: data?.sharedLists ?? [],
     error,
     loading: isLoading,

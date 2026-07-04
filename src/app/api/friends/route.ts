@@ -73,6 +73,44 @@ export async function GET() {
     direction: "received" as const,
   }))
 
+  // v0.15.1: list-share is invite-then-accept. Surface the two pending
+  // invite directions so the Venner page can render "Delte-listeforespørsler"
+  // (received) and "Ventende delte-listeforespørsler" (sent) sections in
+  // parallel to the existing friend-request sections. Terminal-status
+  // invites (accepted | declined | cancelled) are kept for audit but
+  // filtered out of these arrays.
+  const [sentShareInvitesRaw, receivedShareInvitesRaw] = await Promise.all([
+    prisma.shareInvite.findMany({
+      where: { fromUserId: userId, status: "pending" },
+      include: { toUser: { select: { id: true, name: true, email: true, image: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.shareInvite.findMany({
+      where: { toUserId: userId, status: "pending" },
+      include: { fromUser: { select: { id: true, name: true, email: true, image: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+  ])
+
+  const pendingShareInvitesSent = sentShareInvitesRaw.map((i) => ({
+    id: i.id,
+    fromUserId: i.fromUserId,
+    toUserId: i.toUserId,
+    toUser: i.toUser,
+    winner: i.winner,
+    migrateLoserWines: i.migrateLoserWines,
+    createdAt: i.createdAt,
+  }))
+  const pendingShareInvitesReceived = receivedShareInvitesRaw.map((i) => ({
+    id: i.id,
+    fromUserId: i.fromUserId,
+    toUserId: i.toUserId,
+    fromUser: i.fromUser,
+    winner: i.winner,
+    migrateLoserWines: i.migrateLoserWines,
+    createdAt: i.createdAt,
+  }))
+
   // v0.15.0: SharedList concept retired. `sharedLists` in the response
   // shape is historically consumed by the UI; we emit an empty array to
   // keep the contract stable. Phase-3 UI rewrite will drop the field.
@@ -87,6 +125,8 @@ export async function GET() {
     friends,
     pendingSent,
     pendingReceived,
+    pendingShareInvitesSent,
+    pendingShareInvitesReceived,
     sharedLists: [],
   })
 }

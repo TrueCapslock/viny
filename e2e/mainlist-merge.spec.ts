@@ -5,40 +5,48 @@ import {
 } from "../scripts/test-constants"
 
 /**
- * v0.15.0 list-redesign — share-merge + split E2E.
+ * v0.15.1 list-redesign — INVITE-THEN-ACCEPT share flow.
  *
- * Covers the four contracts that anchor the v0.15.0 list-merge
- * deliverable, all anchored in the data-testids exposed by the
- * /app/_components/share-mainlist-dialog.tsx dialog component:
+ * The v0.15.0 share flow let the inviter's first POST merge the two
+ * MainLists immediately. v0.15.1 stages the merge behind a recipient
+ * accept: clicking "Del liste" → winner picker creates a *pending*
+ * ShareInvite row; the merge only happens when the recipient posts to
+ * the share-invite accept endpoint.
  *
- *   1. `data-testid="share-mine"`   — the "Din liste blir den felles"
- *      button that POSTs winner="mine" to /api/friends/share.
- *   2. `data-testid="share-theirs"` — the friend's-list-wins button that
- *      POSTs winner="theirs".
- *   3. `data-testid="share-loading"` — the spinner container present
- *      while the POST is in flight.
- *   4. `data-testid="share-error"` — the inline error banner that the
- *      dialog renders when the POST returns non-2xx.
+ * Tests exercise the four contracts anchored in the dialog's
+ * data-testids (data-testid="share-mine" / "share-theirs" / "share-loading"
+ * / "share-error"). POST targets changed from `/api/friends/share` to
+ * `/api/friends/share-invite` — the rest of the test contracts are
+ * identical.
+ *
+ * After invite creation, the caller page shows `share-row-pending`
+ * instead of the "Del liste" button on the target friend row, and the
+ * recipient's `/venner` page renders a "Delte-listeforespørsler" card
+ * with `share-invite-accept` + `share-invite-decline` actions.
  *
  * Setup uses ephemeral caller+friend pairs per project convention.
  * Each test registers a fresh friend per stamp so merged/split
- * operations don't share principal across runs. Ghost user rows
- * accumulate linearly; the spec never deletes User rows.
+ * operations don't share principal across runs. Ghost user rows + ghost
+ * share-invite rows accumulate linearly; the spec never deletes them.
  *
- * Cleanup guards:
+ * Cleanup guards (per test, in `cleanupMergePair`):
  *   - Wines are deleted one-by-one in finally so a single FK cascade
  *     failure surfaces rather than crashing out the loop with a
  *     partially-cleaned test.
- *   - Friendships are dropped via DELETE /api/friends/[id].
+ *   - Friend share-invites are dropped via DELETE /api/friends/share-invite/[id].
+ *   - Friendship is dropped via DELETE /api/friends/[id].
  *   - DELETE /api/friends/share is called to split the share state
  *     (idempotent — splits if there are sharers, noops if there aren't).
- *   - Caller and friend IDs come from /api/friends's new `me` field
- *     so the previous wasteful /api/viner seed-and-delete round-trip
- *     is gone.
+ *   - Caller and friend IDs come from /api/friends's `me` field so the
+ *     previous wasteful /api/viner seed-and-delete round-trip is gone.
  *
  * Pre-cleanup (before each test):
  *   - Any `e2e-merge-*` friendship rows left behind by previous
  *     crashed runs are removed via DELETE /api/friends/[id].
+ *   - ALL pending share-invite rows involving the caller (sent or
+ *     received) are dropped via DELETE /api/friends/share-invite/[id].
+ *     Without this, prior crumbs from a crashed run would let the next
+ *     invite pre-check succeed while leaving stale rows.
  *   - DELETE /api/friends/share is ALSO called so the caller hits
  *     the test solo (DELETE /api/friends/[id] does NOT unmerge a
  *     shared MainList — that contract is documented in §6 of
@@ -56,10 +64,6 @@ import {
 
 // Re-export the seed credentials under localised names to keep the
 // assertion text + log breadcrumbs self-documenting ("login as caller").
-// Importing rather than redeclaring survives any future rotation of
-// scripts/test-constants.ts (dev DB resets, env-specific seeds) — if the
-// constants change there, every spec including this one picks up the new
-// values automatically.
 const CALLER_EMAIL = TEST_USER_EMAIL
 const CALLER_PASSWORD = TEST_USER_PASSWORD
 
@@ -104,6 +108,12 @@ async function registerFreshUser(page: Page, email: string, password: string) {
  */
 type FriendRow = { id: number; email: string }
 
+/**
+ * Destructured share-invite row shape — same projection the route
+ * exposes on /api/friends GET's pendingShareInvitesSent/Received.
+ */
+type InviteRow = { id: number }
+
 async function setupMergePair(
   browser: import("@playwright/test").Browser,
   stamp: number,
@@ -113,17 +123,13 @@ async function setupMergePair(
   const callerPage = await callerCtx.newPage()
   await loginAsTestUser(callerPage)
 
-  // Discover caller id via the new GET /api/friends `me` field — saves
-  // the waste of POSTing a throwaway wine to /api/viner just to read
-  // userId back, then deleting it.
+  // Discover caller id via the new GET /api/friends `me` field.
   const meRes = await callerPage.request.get("/api/friends")
   const meData = await meRes.json()
   const callerId = meData.me.id as number
 
   // Pre-cleanup: drop ghost `e2e-merge-*` friendship rows left by
-  // crashed prior runs. Drop the Friend row, which would otherwise let
-  // the next share-merge see an unexpected sharedMainList=true against
-  // a ghost user.
+  // crashed prior runs.
   const allRows: FriendRow[] = [
     ...(meData.friends as FriendRow[]),
     ...(meData.pendingSent as FriendRow[]),
@@ -135,9 +141,22 @@ async function setupMergePair(
     }
   }
 
-  // DELETE /api/friends/[id] does NOT unmerge a shared MainList — also
-  // run the split to leave the caller solo. Idempotent: if there are
-  // no other sharers, it's a no-op.
+  // Pre-cleanup: drop ANY pending share-invites involving the caller
+  // (sent or received). They could leak from prior crashed runs OR from
+  // a previous test in this run whose friendPage didn't run
+  // `cleanupMergePair`. The DELETE route works for both sender
+  // (status="cancelled") and recipient (status="declined") since the
+  // caller IS involved in every such invite.
+  const allInviteRows: InviteRow[] = [
+    ...(meData.pendingShareInvitesSent as InviteRow[]),
+    ...(meData.pendingShareInvitesReceived as InviteRow[]),
+  ]
+  for (const inv of allInviteRows) {
+    await callerPage.request.delete(`/api/friends/share-invite/${inv.id}`)
+  }
+
+  // DELETE /api/friends/[id] does NOT unmerge a shared MainList —
+  // also run the split to leave the caller solo. Idempotent.
   await callerPage.request.delete("/api/friends/share", {
     data: { friendUserId: 0 },
   })
@@ -148,9 +167,7 @@ async function setupMergePair(
   const friendEmail = `e2e-merge-${stamp}@viny.test`
   await registerFreshUser(friendPage, friendEmail, "merge123")
 
-  // Same convention: friendId via the friendPage's own /api/friends
-  // `me` field. Enables a clean { caller, friend } pair without any
-  // DB introspection or extra round-trips.
+  // friendId via the friendPage's own /api/friends `me` field.
   const friendMeRes = await friendPage.request.get("/api/friends")
   const friendId = (await friendMeRes.json()).me.id as number
 
@@ -182,8 +199,21 @@ async function cleanupMergePair(ctx: UserCtx, callerExtraWineIds: number[]) {
   for (const id of callerExtraWineIds) {
     await ctx.callerPage.request.delete(`/api/viner/${id}`)
   }
+
+  // Drop any pending share-invites the caller might still have on
+  // either side of the relationship. The DELETE route works for both
+  // sender (status="cancelled") and recipient (status="declined") since
+  // the caller IS involved in every such invite — so we drop
+  // unconditionally without an email filter.
   const friendsRes = await ctx.callerPage.request.get("/api/friends")
   const friendsData = await friendsRes.json()
+  for (const inv of [
+    ...(friendsData.pendingShareInvitesSent as InviteRow[]),
+    ...(friendsData.pendingShareInvitesReceived as InviteRow[]),
+  ]) {
+    await ctx.callerPage.request.delete(`/api/friends/share-invite/${inv.id}`)
+  }
+
   const link = (friendsData.friends as FriendRow[]).find(
     (f) => f.email === ctx.friendEmail,
   )
@@ -197,10 +227,10 @@ async function cleanupMergePair(ctx: UserCtx, callerExtraWineIds: number[]) {
   await ctx.friendCtx.close()
 }
 
-test.describe("v0.15.0 list-merge share flow", () => {
+test.describe("v0.15.1 list-merge invite-then-accept flow", () => {
   test.setTimeout(90_000)
 
-  test("share-mine via UI: data-testid=share-mine closes the dialog with merged state", async ({
+  test("callerPage gets 'Venter på svar' badge after share-mine, before friend accepts", async ({
     browser,
   }) => {
     const ctx = await setupMergePair(browser, Date.now())
@@ -213,7 +243,7 @@ test.describe("v0.15.0 list-merge share flow", () => {
       const delListe = ctx.callerPage
         .getByRole("button", { name: /^Del liste$/ })
         .first()
-      await expect(delListe, "Del liste button visible before merge").toBeVisible()
+      await expect(delListe, "Del liste button visible before invite").toBeVisible()
       await delListe.click()
 
       await expect(
@@ -231,13 +261,58 @@ test.describe("v0.15.0 list-merge share flow", () => {
 
       await ctx.callerPage.getByTestId("share-mine").click()
 
+      // Dialog closes on successful POST (invite created; still pending).
       await expect(
         ctx.callerPage.getByTestId("share-mine"),
         "share-mine is hidden after success (dialog unmounted)",
       ).toBeHidden({ timeout: 15_000 })
+
+      // Caller view now shows the friend row with a "Venter på svar" badge
+      // instead of the Del liste button.
       await expect(
-        ctx.callerPage.getByText("✓ Deler vinliste"),
-        "friend row now shows the shared badge",
+        ctx.callerPage.getByTestId("share-row-pending"),
+        "share-row-pending badge appears on caller side",
+      ).toBeVisible({ timeout: 15_000 })
+
+      // Friend side: navigate to /venner as the recipient; the
+      // "Delte-listeforespørsler" section appears with an accept button.
+      await ctx.friendPage.goto("/venner")
+      await expect(
+        ctx.friendPage.getByTestId("share-invite-received"),
+        "share-invite-received card appears on friend side",
+      ).toBeVisible({ timeout: 15_000 })
+      await expect(
+        ctx.friendPage.getByTestId("share-invite-accept"),
+        "share-invite-accept button visible on friend side",
+      ).toBeVisible()
+
+      // Friend clicks Godta — merge tx runs server-side.
+      await ctx.friendPage.getByTestId("share-invite-accept").click()
+
+      // callerPage is a separate Playwright browser context with its own
+      // SWR cache; even a full `reload` + `goto("/venner")` is the
+      // canonical re-mount path because the previous page-reload trick
+      // alone has been flaky here. We first poll the API until the
+      // sharedMainList contract is true (deterministic, cross-context),
+      // THEN fresh-mount /venner and assert the UI badge via a stable
+      // data-testid (more robust than the Unicode check-mark text match).
+      await expect(async () => {
+        const r = await ctx.callerPage.request.get("/api/friends")
+        const d = await r.json()
+        const row = (
+          d.friends as Array<{ userId: number; sharedMainList: boolean }>
+        ).find((f) => f.userId === ctx.friendId)
+        expect(row?.sharedMainList, "API: sharedMainList=true after accept").toBe(true)
+      }).toPass({ timeout: 15_000 })
+
+      // Hard reload (not goto) so the page's JS context — including
+      // SWR's in-memory cache — is wiped. goto to the same URL reuses
+      // the context and can serve stale data through the brief refetch
+      // window, masking the new sharedMainList=true state.
+      await ctx.callerPage.reload()
+      await expect(
+        ctx.callerPage.getByTestId("share-row-shared"),
+        "friend row now shows the shared badge after friend accepts",
       ).toBeVisible({ timeout: 15_000 })
 
       const friendsAfter = await ctx.callerPage.request.get("/api/friends")
@@ -251,15 +326,15 @@ test.describe("v0.15.0 list-merge share flow", () => {
         }>
       ).find((f) => f.userId === ctx.friendId)
       expect(friendRow, "friend row present in /api/friends").toBeTruthy()
-      expect(friendRow!.sharedMainList, "sharedMainList=true after share-mine").toBe(true)
+      expect(friendRow!.sharedMainList, "sharedMainList=true after accept").toBe(true)
       expect(friendRow!.sharedList, "sharedList alias also true").toBe(true)
-      expect(friendRow!.canEdit, "canEdit=true after share-mine").toBe(true)
+      expect(friendRow!.canEdit, "canEdit=true after accept").toBe(true)
     } finally {
       await cleanupMergePair(ctx, [])
     }
   })
 
-  test("share-theirs via UI: data-testid=share-theirs puts caller's wines on friend's list", async ({
+  test("callerPage gets 'Venter på svar' badge after share-theirs, before friend accepts", async ({
     browser,
   }) => {
     const ctx = await setupMergePair(browser, Date.now())
@@ -280,8 +355,30 @@ test.describe("v0.15.0 list-merge share flow", () => {
         "share-theirs is hidden after success",
       ).toBeHidden({ timeout: 15_000 })
       await expect(
-        ctx.callerPage.getByText("✓ Deler vinliste"),
-        "shared badge after share-theirs",
+        ctx.callerPage.getByTestId("share-row-pending"),
+        "share-row-pending badge visible after share-theirs",
+      ).toBeVisible({ timeout: 15_000 })
+
+      // Friend accepts. Same cross-context caveat as the share-mine
+      // test: poll the API first (deterministic), then re-mount caller
+      // and assert via the stable data-testid.
+      await ctx.friendPage.goto("/venner")
+      await ctx.friendPage.getByTestId("share-invite-accept").click()
+
+      await expect(async () => {
+        const r = await ctx.callerPage.request.get("/api/friends")
+        const d = await r.json()
+        const row = (
+          d.friends as Array<{ userId: number; sharedMainList: boolean }>
+        ).find((f) => f.userId === ctx.friendId)
+        expect(row?.sharedMainList, "API: sharedMainList=true after accept").toBe(true)
+      }).toPass({ timeout: 15_000 })
+
+      // Hard reload — see share-mine test for the rationale.
+      await ctx.callerPage.reload()
+      await expect(
+        ctx.callerPage.getByTestId("share-row-shared"),
+        "shared badge after share-theirs + friend accept",
       ).toBeVisible({ timeout: 15_000 })
 
       const friendsAfter = await ctx.callerPage.request.get("/api/friends")
@@ -290,7 +387,7 @@ test.describe("v0.15.0 list-merge share flow", () => {
         userId: number
         sharedMainList: boolean
       }>).find((f) => f.userId === ctx.friendId)
-      expect(friendRow?.sharedMainList, "sharedMainList=true after share-theirs").toBe(true)
+      expect(friendRow?.sharedMainList, "sharedMainList=true after share-theirs accept").toBe(true)
     } finally {
       await cleanupMergePair(ctx, [])
     }
@@ -302,14 +399,19 @@ test.describe("v0.15.0 list-merge share flow", () => {
     const ctx = await setupMergePair(browser, Date.now())
     let stampWineId = -1
     try {
-      const mergeRes = await ctx.callerPage.request.post("/api/friends/share", {
-        data: {
-          friendUserId: ctx.friendId,
-          winner: "mine",
-          migrateLoserWines: true,
-        },
-      })
-      expect(mergeRes.ok(), "merge precondition succeeds").toBeTruthy()
+      // Precondition: caller invites, friend accepts (UI is tested
+      // elsewhere; here the API path is sufficient).
+      const inviteRes = await ctx.callerPage.request.post(
+        "/api/friends/share-invite",
+        { data: { friendUserId: ctx.friendId, winner: "mine" } },
+      )
+      expect(inviteRes.ok(), "invite precondition succeeds").toBeTruthy()
+      const inviteJson = await inviteRes.json() as { id: number }
+
+      const acceptRes = await ctx.friendPage.request.post(
+        `/api/friends/share-invite/${inviteJson.id}/accept`,
+      )
+      expect(acceptRes.ok(), "accept precondition succeeds").toBeTruthy()
 
       const friendsAfterMerge = await ctx.callerPage.request.get("/api/friends")
       const merged = await friendsAfterMerge.json()
@@ -366,12 +468,14 @@ test.describe("v0.15.0 list-merge share flow", () => {
     const ctx = await setupMergePair(browser, Date.now())
     try {
       const intercepted: string[] = []
-      await ctx.callerPage.route("**/api/friends/share", (route) => {
+      // v0.15.1: mock now targets the invite endpoint, not the merge
+      // endpoint (which is no longer POST-able).
+      await ctx.callerPage.route("**/api/friends/share-invite", (route) => {
         intercepted.push("hit")
         return route.fulfill({
           status: 409,
           contentType: "application/json",
-          body: JSON.stringify({ error: "Allerede delt (mock)" }),
+          body: JSON.stringify({ error: "Allerede sendt (mock)" }),
         })
       })
 
@@ -395,14 +499,14 @@ test.describe("v0.15.0 list-merge share flow", () => {
       await expect(
         ctx.callerPage.getByTestId("share-error"),
         "share-error text reflects the API message",
-      ).toContainText("Allerede delt (mock)")
+      ).toContainText("Allerede sendt (mock)")
 
       await expect(
         ctx.callerPage.getByTestId("share-mine"),
         "dialog stays open on error",
       ).toBeVisible()
 
-      expect(intercepted.length, "POST /api/friends/share was called").toBeGreaterThan(0)
+      expect(intercepted.length, "POST /api/friends/share-invite was called").toBeGreaterThan(0)
     } finally {
       await cleanupMergePair(ctx, [])
     }

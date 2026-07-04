@@ -114,6 +114,13 @@ model User {
   receivedSuggestions WineSuggestion[]  @relation("ReceivedSuggestions")
   lists              List[]
   resetTokens        PasswordResetToken[]
+
+  // v0.15.1: list-share is pending-then-accept. Inviter creates a
+  // ShareInvite row (sentShareInvites); invitee sees it in their
+  // receivedShareInvites. Terminal rows (accepted | declined |
+  // cancelled) hang around for audit but don't surface in the UI.
+  sentShareInvites     ShareInvite[] @relation("SentShareInvites")
+  receivedShareInvites ShareInvite[] @relation("ReceivedShareInvites")
 }
 
 model PasswordResetToken {
@@ -170,6 +177,39 @@ model Friend {
   addressee   User     @relation("ReceivedFriendships", fields: [addresseeId], references: [id], onDelete: Cascade)
 
   @@unique([requesterId, addresseeId])
+}
+
+model ShareInvite {
+  id                Int      @id @default(autoincrement())
+  fromUserId        Int
+  toUserId          Int
+  // "mine" = caller's list becomes the joined list (winner is fromUserId);
+  // "theirs" = the recipient's list becomes the joined list (winner is
+  // toUserId). Persisted at invite time so the recipient's "Godta"
+  // button doesn't have to re-pick a winner — the inviter has already
+  // committed to a directional preference.
+  winner            String
+  // Safe-default: loser wines migrate to winner on accept. Future
+  // "slett vennens" advance option could flip this to false.
+  migrateLoserWines Boolean  @default(true)
+  // "pending" -> "accepted" | "declined" | "cancelled".
+  // Only the "pending" rows participate in
+  // pendingShareInvites{Received,Sent} on /api/friends; terminal rows
+  // are kept for audit but excluded from the UI.
+  status            String   @default("pending")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  fromUser  User @relation("SentShareInvites", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser    User @relation("ReceivedShareInvites", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  // No @@unique — invite-history audit trails are preserved across
+  // re-shares (after split, users can re-merge and a fresh pending
+  // invite can sit alongside terminated ones). The POST
+  // /api/friends/share-invite route enforces "one pending per pair"
+  // via deleteMany(pending)+create inside a transaction.
+  @@index([fromUserId, status])
+  @@index([toUserId, status])
 }
 
 model SiteSettings {
