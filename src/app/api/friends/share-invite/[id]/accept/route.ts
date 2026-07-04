@@ -59,10 +59,13 @@ export async function POST(_request: Request, { params }: { params: Params }) {
         loserUserId,
         migrateLoserWines: invite.migrateLoserWines,
       })
-      await tx.shareInvite.update({
-        where: { id: inviteId },
-        data: { status: "accepted" },
-      })
+      // Clean cleanup: drop the invite row outright (was: status="accepted").
+      // The merge tx is the source of truth for the merge itself; the
+      // invite row only existed to stage the inviter's winner pick
+      // before the recipient's accept, and is no longer needed once
+      // the merge has committed. Skipping the row keeps the table
+      // bounded across long sessions of share -> accept cycles.
+      await tx.shareInvite.delete({ where: { id: inviteId } })
       return merged
     })
     return NextResponse.json(result, { status: 201 })

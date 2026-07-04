@@ -5,17 +5,20 @@ import { auth } from "@/lib/auth"
 type Params = Promise<{ id: string }>
 
 /**
- * v0.15.1: DELETE /api/friends/share-invite/[id]
+ * DELETE /api/friends/share-invite/[id]
  *
  * One verb, two semantics — differentiate by who is calling:
- *   - sender (fromUserId)            -> status="cancelled"
- *   - recipient (toUserId)           -> status="declined"
+ *   - sender (fromUserId)            -> row deleted (was: status="cancelled")
+ *   - recipient (toUserId)           -> row deleted (was: status="declined")
  *   - anyone else                    -> 403
  *
- * The row is kept (audit) with the terminal status; only "pending"
- * rows surface on /api/friends GET, so the UI effectively forgets the
- * row once it lands here. Cross-mirrors /api/forslag/[id]'s
- * invite-vs-decline de-duplication.
+ * The row is hard-deleted on terminal state (cleaner alternative to the
+ * earlier "keep for audit" status-flip which left lateral, dead rows in
+ * the table). Only "pending" rows surface on /api/friends GET, so the
+ * UI couldn't distinguish deleted vs status-flipped — the table no
+ * longer grows unbounded across a long session of share → decline
+ * cycles. Cross-mirrors /api/forslag/[id]'s invite-vs-decline
+ * de-duplication.
  */
 export async function DELETE(_request: Request, { params }: { params: Params }) {
   const session = await auth()
@@ -34,11 +37,12 @@ export async function DELETE(_request: Request, { params }: { params: Params }) 
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  const newStatus = invite.fromUserId === userId ? "cancelled" : "declined"
-
-  await prisma.shareInvite.update({
-    where: { id: inviteId },
-    data: { status: newStatus },
+  // Clean cleanup: drop the row. P2025 (already gone) is benign in the
+  // race where a sibling request just deleted it — surface success
+  // regardless so the client UI can refresh cleanly.
+  await prisma.shareInvite.delete({ where: { id: inviteId } }).catch((e) => {
+    if (e && typeof e === "object" && "code" in e && e.code === "P2025") return
+    throw e
   })
 
   return NextResponse.json({ success: true })

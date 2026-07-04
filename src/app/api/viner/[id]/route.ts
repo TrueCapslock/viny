@@ -227,27 +227,39 @@ export async function DELETE(_request: Request, { params }: { params: Params }) 
   if (!me?.mainListId) {
     return NextResponse.json({ error: "Hovedliste ikke klar" }, { status: 409 })
   }
-  await prisma.$transaction([
-    prisma.listWine
-      .delete({
-        where: { listId_wineId: { listId: me.mainListId, wineId } },
+  // Capture the narrowed numeric mainListId into a local before the
+  // $transaction callback — TS doesn't preserve the `!me?.mainListId`
+  // narrowing across the async closure boundary, so `me.mainListId`
+  // reads back as `number | null` inside the callback and fails the
+  // composite-key typecheck on tx.listWine.delete.
+  const mainListId = me.mainListId
+  // Interactive-form $transaction so we can swallow the listWine.delete
+  // P2025 (benign) without leaving the wine-deleteMany split between two
+  // non-atomic writes. The array form `$transaction([...])` rejects a
+  // chained `.catch()` because the catch breaks the PrismaPromise
+  // typing — only interactive callbacks let us `try/catch` mid-tx.
+  await prisma.$transaction(async (tx) => {
+    try {
+      await tx.listWine.delete({
+        where: { listId_wineId: { listId: mainListId, wineId } },
       })
-      .catch((e) => {
-        // P2025 (record not found) is benign — the wine simply wasn't
-        // on this user's MainList. Anything else is a real error and
-        // should roll the transaction back.
-        if (e && typeof e === "object" && "code" in e && e.code === "P2025") {
-          return null
-        }
+    } catch (e) {
+      // P2025 (record not found) is benign — the wine simply wasn't
+      // on this user's MainList. Anything else is a real error and
+      // should roll the transaction back.
+      if (e && typeof e === "object" && "code" in e && e.code === "P2025") {
+        // fall through
+      } else {
         throw e
-      }),
-    prisma.wine.deleteMany({
+      }
+    }
+    await tx.wine.deleteMany({
       where: {
         id: wineId,
         inLists: { none: {} },
       },
-    }),
-  ])
+    })
+  })
 
   return NextResponse.json({ success: true })
 }
