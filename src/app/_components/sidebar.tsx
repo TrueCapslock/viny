@@ -181,7 +181,7 @@ export function Sidebar() {
         >
           <NotificationBell />
           <button
-            onClick={() => signOut()}
+            onClick={() => signOut({ callbackUrl: "/login" })}
             className={
               collapsed
                 ? "w-10 h-10 flex items-center justify-center rounded-xl text-wine-500 hover:bg-cream-50 hover:text-wine-700 transition-colors"

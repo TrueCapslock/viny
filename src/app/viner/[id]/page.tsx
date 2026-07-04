@@ -67,8 +67,10 @@ export default async function WineDetailPage({
   //         use the caller's own ListWine row.
   //       * Friend-peek (caller is friend of wine.userId AND wine is on
   //         wine.userId's MainList): use the owner's MainList row.
+  //   - Lists: which lists this wine is on (for the delete dialog).
   let inCellar = false
   let quantity = 0
+  let wineLists: { id: number; name: string; isMain: boolean; inCellar: boolean }[] = []
   if (access === "edit") {
     const me = await prisma.user.findUnique({
       where: { id: userId },
@@ -81,6 +83,25 @@ export default async function WineDetailPage({
       inCellar = lw?.inCellar ?? false
       quantity = lw?.quantity ?? 0
     }
+    // List membership for the delete dialog — includes the MainList row
+    // (which may be on a friend's List after share-merge) plus any
+    // Custom Lists the caller owns.
+    const membership = await prisma.listWine.findMany({
+      where: {
+        wineId,
+        OR: [
+          { listId: me?.mainListId ?? -1 },
+          { list: { userId } },
+        ],
+      },
+      include: { list: { select: { id: true, name: true, isMain: true } } },
+    })
+    wineLists = membership.map((m) => ({
+      id: m.list.id,
+      name: m.list.name,
+      isMain: m.list.isMain,
+      inCellar: m.inCellar,
+    }))
   } else {
     const ownRow = await prisma.listWine.findFirst({
       where: {
@@ -176,6 +197,7 @@ export default async function WineDetailPage({
                   wineId={wine.id}
                   wineName={wine.name}
                   tastingCount={wine.tastings.length}
+                  lists={wineLists}
                 />
               )}
             </div>

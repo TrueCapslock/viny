@@ -65,7 +65,7 @@ export function Header() {
             <NotificationBell />
             {/* Sign-out lives in the sidebar on desktop (lg+) */}
             <button
-              onClick={() => signOut()}
+              onClick={() => signOut({ callbackUrl: "/login" })}
               className="text-xs text-white/70 hover:text-white border border-white/30 rounded-full px-3 py-1 transition-colors lg:hidden"
             >
               Logg ut

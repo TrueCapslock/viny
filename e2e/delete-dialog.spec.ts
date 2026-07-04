@@ -187,4 +187,92 @@ test.describe("delete confirmation dialog stacking + dismissal", () => {
       expect(del.ok(), "cleanup: temp wine deleted").toBeTruthy()
     }
   })
+
+  test("clicking Slett inside the dialog actually deletes the wine (pins the mousedown race fix)", async ({
+    page,
+  }) => {
+    // Pins the v-next "delete still does not work" bug:
+    //
+    //   The WineOverflowMenu registers a document-level `mousedown`
+    //   outside-click listener that calls `setOpen(false)` whenever
+    //   the mousedown target is not inside `ref.current`. Before the
+    //   portal fix, the delete dialog rendered inside the menu subtree
+    //   (`ref.current`) so a click on the dialog's Slett button didn't
+    //   trigger `setOpen(false)`. After the portal fix, the dialog
+    //   mounts on document.body -- outside `ref.current` -- and a
+    //   `mousedown` on the dialog card now bubbles to the document,
+    //   closes the menu, and unmounts <DeleteButton /> (cascade-
+    //   unmounting the portaled dialog subtree too) BEFORE the
+    //   subsequent `click` event fires. `handleDelete` never runs, so
+    //   "delete still doesn't work".
+    //
+    //   Fix: onMouseDown stopPropagation on the dialog card, mirroring
+    //   the existing onClick stopPropagation. The backdrop is
+    //   intentionally left permissive so a click on the dim layer
+    //   still cleanly collapses the menu state.
+    //
+    // This test mirrors the user-facing happy path: open Mer, click
+    // Slett, click Slett inside the dialog, expect the wine to be
+    // gone. Without the fix the click on the in-card Slett button is
+    // silently swallowed by the premount -- the wine is NOT deleted
+    // and the assertion fails.
+    const wine = await createTempWine(page)
+
+    try {
+    await page.goto(`/viner/${wine.id}`)
+    await expect(
+      page.getByRole("heading", { name: wine.name }),
+      "wine detail page renders the wine name",
+    ).toBeVisible()
+
+    await page.getByRole("button", { name: "Mer" }).click()
+    await expect(
+      page.getByRole("menu"),
+      "overflow menu opens after clicking Mer",
+    ).toBeVisible()
+    await page
+      .getByRole("menu")
+      .getByRole("button", { name: "Slett" })
+      .click()
+
+    const dialog = page.getByRole("dialog")
+    await expect(
+      dialog,
+      "confirmation dialog opens after clicking the Slett menu item",
+    ).toBeVisible()
+
+    // Click THE Slett button inside the dialog (NOT the one in the
+    // menu dropdown). Scoping the locator to `dialog` is essential --
+    // both the menuitem-trash and the in-card-confirm Slett buttons
+    // carry the same visible name. Playwright auto-waits for the
+    // dialog card's animate-scale-in to settle before the click lands.
+    await dialog.getByRole("button", { name: "Slett" }).click()
+
+    // handleDelete's success path does router.push("/") then
+    // router.refresh(). Wait for the URL transition -- the dialog and
+    // menu both un-mount after navigation, but the URL change is a
+    // more robust signal that handleDelete actually reached the success
+    // branch (vs. being silently swallowed by the mousedown race).
+    await page.waitForURL((u) => u.pathname === "/", { timeout: 10_000 })
+
+    // Final assertion: the wine must be gone. GET /api/viner/[id]
+    // returns 404 for deleted wines.
+    const afterRes = await page.request.get(`/api/viner/${wine.id}`)
+    expect(
+      afterRes.status(),
+      "GET /api/viner/[id] returns 404 -- the wine was actually deleted",
+    ).toBe(404)
+    } finally {
+      // Defensive cleanup in case the production fix regresses and
+      // the click is again swallowed -- tolerate either successful
+      // cleanup-delete (the fix worked and the test happened to
+      // reach this branch without the assertion firing first) or
+      // 404 (the test's own delete already removed the wine).
+      const del = await page.request.delete(`/api/viner/${wine.id}`)
+      expect(
+        del.ok() || del.status() === 404,
+        "cleanup: temp wine deleted (or already-deleted by the test)",
+      ).toBeTruthy()
+    }
+  })
 })

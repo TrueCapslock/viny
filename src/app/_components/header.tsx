@@ -22,7 +22,7 @@ export function Header() {
         </Link>
         {session?.user && (
           <button
-            onClick={() => signOut()}
+            onClick={() => signOut({ callbackUrl: "/login" })}
             className="text-xs text-wine-200 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-3.5 py-1.5 transition-all"
           >
             Logg ut

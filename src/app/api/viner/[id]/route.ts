@@ -161,39 +161,23 @@ export async function DELETE(_request: Request, { params }: { params: Params }) 
     // conditionally delete the Wine row if no other ListWine still
     // references it.
     //
-    // Two failure modes this branch has to avoid:
-    //
-    //   (a) The pre-fix handler only dropped the (caller's MainList,
-    //       wine) ListWine row, then checked `inLists: { none: {} }`
-    //       to decide whether to deleteMany the Wine. If the wine was
-    //       on one of the caller's Custom Lists, the ListWine delete
-    //       was a no-op, `inLists: { none: {} }` was false, and the
-    //       Wine survived — but the handler returned `{ success: true }`
-    //       while the wine was still on the Custom List. The user
-    //       navigated to /, saw the wine still there, and the delete
-    //       "didn't work".
-    //
-    //   (b) A naive "drop every ListWine for this wine" would also
-    //       drop the friend's ListWine on their share-merged
-    //       MainList, or a friend's pin of the same wine on their
-    //       Custom List. The Wine would then be deleted, and the
-    //       friend would lose their copy. The e2e suite's
-    //       "split via API DELETE" test pins this invariant: the
-    //       caller's delete must NOT affect the friend's copy.
-    //
-    // The fix: scope the ListWine drop to lists the caller owns
-    // (`list: { userId }`). The Wine's fate then depends on whether
-    // any non-caller-owned ListWine still references it — the same
-    // TOCTOU-safe `inLists: { none: {} }` predicate the old handler
-    // used, but now applied after the correct drop scope.
-    //
-    // Wrapped in a $transaction so a partial failure can't leave the
-    // wine with zero ListWines but the row still present.
+    // `list: { userId }` covers Custom Lists the caller owns.
+    // After a share-merge the caller's MainList may have a different
+    // `userId` (the friend's), so we explicitly include `mainListId`
+    // to catch that case.
+    const me = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { mainListId: true },
+    })
+
     await prisma.$transaction([
       prisma.listWine.deleteMany({
         where: {
           wineId,
-          list: { userId },
+          OR: [
+            { list: { userId } },
+            ...(me?.mainListId ? [{ listId: me.mainListId }] : []),
+          ],
         },
       }),
       prisma.wine.deleteMany({

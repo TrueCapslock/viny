@@ -9,10 +9,12 @@ export function WineOverflowMenu({
   wineId,
   wineName,
   tastingCount,
+  lists,
 }: {
   wineId: number
   wineName: string
   tastingCount: number
+  lists?: { id: number; name: string; isMain: boolean; inCellar: boolean }[]
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -22,6 +24,16 @@ export function WineOverflowMenu({
     function onDown(e: MouseEvent) {
       if (!ref.current?.contains(e.target as Node)) setOpen(false)
     }
+    // NOTE: any dialog portaled to document.body that lives inside this
+    // menu (e.g. <DeleteButton />'s confirm dialog) is by definition
+    // *outside* `ref.current`. A naive read of "onDown closes the menu
+    // on outside mousedown" then cascade-unmounts the entire
+    // <DeleteButton /> subtree (including the portaled dialog) before
+    // the subsequent click fires. See e2e/delete-dialog.spec.ts
+    // "clicking Slett inside the dialog actually deletes the wine" for
+    // the regression pin, and src/app/_components/delete-button.tsx
+    // for the matching `onMouseDown stopPropagation` guard on the
+    // dialog card.
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false)
     }
@@ -61,7 +73,7 @@ export function WineOverflowMenu({
             Rediger
           </Link>
           <div role="none">
-            <DeleteButton wineId={wineId} wineName={wineName} tastingCount={tastingCount} />
+            <DeleteButton wineId={wineId} wineName={wineName} tastingCount={tastingCount} lists={lists} />
           </div>
         </div>
       )}

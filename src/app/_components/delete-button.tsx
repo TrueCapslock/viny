@@ -9,10 +9,12 @@ export function DeleteButton({
   wineId,
   wineName,
   tastingCount,
+  lists,
 }: {
   wineId: number
   wineName: string
   tastingCount: number
+  lists?: { id: number; name: string; isMain: boolean; inCellar: boolean }[]
 }) {
   const router = useRouter()
   const [showConfirm, setShowConfirm] = useState(false)
@@ -106,14 +108,25 @@ export function DeleteButton({
           onClick={() => setShowConfirm(false)}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in cursor-pointer"
         >
-          {/* Click on the card must NOT bubble up to the backdrop's
-              onClick (which would dismiss the dialog on every
-              card-click). The backdrop and card are siblings inside
-              the same portal target; stopPropagation on the card keeps
-              inside-card clicks (typing in the input, hitting Slett /
-              Avbryt) from accidentally closing the dialog. */}
+          {/* Click + mousedown on the card must NOT bubble out. Two
+              distinct listeners need stopping here:
+               * onClick stopPropagation -> the backdrop's onClick
+                 (setShowConfirm(false)) doesn't fire on every
+                 card-internal click.
+               * onMouseDown stopPropagation -> the parent
+                 WineOverflowMenu's document-level mousedown
+                 listener doesn't immediately close the menu and
+                 UNMOUNT this whole <DeleteButton /> subtree (which
+                 would also take the portaled dialog with it) before
+                 the subsequent click event fires handleDelete.
+              Without this, a race between mousedown and click makes
+              the Slett button inside the dialog a no-op. The
+              backdrop intentionally allows both to bubble so a click
+              on the dark backdrop still collapses the menu state
+              cleanly. */}
           <div
             onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
             className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-cream-200 animate-scale-in"
           >
             <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
@@ -127,6 +140,33 @@ export function DeleteButton({
                 ? `${tastingCount} smaksnotat${tastingCount === 1 ? "" : "er"} vil også bli slettet.`
                 : "Denne handlingen kan ikke angres."}
             </p>
+            {lists && lists.length > 0 && (
+              <div className="mt-4 text-left">
+                <p className="text-xs font-medium text-wine-400 mb-1.5">Vinen er i:</p>
+                <ul className="space-y-1">
+                  {lists.map((l) => (
+                    <li
+                      key={l.id}
+                      className="flex items-center gap-2 text-sm text-wine-700 bg-cream-50 rounded-lg px-3 py-1.5"
+                    >
+                      {l.isMain ? (
+                        <span className="w-3 h-3 rounded-full bg-wine-600 shrink-0" />
+                      ) : (
+                        <span className="w-3 h-3 rounded border border-wine-400 shrink-0" />
+                      )}
+                      <span>
+                        {l.isMain ? "Vinskapet" : l.name}
+                        {l.isMain && (
+                          <span className="text-wine-400 ml-1">
+                            ({l.inCellar ? "i kjelleren" : "ikke i kjelleren"})
+                          </span>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {error && (
               <p
                 role="alert"

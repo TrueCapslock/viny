@@ -2,6 +2,7 @@
 
 import { useSession } from "next-auth/react"
 import { useState } from "react"
+import { createPortal } from "react-dom"
 import Link from "next/link"
 import { UserDialogSkeleton } from "@/app/_components/skeletons"
 import { useAdminUsers, useAdminSettings, useAdminImages } from "@/hooks/use-data"
@@ -28,6 +29,9 @@ type BlobImage = {
 function UsersDialog({ onClose }: { onClose: () => void }) {
   const { users, loading, mutate } = useAdminUsers()
   const [toggling, setToggling] = useState<number | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<{ id: number; name: string; wines: number } | null>(null)
+  const [deletingUserId, setDeletingUserId] = useState<number | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   async function toggleBeer(userId: number, current: boolean) {
     setToggling(userId)
@@ -40,7 +44,23 @@ function UsersDialog({ onClose }: { onClose: () => void }) {
     setToggling(null)
   }
 
+  async function handleDeleteUser() {
+    if (!confirmDelete) return
+    setDeletingUserId(confirmDelete.id)
+    setDeleteError(null)
+    const res = await fetch(`/api/admin/users/${confirmDelete.id}`, { method: "DELETE" })
+    if (res.ok) {
+      mutate()
+      setConfirmDelete(null)
+    } else {
+      const data = await res.json().catch(() => null) as { error?: string } | null
+      setDeleteError(data?.error ?? "Kunne ikke slette bruker")
+    }
+    setDeletingUserId(null)
+  }
+
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80" onClick={onClose} />
       <div className="relative bg-white rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col shadow-2xl animate-scale-in">
@@ -89,10 +109,15 @@ function UsersDialog({ onClose }: { onClose: () => void }) {
                     className={`ml-1 w-8 h-5 rounded-full transition-colors relative shrink-0 ${
                       user.prefersBeer ? "bg-amber-400" : "bg-cream-300"
                     } ${toggling === user.id ? "opacity-50" : ""}`}
+                  />
+                  <button
+                    onClick={() => setConfirmDelete({ id: user.id, name: user.name ?? user.email, wines: user._count.wines })}
+                    className="ml-1 p-1 text-wine-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
+                    title="Slett bruker"
                   >
-                    <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-sm absolute top-0.5 transition-transform ${
-                      user.prefersBeer ? "translate-x-[14px]" : "translate-x-[3px]"
-                    }`} />
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
                   </button>
                 </div>
               </div>
@@ -101,6 +126,55 @@ function UsersDialog({ onClose }: { onClose: () => void }) {
         </div>
       </div>
     </div>
+
+      {confirmDelete && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => { if (!deletingUserId) { setConfirmDelete(null); setDeleteError(null) } }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-cream-200 animate-scale-in"
+          >
+            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-wine-800 text-center">Slett {confirmDelete.name}?</h3>
+            <p className="mt-2 text-sm text-wine-500 text-center">
+              {confirmDelete.wines > 0
+                ? `${confirmDelete.wines} vin${confirmDelete.wines === 1 ? "" : "er"} og tilhørende smaksnotater blir slettet.`
+                : "Brukeren har ingen viner, men vennskap og forslag fjernes."}
+            </p>
+            {deleteError && (
+              <p role="alert" className="mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-center">
+                {deleteError}
+              </p>
+            )}
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => { setConfirmDelete(null); setDeleteError(null) }}
+                disabled={!!deletingUserId}
+                className="flex-1 rounded-full border border-cream-300 px-4 py-2.5 text-sm font-medium text-wine-700 hover:bg-cream-50 transition-all disabled:opacity-50"
+              >
+                Avbryt
+              </button>
+              <button
+                onClick={handleDeleteUser}
+                disabled={!!deletingUserId}
+                className="flex-1 rounded-full bg-gradient-to-r from-red-500 to-red-600 px-4 py-2.5 text-sm font-medium text-white hover:from-red-600 hover:to-red-700 disabled:opacity-50 transition-all shadow-md"
+              >
+                {deletingUserId ? "Sletter..." : "Slett"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
   )
 }
 
