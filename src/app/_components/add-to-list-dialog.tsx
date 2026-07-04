@@ -24,9 +24,37 @@ export function AddToListDialog({
   const [creating, setCreating] = useState(false)
   const [toggling, setToggling] = useState<number | null>(null)
 
+  // Sync the optimistic `membership` Set with the SWR-cached `listIds`.
+  // useWineLists returns a fresh `listIds` array reference on every
+  // render, so the bare `setMembership(new Set(listIds))` previous
+  // implementation triggered React's "Maximum update depth exceeded"
+  // guard under the dialog's toggle flow — setMembership called →
+  // re-render → new listIds ref → effect fires again → loop.
+  //
+  // Bail out when the new listIds describe the same ID set as `prev`
+  // so React reads the same state and skips the re-render. The `react-
+  // hooks/set-state-in-effect` lint rule trips on any synchronous
+  // setState in an effect, but React's bailout on identical state
+  // identity means no cascading render actually happens here — the
+  // rule is over-defensive for SWR-cache-mirror patterns. Suppressed
+  // for this single effect (block-style because the rule fires at the
+  // setMembership call inside the body, not the useEffect call
+  // itself, so `disable-next-line` doesn't reach it); the alternative
+  // (an optimistic-overlay Map + useMemo derivation) is a meaningful
+  // rewrite that's not in scope for this fix.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    setMembership(new Set(listIds))
+    setMembership((prev) => {
+      if (
+        prev.size === listIds.length &&
+        listIds.every((id) => prev.has(id))
+      ) {
+        return prev
+      }
+      return new Set(listIds)
+    })
   }, [listIds])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function toggle(listId: number) {
     if (toggling !== null) return

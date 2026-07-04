@@ -97,9 +97,14 @@ model User {
   isAdmin         Boolean @default(false)
   // v0.15.0: per-user MainList. Every User gets exactly one List row with
   // isMain=true and mainListId here points at it. Friends invited to share
-  // a MainList get their mainListId repointed at the same row.
-  mainListId Int? @unique
+  // a MainList get their mainListId repointed at the same row, so this
+  // column is intentionally NON-UNIQUE — multiple User rows legitimately
+  // point at the same List after the v0.15.0 list-merge. Query perf is
+  // served by @@index([mainListId]) below.
+  mainListId Int?
   createdAt   DateTime  @default(now())
+
+  @@index([mainListId])
   updatedAt   DateTime  @updatedAt
   wines       Wine[]
 

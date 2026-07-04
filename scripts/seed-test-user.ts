@@ -56,6 +56,13 @@ export async function seedTestUser() {
     })
   }
 
+  // v0.15.0: Testvin lives on the seeded user's MainList with inCellar=false,
+  // quantity=0 — the v0.14.0 baseline. /api/viner surfaces MainList wines
+  // to both the owner (own view) and any accepted friend (friend peek of
+  // ?userId=<owner>); the friend-exclusion contract for Custom Lists is
+  // exercised in e2e/vinskapet.spec.ts via a per-test ephemeral Custom
+  // List (NOT via Testvin placement), so Testvin's MainList home keeps
+  // the Find-or-Create paths stable and reachable for every other spec.
   const existingWine = await prisma.wine.findFirst({
     where: {
       userId: user.id,
@@ -65,9 +72,7 @@ export async function seedTestUser() {
     select: { id: true },
   })
 
-  // Window keeps Testvin reachable via /api/viner in v0.15.0 regardless
-  // of whether the Wine row pre-existed the migration or was just
-  // created by this seed run.
+  let testWineId: number
   if (!existingWine) {
     const created = await prisma.wine.create({
       data: {
@@ -83,28 +88,28 @@ export async function seedTestUser() {
       },
       select: { id: true },
     })
-    await prisma.listWine.create({
-      data: {
-        listId: mainList.id,
-        wineId: created.id,
-        inCellar: false,
-        quantity: 0,
-      },
-    })
+    testWineId = created.id
   } else {
-    await prisma.listWine.upsert({
-      where: {
-        listId_wineId: { listId: mainList.id, wineId: existingWine.id },
-      },
-      create: {
-        listId: mainList.id,
-        wineId: existingWine.id,
-        inCellar: false,
-        quantity: 0,
-      },
-      update: {},
-    })
+    testWineId = existingWine.id
   }
+
+  // Idempotent: ensure Testvin is on the MainList, and that no leftover
+  // Custom-List row from a prior seed variant clings to it.
+  await prisma.listWine.upsert({
+    where: {
+      listId_wineId: { listId: mainList.id, wineId: testWineId },
+    },
+    create: {
+      listId: mainList.id,
+      wineId: testWineId,
+      inCellar: false,
+      quantity: 0,
+    },
+    update: {},
+  })
+  await prisma.listWine.deleteMany({
+    where: { wineId: testWineId, list: { isMain: false } },
+  })
 
   return { userId: user.id }
 }

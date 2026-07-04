@@ -20,28 +20,58 @@ import {
  *   4. `data-testid="share-error"` — the inline error banner that the
  *      dialog renders when the POST returns non-2xx.
  *
- * Each test registers two ephemeral users (caller + friend) instead of
- * reusing the seeded test@test.no. The reasons are real losses from
- * past runs: winner=theirs MERGES the caller's MainList into the
- * friend's, and DELETE on /api/friends/share recreates a fresh MainList
- * for the caller only. Repeated merging on a shared principal would
- * leave the seeded user's wines on a list owned half-by an
- * already-ghosted friend, and the vinskapet.spec.ts contract would
- * start failing on the very next run. Ephemeral users + ghost-row
- * accumulation are the same convention vinskapet.spec.ts uses, so the
- * maintenance footprint is zero.
+ * Setup uses ephemeral caller+friend pairs per project convention.
+ * Each test registers a fresh friend per stamp so merged/split
+ * operations don't share principal across runs. Ghost user rows
+ * accumulate linearly; the spec never deletes User rows.
  *
- * Cleanup: each test body is wrapped in `try{…} finally{…}` so a
- * mid-test assertion failure still drops wines + friendship + splits
- * the share before the test exits. Per project convention, the user
- * rows themselves are not deleted; they accumulate as ghosts.
+ * Cleanup guards:
+ *   - Wines are deleted one-by-one in finally so a single FK cascade
+ *     failure surfaces rather than crashing out the loop with a
+ *     partially-cleaned test.
+ *   - Friendships are dropped via DELETE /api/friends/[id].
+ *   - DELETE /api/friends/share is called to split the share state
+ *     (idempotent — splits if there are sharers, noops if there aren't).
+ *   - Caller and friend IDs come from /api/friends's new `me` field
+ *     so the previous wasteful /api/viner seed-and-delete round-trip
+ *     is gone.
  *
- * Assertion shape: prefer `.toBeHidden()` on dialog nodes (proves the
- * dialog has unmounted after success) over `.toHaveCount(0)` and over
- * the transient `.toBeVisible()` on `share-loading` — the latter races
- * against fast dev-hot-cache POSTs where the loading state flashes in
- * a sub-poll-interval window.
+ * Pre-cleanup (before each test):
+ *   - Any `e2e-merge-*` friendship rows left behind by previous
+ *     crashed runs are removed via DELETE /api/friends/[id].
+ *   - DELETE /api/friends/share is ALSO called so the caller hits
+ *     the test solo (DELETE /api/friends/[id] does NOT unmerge a
+ *     shared MainList — that contract is documented in §6 of
+ *     docs/LIST_DOC.md). Without this, the next share-merge
+ *     precondition can 409 'Dere deler allerede en liste'.
+ *
+ * Selector adaptations:
+ *   - `getByRole('heading', { name: 'Venner' })` substring-matches both
+ *     the page `<h1>Venner</h1>` AND the section `<h2>Dine venner</h2>`.
+ *     Tightened to `{ exact: true }`.
+ *   - `getByRole('button', { name: /^Del liste$/ })` matches one button
+ *     per accepted friend row. With pre-cleanup it's one —
+ *     `.first()` belts-and-braces against ghost-row leaks.
  */
+
+// Re-export the seed credentials under localised names to keep the
+// assertion text + log breadcrumbs self-documenting ("login as caller").
+// Importing rather than redeclaring survives any future rotation of
+// scripts/test-constants.ts (dev DB resets, env-specific seeds) — if the
+// constants change there, every spec including this one picks up the new
+// values automatically.
+const CALLER_EMAIL = TEST_USER_EMAIL
+const CALLER_PASSWORD = TEST_USER_PASSWORD
+
+type UserCtx = {
+  callerCtx: BrowserContext
+  callerPage: Page
+  friendCtx: BrowserContext
+  friendPage: Page
+  callerId: number
+  friendId: number
+  friendEmail: string
+}
 
 async function loginAsTestUser(page: Page) {
   await page.goto("/login")
@@ -67,80 +97,75 @@ async function registerFreshUser(page: Page, email: string, password: string) {
   })
 }
 
-// Re-export the seed credentials under localised names to keep the
-// assertion text + log bread crumbs self-documenting ("login as caller").
-// Importing rather than redeclaring survives any future rotation of
-// scripts/test-constants.ts (dev DB resets, env-specific seeds) — if the
-// constants change there, every spec including this one picks up the new
-// values automatically.
-const CALLER_EMAIL = TEST_USER_EMAIL
-const CALLER_PASSWORD = TEST_USER_PASSWORD
-
-type UserCtx = {
-  callerCtx: BrowserContext
-  callerPage: Page
-  friendCtx: BrowserContext
-  friendPage: Page
-  callerId: number
-  friendId: number
-  friendEmail: string
-}
+/**
+ * Destructured friend-row shape — same projection the route exposes.
+ * Used by the pre-cleanup walker; assertion structures use tighter
+ * local projections closer to where they're read.
+ */
+type FriendRow = { id: number; email: string }
 
 async function setupMergePair(
   browser: import("@playwright/test").Browser,
   stamp: number,
 ): Promise<UserCtx> {
+  // -- caller context --
   const callerCtx = await browser.newContext()
   const callerPage = await callerCtx.newPage()
   await loginAsTestUser(callerPage)
 
-  // Discover the seeded caller's userId via the /api/viner response.
-  // POST to /api/viner returns the created wine's userId (= caller).
-  // We don't need to keep the wine, but the side effect is harmless.
-  const seedCreate = await callerPage.request.post("/api/viner", {
-    data: {
-      name: `__seed__-${stamp}`,
-      producer: "__seed__",
-      type: "red",
-      inCellar: false,
-      quantity: 0,
-    },
-  })
-  expect(seedCreate.ok(), "caller POST /api/viner resolves userId").toBeTruthy()
-  const seedWine = (await seedCreate.json()) as { id: number; userId: number }
-  const callerId = seedWine.userId
-  await callerPage.request.delete(`/api/viner/${seedWine.id}`)
+  // Discover caller id via the new GET /api/friends `me` field — saves
+  // the waste of POSTing a throwaway wine to /api/viner just to read
+  // userId back, then deleting it.
+  const meRes = await callerPage.request.get("/api/friends")
+  const meData = await meRes.json()
+  const callerId = meData.me.id as number
 
-  // Register the ephemeral friend.
+  // Pre-cleanup: drop ghost `e2e-merge-*` friendship rows left by
+  // crashed prior runs. Drop the Friend row, which would otherwise let
+  // the next share-merge see an unexpected sharedMainList=true against
+  // a ghost user.
+  const allRows: FriendRow[] = [
+    ...(meData.friends as FriendRow[]),
+    ...(meData.pendingSent as FriendRow[]),
+    ...(meData.pendingReceived as FriendRow[]),
+  ]
+  for (const row of allRows) {
+    if (/^e2e-merge-/.test(row.email)) {
+      await callerPage.request.delete(`/api/friends/${row.id}`)
+    }
+  }
+
+  // DELETE /api/friends/[id] does NOT unmerge a shared MainList — also
+  // run the split to leave the caller solo. Idempotent: if there are
+  // no other sharers, it's a no-op.
+  await callerPage.request.delete("/api/friends/share", {
+    data: { friendUserId: 0 },
+  })
+
+  // -- friend context --
   const friendCtx = await browser.newContext()
   const friendPage = await friendCtx.newPage()
   const friendEmail = `e2e-merge-${stamp}@viny.test`
-  const friendPassword = "merge123"
-  await registerFreshUser(friendPage, friendEmail, friendPassword)
+  await registerFreshUser(friendPage, friendEmail, "merge123")
 
-  // Discover the friend's userId via /api/friends after accept below.
-  const reqRes = await callerPage.request.post("/api/friends", {
-    data: { email: friendEmail },
-  })
-  expect(reqRes.ok(), "caller POST /api/friends (caller→friend)").toBeTruthy()
+  // Same convention: friendId via the friendPage's own /api/friends
+  // `me` field. Enables a clean { caller, friend } pair without any
+  // DB introspection or extra round-trips.
+  const friendMeRes = await friendPage.request.get("/api/friends")
+  const friendId = (await friendMeRes.json()).me.id as number
 
+  // Connect: caller requests, friend accepts.
+  await callerPage.request.post("/api/friends", { data: { email: friendEmail } })
   const friendFriendsResp = await friendPage.request.get("/api/friends")
   const friendFriendsData = await friendFriendsResp.json()
   const pending = (
     friendFriendsData.pendingReceived as Array<{
       id: number
-      userId: number
       email: string
     }>
   ).find((p) => p.email === CALLER_EMAIL)
-  expect(
-    pending,
-    "friend sees the caller's request in pendingReceived",
-  ).toBeTruthy()
-  const friendId = pending!.userId
-
-  const acceptRes = await friendPage.request.put(`/api/friends/${pending!.id}`)
-  expect(acceptRes.ok(), "friend accepts the request").toBeTruthy()
+  expect(pending, "friend sees the caller's request in pendingReceived").toBeTruthy()
+  expect(await friendPage.request.put(`/api/friends/${pending!.id}`)).toBeTruthy()
 
   return {
     callerCtx,
@@ -153,68 +178,44 @@ async function setupMergePair(
   }
 }
 
-async function cleanupMergePair(
-  ctx: UserCtx,
-  callerExtraWineIds: number[],
-) {
-  // After a merge, the caller may not have the right to delete a wine
-  // owned by the friend — but `canEditWine` returns true when both
-  // share the MainList, which is exactly our state. Delete one at a
-  // time so a single FK cascade failure surfaces rather than crashing
-  // out the loop with a partially-cleaned test.
+async function cleanupMergePair(ctx: UserCtx, callerExtraWineIds: number[]) {
   for (const id of callerExtraWineIds) {
     await ctx.callerPage.request.delete(`/api/viner/${id}`)
   }
-
-  // Drop the friendship from the caller's side; whichever side carries
-  // it, DELETE /api/friends/[id] is the same code path.
   const friendsRes = await ctx.callerPage.request.get("/api/friends")
   const friendsData = await friendsRes.json()
-  const link = (friendsData.friends as Array<{
-    id: number
-    email: string
-  }>).find((f) => f.email === ctx.friendEmail)
+  const link = (friendsData.friends as FriendRow[]).find(
+    (f) => f.email === ctx.friendEmail,
+  )
   if (link) {
     await ctx.callerPage.request.delete(`/api/friends/${link.id}`)
   }
-
-  // Idempotent — splits if there are sharers, noops if there aren't
-  // (the seeded user's MainList is recreated back to solo on the
-  // next register, never via this path).
   await ctx.callerPage.request.delete("/api/friends/share", {
-    data: { friendUserId: ctx.friendId },
+    data: { friendUserId: 0 },
   })
-
   await ctx.callerCtx.close()
   await ctx.friendCtx.close()
 }
 
 test.describe("v0.15.0 list-merge share flow", () => {
-  // Bumped from 60s: 4 tests × ~10s of multi-context setup + register
-  // / login flow + 2 assertion rounds + cleanup is tight at 60s under
-  // cold-boot Next.js dev compile.
   test.setTimeout(90_000)
 
   test("share-mine via UI: data-testid=share-mine closes the dialog with merged state", async ({
     browser,
   }) => {
-    const stamp = Date.now()
-    const ctx = await setupMergePair(browser, stamp)
+    const ctx = await setupMergePair(browser, Date.now())
     try {
       await ctx.callerPage.goto("/venner")
       await expect(
-        ctx.callerPage.getByRole("heading", { name: "Venner" }),
+        ctx.callerPage.getByRole("heading", { name: "Venner", exact: true }),
       ).toBeVisible()
 
-      // "Del liste" lives on the friend row when !friend.sharedList.
-      await expect(
-        ctx.callerPage.getByRole("button", { name: /^Del liste$/ }),
-        "Del liste button visible before merge",
-      ).toBeVisible()
+      const delListe = ctx.callerPage
+        .getByRole("button", { name: /^Del liste$/ })
+        .first()
+      await expect(delListe, "Del liste button visible before merge").toBeVisible()
+      await delListe.click()
 
-      await ctx.callerPage.getByRole("button", { name: /^Del liste$/ }).click()
-
-      // Dialog is open and exposes the data-testid pickers.
       await expect(
         ctx.callerPage.getByTestId("share-mine"),
         "share-mine button visible inside dialog",
@@ -223,8 +224,6 @@ test.describe("v0.15.0 list-merge share flow", () => {
         ctx.callerPage.getByTestId("share-theirs"),
         "share-theirs button visible inside dialog",
       ).toBeVisible()
-
-      // Pre-POST sanity: no error rendered yet.
       await expect(
         ctx.callerPage.getByTestId("share-error"),
         "share-error is absent before click",
@@ -232,45 +231,29 @@ test.describe("v0.15.0 list-merge share flow", () => {
 
       await ctx.callerPage.getByTestId("share-mine").click()
 
-      // POST-settled state — covered via toBeHidden on the dialog
-      // nodes (semantic "dialog was unmounted by parent after onClose")
-      // plus the post-merge UI badge. We don't assert
-      // share-loading.toBeVisible because the loading flag can race
-      // against dev hot-cache POSTs that resolve in a sub-poll
-      // interval.
       await expect(
         ctx.callerPage.getByTestId("share-mine"),
         "share-mine is hidden after success (dialog unmounted)",
       ).toBeHidden({ timeout: 15_000 })
-
-      // Friend row has re-rendered with the shared badge.
       await expect(
         ctx.callerPage.getByText("✓ Deler vinliste"),
         "friend row now shows the shared badge",
       ).toBeVisible({ timeout: 15_000 })
 
-      // /api/friends response carries the merged-state predicates.
       const friendsAfter = await ctx.callerPage.request.get("/api/friends")
       const friendsAfterData = await friendsAfter.json()
-      const friendRow = (friendsAfterData.friends as Array<{
-        userId: number
-        sharedMainList: boolean
-        sharedList: boolean
-        canEdit: boolean
-      }>).find((f) => f.userId === ctx.friendId)
+      const friendRow = (
+        friendsAfterData.friends as Array<{
+          userId: number
+          sharedMainList: boolean
+          sharedList: boolean
+          canEdit: boolean
+        }>
+      ).find((f) => f.userId === ctx.friendId)
       expect(friendRow, "friend row present in /api/friends").toBeTruthy()
-      expect(
-        friendRow!.sharedMainList,
-        "friend.sharedMainList=true after share-mine",
-      ).toBe(true)
-      expect(
-        friendRow!.sharedList,
-        "friend.sharedList alias also true (legacy contract preserved)",
-      ).toBe(true)
-      expect(
-        friendRow!.canEdit,
-        "friend.canEdit=true after share-mine",
-      ).toBe(true)
+      expect(friendRow!.sharedMainList, "sharedMainList=true after share-mine").toBe(true)
+      expect(friendRow!.sharedList, "sharedList alias also true").toBe(true)
+      expect(friendRow!.canEdit, "canEdit=true after share-mine").toBe(true)
     } finally {
       await cleanupMergePair(ctx, [])
     }
@@ -279,41 +262,35 @@ test.describe("v0.15.0 list-merge share flow", () => {
   test("share-theirs via UI: data-testid=share-theirs puts caller's wines on friend's list", async ({
     browser,
   }) => {
-    const stamp = Date.now()
-    const ctx = await setupMergePair(browser, stamp)
+    const ctx = await setupMergePair(browser, Date.now())
     try {
       await ctx.callerPage.goto("/venner")
-
-      await ctx.callerPage.getByRole("button", { name: /^Del liste$/ }).click()
+      await ctx.callerPage
+        .getByRole("button", { name: /^Del liste$/ })
+        .first()
+        .click()
       await expect(
         ctx.callerPage.getByTestId("share-theirs"),
         "share-theirs visible inside dialog",
       ).toBeVisible()
-
       await ctx.callerPage.getByTestId("share-theirs").click()
 
       await expect(
         ctx.callerPage.getByTestId("share-theirs"),
-        "share-theirs is hidden after success (dialog unmounted)",
+        "share-theirs is hidden after success",
       ).toBeHidden({ timeout: 15_000 })
-
       await expect(
         ctx.callerPage.getByText("✓ Deler vinliste"),
-        "friend row now shows the shared badge after share-theirs",
+        "shared badge after share-theirs",
       ).toBeVisible({ timeout: 15_000 })
 
-      // After share-theirs merge, the friend's MainList is the shared
-      // one. Caller's mainListId is repointed to the friend's list.
       const friendsAfter = await ctx.callerPage.request.get("/api/friends")
       const d = await friendsAfter.json()
       const friendRow = (d.friends as Array<{
         userId: number
         sharedMainList: boolean
       }>).find((f) => f.userId === ctx.friendId)
-      expect(
-        friendRow?.sharedMainList,
-        "friend.sharedMainList=true after share-theirs",
-      ).toBe(true)
+      expect(friendRow?.sharedMainList, "sharedMainList=true after share-theirs").toBe(true)
     } finally {
       await cleanupMergePair(ctx, [])
     }
@@ -322,12 +299,9 @@ test.describe("v0.15.0 list-merge share flow", () => {
   test("split via API DELETE: caller recreates fresh MainList and retains caller-owned wines", async ({
     browser,
   }) => {
-    const stamp = Date.now()
-    const ctx = await setupMergePair(browser, stamp)
+    const ctx = await setupMergePair(browser, Date.now())
     let stampWineId = -1
     try {
-      // Set up the shared state via direct API — keeps this test focused
-      // on the DELETE contract only.
       const mergeRes = await ctx.callerPage.request.post("/api/friends/share", {
         data: {
           friendUserId: ctx.friendId,
@@ -343,16 +317,11 @@ test.describe("v0.15.0 list-merge share flow", () => {
         userId: number
         sharedMainList: boolean
       }>).find((f) => f.userId === ctx.friendId)
-      expect(
-        mergedRow?.sharedMainList,
-        "precondition: friend.sharedMainList=true before split",
-      ).toBe(true)
+      expect(mergedRow?.sharedMainList, "precondition: sharedMainList=true before split").toBe(true)
 
-      // Seed a caller-owned wine with explicit inCellar=true so we can
-      // verify it follows caller's MainListRow count after the split.
       const stampWine = await ctx.callerPage.request.post("/api/viner", {
         data: {
-          name: `E2E split ${stamp}`,
+          name: `E2E split ${Date.now()}`,
           producer: "split produsent",
           type: "red",
           inCellar: true,
@@ -360,35 +329,21 @@ test.describe("v0.15.0 list-merge share flow", () => {
         },
       })
       expect(stampWine.ok(), "seed wine with quantity succeeds").toBeTruthy()
-      const stampWineData = (await stampWine.json()) as { id: number }
-      stampWineId = stampWineData.id
+      stampWineId = ((await stampWine.json()) as { id: number }).id
 
-      // Trigger the split. body.friendUserId is currently a no-op
-      // parameter on the route (kept for symmetry) — any value works.
-      const splitRes = await ctx.callerPage.request.delete(
-        "/api/friends/share",
-        {
-          data: { friendUserId: ctx.friendId },
-        },
-      )
+      const splitRes = await ctx.callerPage.request.delete("/api/friends/share", {
+        data: { friendUserId: ctx.friendId },
+      })
       expect(splitRes.ok(), "DELETE /api/friends/share returns 200").toBeTruthy()
 
-      // Post-split: friend.sharedMainList must drop to false.
       const friendsAfterSplit = await ctx.callerPage.request.get("/api/friends")
       const split = await friendsAfterSplit.json()
       const splitRow = (split.friends as Array<{
         userId: number
         sharedMainList: boolean
       }>).find((f) => f.userId === ctx.friendId)
-      expect(
-        splitRow?.sharedMainList,
-        "friend.sharedMainList=false after split",
-      ).toBe(false)
+      expect(splitRow?.sharedMainList, "sharedMainList=false after split").toBe(false)
 
-      // The seeded byline wine stays reachable on the caller's fresh
-      // MainList. /api/viner surfaces caller-perspective rows; the
-      // stamped wine must still be there with its inCellar + quantity
-      // intact.
       const callerWines = await ctx.callerPage.request.get("/api/viner")
       const callerWinesData = (await callerWines.json()) as Array<{
         id: number
@@ -397,18 +352,9 @@ test.describe("v0.15.0 list-merge share flow", () => {
         quantity: number
       }>
       const stamped = callerWinesData.find((w) => w.id === stampWineId)
-      expect(
-        stamped,
-        "caller's stamped wine still reachable on the fresh MainList",
-      ).toBeTruthy()
-      expect(
-        stamped?.inCellar,
-        "stamped wine inCellar=true preserved across split",
-      ).toBe(true)
-      expect(
-        stamped?.quantity,
-        "stamped wine quantity=2 preserved across split",
-      ).toBe(2)
+      expect(stamped, "stamped wine reachable on fresh MainList").toBeTruthy()
+      expect(stamped?.inCellar, "inCellar preserved").toBe(true)
+      expect(stamped?.quantity, "quantity=2 preserved").toBe(2)
     } finally {
       await cleanupMergePair(ctx, stampWineId > 0 ? [stampWineId] : [])
     }
@@ -417,13 +363,8 @@ test.describe("v0.15.0 list-merge share flow", () => {
   test("error rendering: data-testid=share-error surfaces a mocked 409 from the API", async ({
     browser,
   }) => {
-    const stamp = Date.now()
-    const ctx = await setupMergePair(browser, stamp)
+    const ctx = await setupMergePair(browser, Date.now())
     try {
-      // Intercept /api/friends/share and force a 409 so the dialog
-      // renders the error banner. Mocks the real route's 409 path
-      // ("Dere deler allerede en liste") without racing a partial
-      // merge state.
       const intercepted: string[] = []
       await ctx.callerPage.route("**/api/friends/share", (route) => {
         intercepted.push("hit")
@@ -437,6 +378,7 @@ test.describe("v0.15.0 list-merge share flow", () => {
       await ctx.callerPage.goto("/venner")
       await ctx.callerPage
         .getByRole("button", { name: /^Del liste$/ })
+        .first()
         .click()
 
       await expect(
@@ -446,28 +388,21 @@ test.describe("v0.15.0 list-merge share flow", () => {
 
       await ctx.callerPage.getByTestId("share-mine").click()
 
-      // The dialog surfaces the mocked error verbatim.
       await expect(
         ctx.callerPage.getByTestId("share-error"),
         "share-error appears when POST returns 409",
       ).toBeVisible({ timeout: 5_000 })
       await expect(
         ctx.callerPage.getByTestId("share-error"),
-        "share-error text reflects the API error message",
+        "share-error text reflects the API message",
       ).toContainText("Allerede delt (mock)")
 
-      // The dialog stays open after a 409 — share-error is a non-fatal
-      // inline message that gives the user a chance to retry.
       await expect(
         ctx.callerPage.getByTestId("share-mine"),
-        "dialog stays open on error (no auto-close)",
+        "dialog stays open on error",
       ).toBeVisible()
 
-      // Sanity: at least one POST hit the mocked endpoint.
-      expect(
-        intercepted.length,
-        "POST /api/friends/share was called",
-      ).toBeGreaterThan(0)
+      expect(intercepted.length, "POST /api/friends/share was called").toBeGreaterThan(0)
     } finally {
       await cleanupMergePair(ctx, [])
     }

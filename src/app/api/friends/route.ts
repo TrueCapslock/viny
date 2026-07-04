@@ -76,7 +76,14 @@ export async function GET() {
   // v0.15.0: SharedList concept retired. `sharedLists` in the response
   // shape is historically consumed by the UI; we emit an empty array to
   // keep the contract stable. Phase-3 UI rewrite will drop the field.
+  //
+  // `me` exposes the authenticated caller's id + mainListId directly so
+  // e2e tests (and any future caller-side feature that needs
+  // "who am I") don't have to POST a throwaway wine to /api/viner just
+  // to learn their own userId. Cheap: the user row is already fetched
+  // above for `myMainListId`.
   return NextResponse.json({
+    me: { id: userId, mainListId: myMainListId },
     friends,
     pendingSent,
     pendingReceived,
