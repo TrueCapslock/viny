@@ -81,12 +81,7 @@ function LoginForm() {
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label htmlFor="login-password" className="block text-sm font-medium text-wine-700">Passord</label>
-            <Link href="/glemt-passord" className="text-xs text-wine-600 hover:text-wine-800 underline">
-              Glemt passord?
-            </Link>
-          </div>
+          <label htmlFor="login-password" className="block text-sm font-medium text-wine-700 mb-1.5">Passord</label>
           <input
             id="login-password"
             type="password"
@@ -105,6 +100,12 @@ function LoginForm() {
         >
           {loading ? "Logger inn..." : "Logg inn"}
         </button>
+
+        <p className="text-center text-sm">
+          <Link href="/glemt-passord" className="text-wine-600 hover:text-wine-800 underline">
+            Glemt passord?
+          </Link>
+        </p>
 
         <p className="text-center text-sm text-wine-400">
           Har du ikke konto?{" "}
