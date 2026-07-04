@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test"
+import { execSync } from "node:child_process"
 import {
   TEST_USER_EMAIL,
   TEST_USER_PASSWORD,
@@ -76,6 +77,48 @@ async function registerFreshUser(page: Page, email: string, password: string) {
 }
 
 test.describe("v0.14.0 friend-view permission contract", () => {
+  // Re-seed before this file's test runs. The global-setup seed runs
+  // once at suite start, but the alphabetically-earlier
+  // mainlist-merge suite's "split via API DELETE" test gives the test
+  // user a fresh MainList (a UseMainList row created by the split
+  // handler) that doesn't carry Testvin — so by the time this test
+  // runs, Testvin is stranded on an orphan MainList and the friend-view
+  // API (which queries a single target.mainListId) can't find it.
+  // We shell out to the seed script the same way global-setup.ts does
+  // (the seed module uses import.meta.url, which is ESM-only and
+  // can't be imported by Playwright's CJS test loader).
+  //
+  // beforeAll (not beforeEach): the describe has exactly one test, and
+  // the seed costs ~1-2s. If a second test() is ever added here, the
+  // first one's deletions will leave the second running against a
+  // mutated fixture — switch to beforeEach in that case.
+  //
+  // Known microsecond-scale race: the seed writes via its own Prisma
+  // client, the test reads via the dev server's Prisma client. With
+  // execSync the seed tx is committed before beforeAll returns, but
+  // the dev server's connection pool may have a hot prepared-statement
+  // cache for the pre-seed mainListId. In practice the test's first
+  // GET races in microseconds and the /venner page re-mount path
+  // retries via toPass — not a blocker on CI.
+  test.beforeAll(() => {
+    try {
+      execSync("npm run seed:test", {
+        stdio: "pipe",
+        env: { ...process.env, FORCE_COLOR: "0" },
+      })
+    } catch (e) {
+      const stderr =
+        e instanceof Error && "stderr" in e
+          ? String((e as { stderr?: Buffer | string }).stderr ?? "")
+          : ""
+      throw new Error(
+        `vinskapet beforeAll: seed failed — ${(e as Error).message}${
+          stderr ? "\n" + stderr : ""
+        }`,
+      )
+    }
+  })
+
   test("cellar wines visible to friends; custom lists + CellarToggle are not", async ({
     browser,
   }) => {
