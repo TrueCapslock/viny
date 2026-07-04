@@ -20,12 +20,19 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   })
 
-  const editors = await prisma.listShare.findMany({
-    where: { ownerId: userId },
-    include: { editor: { select: { id: true, name: true, email: true, image: true } } },
+  // v0.14.0: `canEdit` on a friend means "is a SharedListMember of my
+  // Vinskapet", which is the new sharing signal. Computed once per session.
+  const me = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { defaultSharedListId: true },
   })
-
-  const editorIds = new Set(editors.map((e) => e.editorId))
+  const myVinskapMembers = me?.defaultSharedListId
+    ? await prisma.sharedListMember.findMany({
+        where: { sharedListId: me.defaultSharedListId },
+        select: { userId: true },
+      })
+    : []
+  const editorIds = new Set(myVinskapMembers.map((m) => m.userId))
 
   const sharedLists = await prisma.sharedList.findMany({
     where: { members: { some: { userId } } },

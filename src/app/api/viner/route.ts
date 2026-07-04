@@ -11,6 +11,7 @@ export async function GET(request: Request) {
   const targetUserId = searchParams.get("userId")
 
   let ownerId = userId
+  let isOwnView = true
 
   if (targetUserId) {
     const targetId = parseInt(targetUserId)
@@ -25,27 +26,44 @@ export async function GET(request: Request) {
         },
       })
       if (!isFriend) return NextResponse.json({ error: "Not found" }, { status: 404 })
+      isOwnView = false
     }
     ownerId = targetId
   }
 
-  const sharedListIds = await prisma.sharedList.findMany({
-    where: targetUserId
-      ? {
-          AND: [
-            { members: { some: { userId } } },
-            { members: { some: { userId: ownerId } } },
-          ],
-        }
-      : { members: { some: { userId } } },
+  // v0.14.0: the owner's Vinskapet is a per-user SharedList. Friends see the
+  // Vinskapet wines; custom-list wines (userId=owner, sharedListId=NULL) are
+  // owner-only.
+  const owner = await prisma.user.findUnique({
+    where: { id: ownerId },
+    select: { defaultSharedListId: true },
+  })
+
+  // Shared lists where BOTH viewer and owner are members (explicit-shared-list
+  // viewing from a friend's perspective).
+  const coMemberedSharedLists = await prisma.sharedList.findMany({
+    where: {
+      AND: [
+        { members: { some: { userId } } },
+        { members: { some: { userId: ownerId } } },
+      ],
+    },
     select: { id: true },
   })
 
   const wines = await prisma.wine.findMany({
     where: {
       OR: [
-        { userId: ownerId, sharedListId: null },
-        { sharedListId: { in: sharedListIds.map((sl) => sl.id) } },
+        // Own custom-list wines (always visible to self only).
+        ...(isOwnView
+          ? [{ userId: ownerId, sharedListId: null }]
+          : []),
+        // Owner's Vinskapet — visible to self, members, and the owner's friends.
+        ...(owner?.defaultSharedListId
+          ? [{ userId: ownerId, sharedListId: owner.defaultSharedListId }]
+          : []),
+        // Explicit shared lists where both this viewer and the owner are members.
+        { sharedListId: { in: coMemberedSharedLists.map((sl) => sl.id) } },
       ],
     },
     include: { _count: { select: { tastings: true } } },
@@ -80,15 +98,33 @@ export async function POST(request: Request) {
   if (targetUserId) {
     const targetId = parseInt(targetUserId)
     if (targetId !== userId) {
-      const isEditor = await prisma.listShare.findUnique({
-        where: { ownerId_editorId: { ownerId: targetId, editorId: userId } },
+      // v0.14.0: editors on someone else's cellar must now be a
+      // SharedListMember of that user's Vinskapet (replace ListShare).
+      const target = await prisma.user.findUnique({
+        where: { id: targetId },
+        select: { defaultSharedListId: true },
       })
-      if (!isEditor) return NextResponse.json({ error: "Ikke tilgang" }, { status: 403 })
+      if (!target?.defaultSharedListId) {
+        return NextResponse.json({ error: "Ikke tilgang" }, { status: 403 })
+      }
+      const isMember = await prisma.sharedListMember.findUnique({
+        where: {
+          sharedListId_userId: {
+            sharedListId: target.defaultSharedListId,
+            userId,
+          },
+        },
+      })
+      if (!isMember) return NextResponse.json({ error: "Ikke tilgang" }, { status: 403 })
     }
     ownerId = targetId
   }
 
   const body = await request.json()
+  const ownerForSharedList = await prisma.user.findUnique({
+    where: { id: ownerId },
+    select: { defaultSharedListId: true },
+  })
   const wine = await prisma.wine.create({
     data: {
       name: body.name,
@@ -103,6 +139,11 @@ export async function POST(request: Request) {
       inCellar: body.inCellar ?? false,
       quantity: body.inCellar ? parseInt(body.quantity) || 0 : 0,
       userId: ownerId,
+      // v0.14.0: cellar wines live in the owner's Vinskapet (their default
+      // SharedList); non-cellar wines start unshared and don't appear in
+      // anyone else's view unless the owner explicitly adds them to a
+      // SharedList later.
+      sharedListId: body.inCellar ? ownerForSharedList?.defaultSharedListId ?? null : null,
     },
   })
   return NextResponse.json(wine, { status: 201 })

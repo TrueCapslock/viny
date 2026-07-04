@@ -63,18 +63,20 @@ export default async function WineDetailPage({
         canView = true
       }
     }
+  }
 
-    if (!canView) {
-      const isEditor = await prisma.listShare.findUnique({
-        where: { ownerId_editorId: { ownerId: wine.userId, editorId: userId } },
-      })
-      if (isEditor) {
-        canEdit = true
-        canView = true
-      }
-    }
-
-    if (!canView) {
+  if (!canView) {
+    // v0.14.0: friend can view only if the wine is in the owner's Vinskapet
+    // (and not a custom-list wine that's still owner-only).
+    const ownerWithVinskap = await prisma.user.findUnique({
+      where: { id: wine.userId },
+      select: { defaultSharedListId: true },
+    })
+    if (
+      wine.sharedListId &&
+      ownerWithVinskap?.defaultSharedListId &&
+      wine.sharedListId === ownerWithVinskap.defaultSharedListId
+    ) {
       const isFriend = await prisma.friend.findFirst({
         where: {
           status: "accepted",

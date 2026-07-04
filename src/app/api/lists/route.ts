@@ -17,12 +17,28 @@ export async function GET() {
   return NextResponse.json(lists)
 }
 
+// v0.14.0: same access rules as /api/viner/[id]/route.ts's canAccessWine.
+// Friends see the owner's Vinskapet but only when the wine lives in it;
+// custom-list wines stay owner-only.
 async function canAccessWine(wineId: number, userId: number) {
-  const wine = await prisma.wine.findUnique({ where: { id: wineId } })
+  const wine = await prisma.wine.findUnique({
+    where: { id: wineId },
+    include: { user: { select: { defaultSharedListId: true } } },
+  })
   if (!wine) return null
   if (wine.userId === userId) return wine
 
-  if (!wine.sharedListId) {
+  if (wine.sharedListId) {
+    const isMember = await prisma.sharedListMember.findUnique({
+      where: { sharedListId_userId: { sharedListId: wine.sharedListId, userId } },
+    })
+    if (isMember) return wine
+  }
+
+  if (
+    wine.sharedListId &&
+    wine.sharedListId === wine.user.defaultSharedListId
+  ) {
     const isFriend = await prisma.friend.findFirst({
       where: {
         status: "accepted",
@@ -33,13 +49,6 @@ async function canAccessWine(wineId: number, userId: number) {
       },
     })
     if (isFriend) return wine
-  }
-
-  if (wine.sharedListId) {
-    const isMember = await prisma.sharedListMember.findUnique({
-      where: { sharedListId_userId: { sharedListId: wine.sharedListId, userId } },
-    })
-    if (isMember) return wine
   }
 
   return null

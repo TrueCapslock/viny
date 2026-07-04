@@ -113,6 +113,11 @@ model User {
   prefersBeer     Boolean @default(false)
   prefersDarkMode Boolean @default(false)
   isAdmin         Boolean @default(false)
+  // v0.14.0: per-user default SharedList ("Vinskapet"). Friends get read-only
+  // access to this list automatically; SharedListMember membership is what
+  // grants write access. Nullable + unique so old rows survive the migration
+  // and so each user has at most one Vinskapet.
+  defaultSharedListId Int? @unique
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   wines       Wine[]

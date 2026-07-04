@@ -15,8 +15,26 @@ export async function POST(request: Request) {
   }
 
   const hashed = await hash(password, 12)
-  const user = await prisma.user.create({
-    data: { email, password: hashed, name: name || null },
+
+  // v0.14.0: each new user gets a per-user default SharedList ("Vinskapet")
+  // too. We do this in a Prisma transaction so the FK and the admin
+  // membership land together — no observable intermediate state where the
+  // User has the FK but no membership row (or vice versa).
+  const user = await prisma.$transaction(async (tx) => {
+    const vinskap = await tx.sharedList.create({
+      data: { name: "Vinskapet" },
+    })
+    return tx.user.create({
+      data: {
+        email,
+        password: hashed,
+        name: name || null,
+        defaultSharedListId: vinskap.id,
+        sharedListMembers: {
+          create: [{ sharedListId: vinskap.id, role: "admin" }],
+        },
+      },
+    })
   })
 
   return NextResponse.json({ id: user.id, email: user.email }, { status: 201 })
