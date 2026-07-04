@@ -437,12 +437,19 @@ test.describe("v0.15.1 list-merge invite-then-accept flow", () => {
       expect(callerWineRes.ok(), "seed caller wine succeeds").toBeTruthy()
       callerWineId = ((await callerWineRes.json()) as { id: number }).id
 
+      // Friend's wine: inCellar=true, quantity=1. The /api/viner POST
+      // contract coerces quantity to 0 when inCellar=false (see
+      // src/app/api/viner/route.ts POST handler), so testing the
+      // "quantity is preserved through the split" assertion below
+      // requires an inCellar=true wine — a non-cellared wine is
+      // always quantity=0 in storage regardless of what the client
+      // sent.
       const friendWineRes = await ctx.friendPage.request.post("/api/viner", {
         data: {
           name: `E2E split friend ${Date.now()}`,
           producer: "split produsent B",
           type: "white",
-          inCellar: false,
+          inCellar: true,
           quantity: 1,
         },
       })
@@ -486,7 +493,7 @@ test.describe("v0.15.1 list-merge invite-then-accept flow", () => {
       expect(callerOwnCopy?.inCellar, "caller wine inCellar preserved").toBe(true)
       expect(callerOwnCopy?.quantity, "caller wine quantity=2 preserved").toBe(2)
       expect(friendCopyOnCaller, "friend's wine is copied onto caller's fresh list").toBeTruthy()
-      expect(friendCopyOnCaller?.inCellar, "friend wine inCellar preserved on caller's copy").toBe(false)
+      expect(friendCopyOnCaller?.inCellar, "friend wine inCellar preserved on caller's copy").toBe(true)
       expect(friendCopyOnCaller?.quantity, "friend wine quantity=1 preserved on caller's copy").toBe(1)
 
       // Friend's fresh MainList has BOTH wines too.
@@ -500,7 +507,7 @@ test.describe("v0.15.1 list-merge invite-then-accept flow", () => {
       const friendOwnCopy = friendWines.find((w) => w.id === friendWineId)
       const callerCopyOnFriend = friendWines.find((w) => w.id === callerWineId)
       expect(friendOwnCopy, "friend's own wine is on friend's fresh list").toBeTruthy()
-      expect(friendOwnCopy?.inCellar, "friend wine inCellar preserved").toBe(false)
+      expect(friendOwnCopy?.inCellar, "friend wine inCellar preserved").toBe(true)
       expect(friendOwnCopy?.quantity, "friend wine quantity=1 preserved").toBe(1)
       expect(callerCopyOnFriend, "caller's wine is copied onto friend's fresh list").toBeTruthy()
       expect(callerCopyOnFriend?.inCellar, "caller wine inCellar preserved on friend's copy").toBe(true)
