@@ -38,6 +38,7 @@
     "@types/node": "^26.1.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19",
+    "// eslint pinned to ^9 (not ^10)": "eslint-plugin-react@7.37.5 (bundled by eslint-config-next@16) still calls context.getFilename(), which ESLint 10 removed (kept as compat shim through v9). Unpin back to ^10 and re-run `npx eslint` on any .tsx to verify the display-name rule loads cleanly once eslint-plugin-react v8 lands with ESLint 10 support.",
     "eslint": "^9.39.4",
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
