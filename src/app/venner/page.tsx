@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Users } from "@/app/_components/icons"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
 import { UserCardSkeleton } from "@/app/_components/skeletons"
+import { ShareMainlistDialog } from "@/app/_components/share-mainlist-dialog"
 import { useFriends, useSuggestions } from "@/hooks/use-data"
 
 type UserInfo = { id: number; name: string | null; email: string; image: string | null }
@@ -33,9 +34,9 @@ export default function FriendsPage() {
 
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [shareTarget, setShareTarget] = useState<Friend | null>(null)
-  const [sharing, setSharing] = useState(false)
-  const [shareError, setShareError] = useState<string | null>(null)
 
+  // v0.15.0: share logic moved into ShareMainlistDialog — the page only
+  // toggles open/close and re-runs the friends SWR fetch on success.
   async function reload() {
     await Promise.all([mutateFriends(), mutateSuggestions()])
   }
@@ -67,26 +68,6 @@ export default function FriendsPage() {
     mutateFriends()
   }
 
-  async function handleShare(mode: "mine" | "theirs" | "merge") {
-    if (!shareTarget) return
-    setSharing(true)
-    setShareError(null)
-    const res = await fetch("/api/shared-lists", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ friendUserId: shareTarget.userId, mode }),
-    })
-    if (res.ok) {
-      setShowShareDialog(false)
-      setShareTarget(null)
-      mutateFriends()
-    } else {
-      const data = await res.json()
-      setShareError(data.error ?? "Noe gikk galt")
-    }
-    setSharing(false)
-  }
-
   async function handleAcceptSuggestion(suggestionId: number) {
     const res = await fetch(`/api/forslag/${suggestionId}/accept`, { method: "POST" })
     if (res.ok) reload()
@@ -99,7 +80,6 @@ export default function FriendsPage() {
 
   function openShareDialog(friend: Friend) {
     setShareTarget(friend)
-    setShareError(null)
     setShowShareDialog(true)
   }
 
@@ -366,64 +346,25 @@ export default function FriendsPage() {
       </section>
 
       {showShareDialog && shareTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowShareDialog(false)} />
-          <div className="relative bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl animate-scale-in">
-            <button
-              onClick={() => setShowShareDialog(false)}
-              className="absolute top-4 right-4 text-wine-400 hover:text-wine-600 transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-
-            <h2 className="text-lg font-bold text-wine-900 mb-1">{isBeer ? "Del ølliste" : "Del vinliste"}</h2>
-            <p className="text-sm text-wine-500 mb-5">
-              Velg hva som skal deles med <span className="font-medium text-wine-700">{shareTarget.name ?? shareTarget.email}</span>
-            </p>
-
-            <div className="space-y-2">
-              <button
-                onClick={() => handleShare("mine")}
-                disabled={sharing}
-                className="w-full text-left rounded-xl border border-cream-200 p-4 hover:border-wine-300 hover:bg-wine-50 transition-all disabled:opacity-50"
-              >
-                <p className="text-sm font-semibold text-wine-800">Del din liste</p>
-                <p className="text-xs text-wine-500 mt-0.5">{isBeer ? "Vennene får tilgang til dine øl. Dere kan begge redigere." : "Vennene får tilgang til dine viner. Dere kan begge redigere."}</p>
-              </button>
-              <button
-                onClick={() => handleShare("theirs")}
-                disabled={sharing}
-                className="w-full text-left rounded-xl border border-cream-200 p-4 hover:border-wine-300 hover:bg-wine-50 transition-all disabled:opacity-50"
-              >
-                <p className="text-sm font-semibold text-wine-800">Del vennens liste</p>
-                <p className="text-xs text-wine-500 mt-0.5">{isBeer ? "Du får tilgang til vennens øl. Dere kan begge redigere." : "Du får tilgang til vennens viner. Dere kan begge redigere."}</p>
-              </button>
-              <button
-                onClick={() => handleShare("merge")}
-                disabled={sharing}
-                className="w-full text-left rounded-xl border border-cream-200 p-4 hover:border-wine-300 hover:bg-wine-50 transition-all disabled:opacity-50"
-              >
-                <p className="text-sm font-semibold text-wine-800">Slå sammen</p>
-                <p className="text-xs text-wine-500 mt-0.5">Begge listene slås sammen til én felles liste. Dere kan begge redigere.</p>
-              </button>
-            </div>
-
-            {sharing && (
-              <div className="flex items-center justify-center gap-2 mt-4 text-sm text-wine-500">
-                <div className="w-4 h-4 border-2 border-wine-400 border-t-transparent rounded-full animate-spin" />
-                Oppretter felles liste...
-              </div>
-            )}
-
-            {shareError && (
-              <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 mt-4">
-                {shareError}
-              </div>
-            )}
-          </div>
-        </div>
+        <ShareMainlistDialog
+          friend={{
+            userId: shareTarget.userId,
+            name: shareTarget.name,
+            email: shareTarget.email,
+          }}
+          onShared={() => {
+            // The dialog calls onShared() THEN onClose() on success — so
+            // let onClose own the state-reset (setShareTarget(null) +
+            // setShowShareDialog(false)) and have onShared only kick the
+            // SWR re-fetch. If we clear shareTarget here too, the
+            // dialog's onClose call hits it again — redundant.
+            mutateFriends()
+          }}
+          onClose={() => {
+            setShareTarget(null)
+            setShowShareDialog(false)
+          }}
+        />
       )}
     </div>
   )

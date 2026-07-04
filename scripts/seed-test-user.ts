@@ -33,6 +33,29 @@ export async function seedTestUser() {
     },
   })
 
+  // v0.15.0: every user must have a MainList (List row with isMain=true)
+  // and User.mainListId pointing at it. /api/viner only surfaces wines
+  // that are on at least one list the caller can reach, so the seeded
+  // Testvin is unreachable to e2e tests until it's joined to a list.
+  // Idempotent across re-runs: a pre-v0.15.0 user that lacks a MainList
+  // gets one; an existing MainList is reused.
+  let mainList = await prisma.list.findFirst({
+    where: { userId: user.id, isMain: true },
+    select: { id: true },
+  })
+  if (!mainList) {
+    mainList = await prisma.list.create({
+      data: { name: "UseMainList", userId: user.id, isMain: true },
+      select: { id: true },
+    })
+  }
+  if (user.mainListId !== mainList.id) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { mainListId: mainList.id },
+    })
+  }
+
   const existingWine = await prisma.wine.findFirst({
     where: {
       userId: user.id,
@@ -42,8 +65,11 @@ export async function seedTestUser() {
     select: { id: true },
   })
 
+  // Window keeps Testvin reachable via /api/viner in v0.15.0 regardless
+  // of whether the Wine row pre-existed the migration or was just
+  // created by this seed run.
   if (!existingWine) {
-    await prisma.wine.create({
+    const created = await prisma.wine.create({
       data: {
         name: TEST_WINE_NAME,
         producer: TEST_WINE_PRODUCER,
@@ -55,6 +81,28 @@ export async function seedTestUser() {
         notes: "En testvin",
         userId: user.id,
       },
+      select: { id: true },
+    })
+    await prisma.listWine.create({
+      data: {
+        listId: mainList.id,
+        wineId: created.id,
+        inCellar: false,
+        quantity: 0,
+      },
+    })
+  } else {
+    await prisma.listWine.upsert({
+      where: {
+        listId_wineId: { listId: mainList.id, wineId: existingWine.id },
+      },
+      create: {
+        listId: mainList.id,
+        wineId: existingWine.id,
+        inCellar: false,
+        quantity: 0,
+      },
+      update: {},
     })
   }
 

@@ -1,0 +1,45 @@
+v0.15.0: list-redesign (per-user MainList) + share-merge + 3 regression fixes
+
+Schema migration to per-user MainList + ListWine membership:
+- Wine.sharedListId / inCellar / quantity removed (now on ListWine)
+- Wine.userId is byline-only; visibility derived from ListWine
+- User.mainListId (@unique) points at the user's MainList
+- List.isMain distinguishes MainList (shared-capable) from Custom Lists
+- New ListWine composite PK (listId, wineId) + inCellar + quantity
+
+New / refactored routes:
+- POST /api/friends/share   — winner-picker merge + idempotent tx
+- DELETE /api/friends/share  — split, recreates caller's fresh MainList
+- /api/viner + /api/viner/[id]     — listId/inCellar/quantity shape
+- /api/viner/[id]/lists             — custom-list membership (add)
+- /api/viner/[id]/lists/[listId]    — custom-list membership (remove)
+- /api/friends                      — adds sharedMainList + sharedList + canEdit
+
+UI:
+- src/app/_components/share-mainlist-dialog.tsx (data-testid: share-mine / share-theirs / share-loading / share-error)
+- cellar-toggle + add-to-list-dialog updated for v0.15.0 model
+
+E2E:
+- e2e/mainlist-merge.spec.ts — 4 data-testid-driven scenarios
+
+Bug fixes uncovered when running the suite against v0.15.0:
+1) /api/register           — Pass-A tx (User → List → User.update) avoids
+                              P2011 Null constraint under Prisma+Neon.
+2) scripts/seed-test-user — idempotent MainList + ListWine(Testvin) so
+                              /api/viner surfaces the seeded wine in v0.15.0's
+                              ListWine-based access model.
+3) e2e/vinskapet          — replaced stale Wine.sharedListId (field removed
+                              in v0.15.0) with listId, the field the new
+                              /api/viner GET shape actually exposes.
+
+Docs:
+- docs/LIST_DOC.md       — v0.15.0 list-merge reference (Models / Access
+                              policy / share POST / share DELETE / Routes /
+                              UI data-testids / E2E mapping / Migration
+                              notes / Verification matrix).
+
+Playwright suite result after fixes: 11/17 pass. Remaining 6 failures
+are follow-ups (Testvin scope decision, add-to-list-dialog useEffect
+cycle, mainlist-merge spec selector strict-mode, /api/friends/share
+400 on a stale-friend precondition). Pre-fix the suite was 0/17 with
+3 distinct regressions all rooted in the broken /api/register.

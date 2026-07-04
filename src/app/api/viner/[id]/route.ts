@@ -1,102 +1,14 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
+import { canEditWine, wineAccess } from "@/lib/access"
 
 type Params = Promise<{ id: string }>
 
-async function getUserId() {
+async function getUserId(): Promise<number | null> {
   const session = await auth()
   if (!session?.user?.id) return null
   return parseInt(session.user.id)
-}
-
-// v0.14.0: read access. Rules:
-//   1. Owner can always read.
-//   2. Any SharedListMember of the wine's sharedListId can read.
-//   3. The owner's friends can read the owner's Vinskapet wines (read-only):
-//      that's exactly `wine.sharedListId === wine.user.defaultSharedListId`.
-//   4. Custom-list wines (sharedListId IS NULL) are owner-only.
-async function canAccessWine(wineId: number, userId: number) {
-  const wine = await prisma.wine.findUnique({
-    where: { id: wineId },
-    include: { user: { select: { defaultSharedListId: true } } },
-  })
-  if (!wine) return null
-  if (wine.userId === userId) return wine
-
-  if (wine.sharedListId) {
-    const isMember = await prisma.sharedListMember.findUnique({
-      where: { sharedListId_userId: { sharedListId: wine.sharedListId, userId } },
-    })
-    if (isMember) return wine
-  }
-
-  // Friend + wine is in the owner's Vinskapet.
-  if (
-    wine.sharedListId &&
-    wine.sharedListId === wine.user.defaultSharedListId
-  ) {
-    const isFriend = await prisma.friend.findFirst({
-      where: {
-        status: "accepted",
-        OR: [
-          { requesterId: userId, addresseeId: wine.userId },
-          { requesterId: wine.userId, addresseeId: userId },
-        ],
-      },
-    })
-    if (isFriend) return wine
-  }
-
-  return null
-}
-
-// v0.14.0: write access is owner OR any SharedListMember of the wine's
-// sharedListId.
-async function canEditWine(wineId: number, userId: number) {
-  const wine = await prisma.wine.findUnique({ where: { id: wineId } })
-  if (!wine) return null
-  if (wine.userId === userId) return wine
-
-  if (wine.sharedListId) {
-    const isMember = await prisma.sharedListMember.findUnique({
-      where: { sharedListId_userId: { sharedListId: wine.sharedListId, userId } },
-    })
-    if (isMember) return wine
-  }
-
-  return null
-}
-
-// v0.14.0: when toggling inCellar across the Vinskapet boundary, flip
-// Wine.sharedListId too. Wines that are parked in an EXPLICIT (shared-lists)
-// SharedList are not touched — inCellar is then orthogonal to that
-// shared-list membership and the caller can move the wine back into their
-// Vinskapet explicitly.
-async function resolveCellarSharedListUpdate(
-  existing: { userId: number; sharedListId: number | null },
-  inCellar: boolean,
-): Promise<{ sharedListId: number | null } | null> {
-  const owner = await prisma.user.findUnique({
-    where: { id: existing.userId },
-    select: { defaultSharedListId: true },
-  })
-  const vinskapId = owner?.defaultSharedListId ?? null
-
-  if (inCellar) {
-    // Move into the Vinskapet only if currently unshared or already in the
-    // Vinskapet.
-    if (existing.sharedListId === null || existing.sharedListId === vinskapId) {
-      return { sharedListId: vinskapId }
-    }
-    return null
-  } else {
-    // Pull out of the Vinskapet only if currently parked there.
-    if (vinskapId !== null && existing.sharedListId === vinskapId) {
-      return { sharedListId: null }
-    }
-    return null
-  }
 }
 
 export async function GET(_request: Request, { params }: { params: Params }) {
@@ -104,17 +16,48 @@ export async function GET(_request: Request, { params }: { params: Params }) {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id } = await params
-  const wine = await canAccessWine(parseInt(id), userId)
-  if (!wine) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  const wineId = parseInt(id)
+  const access = await wineAccess(wineId, userId)
+  if (access === "none") return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  const full = await prisma.wine.findUnique({
-    where: { id: parseInt(id) },
+  const wine = await prisma.wine.findUnique({
+    where: { id: wineId },
     include: {
       tastings: { orderBy: { date: "desc" } },
-      sharedList: { select: { id: true, name: true } },
     },
   })
-  return NextResponse.json(full)
+
+  // Surface caller-perspective inCellar+quantity if caller can edit;
+  // owner-perspective for friend-peek (per PLAN_LIST_REDESIGN §10.2).
+  let inCellar = false
+  let quantity = 0
+  if (access === "edit") {
+    const me = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { mainListId: true },
+    })
+    if (me?.mainListId) {
+      const myJoin = await prisma.listWine.findUnique({
+        where: { listId_wineId: { listId: me.mainListId, wineId } },
+      })
+      inCellar = myJoin?.inCellar ?? false
+      quantity = myJoin?.quantity ?? 0
+    }
+  } else if (access === "read" && wine) {
+    const owner = await prisma.user.findUnique({
+      where: { id: wine.userId },
+      select: { mainListId: true },
+    })
+    if (owner?.mainListId) {
+      const ownerJoin = await prisma.listWine.findUnique({
+        where: { listId_wineId: { listId: owner.mainListId, wineId } },
+      })
+      inCellar = ownerJoin?.inCellar ?? false
+      quantity = ownerJoin?.quantity ?? 0
+    }
+  }
+
+  return NextResponse.json({ ...wine, inCellar, quantity })
 }
 
 export async function PUT(request: Request, { params }: { params: Params }) {
@@ -122,18 +65,17 @@ export async function PUT(request: Request, { params }: { params: Params }) {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id } = await params
-  const existing = await canEditWine(parseInt(id), userId)
-  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  const wineId = parseInt(id)
+  if (!(await canEditWine(wineId, userId))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
 
   const body = await request.json()
-  const inCellar = body.inCellar ?? false
-  const sharedListUpdate = await resolveCellarSharedListUpdate(
-    { userId: existing.userId, sharedListId: existing.sharedListId },
-    inCellar,
-  )
+  const inCellar = !!body.inCellar
+  const quantity = inCellar ? parseInt(body.quantity) || 0 : 0
 
-  const wine = await prisma.wine.update({
-    where: { id: parseInt(id) },
+  const updated = await prisma.wine.update({
+    where: { id: wineId },
     data: {
       name: body.name,
       producer: body.producer,
@@ -144,12 +86,24 @@ export async function PUT(request: Request, { params }: { params: Params }) {
       type: body.type || null,
       notes: body.notes || null,
       image: body.image || null,
-      inCellar,
-      quantity: inCellar ? parseInt(body.quantity) || 0 : 0,
-      ...(sharedListUpdate ?? {}),
     },
   })
-  return NextResponse.json(wine)
+
+  // Sync the caller's ListWine row on the (caller's MainList, wine). Auto-
+  // creates the row if the caller is a sharer who just cellared the wine.
+  const me = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { mainListId: true },
+  })
+  if (me?.mainListId) {
+    await prisma.listWine.upsert({
+      where: { listId_wineId: { listId: me.mainListId, wineId } },
+      create: { listId: me.mainListId, wineId, inCellar, quantity },
+      update: { inCellar, quantity },
+    })
+  }
+
+  return NextResponse.json({ ...updated, inCellar, quantity })
 }
 
 export async function PATCH(request: Request, { params }: { params: Params }) {
@@ -157,25 +111,30 @@ export async function PATCH(request: Request, { params }: { params: Params }) {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id } = await params
-  const existing = await canEditWine(parseInt(id), userId)
-  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  const wineId = parseInt(id)
+  if (!(await canEditWine(wineId, userId))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
 
   const body = await request.json()
-  const inCellar = body.inCellar ?? false
-  const sharedListUpdate = await resolveCellarSharedListUpdate(
-    { userId: existing.userId, sharedListId: existing.sharedListId },
-    inCellar,
-  )
+  const inCellar = !!body.inCellar
+  const quantity = inCellar ? parseInt(body.quantity) || 0 : 0
 
-  const wine = await prisma.wine.update({
-    where: { id: parseInt(id) },
-    data: {
-      inCellar,
-      quantity: inCellar ? parseInt(body.quantity) || 0 : 0,
-      ...(sharedListUpdate ?? {}),
-    },
+  const me = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { mainListId: true },
   })
-  return NextResponse.json(wine)
+  if (!me?.mainListId) {
+    return NextResponse.json({ error: "Hovedliste ikke klar" }, { status: 409 })
+  }
+
+  await prisma.listWine.upsert({
+    where: { listId_wineId: { listId: me.mainListId, wineId } },
+    create: { listId: me.mainListId, wineId, inCellar, quantity },
+    update: { inCellar, quantity },
+  })
+
+  return NextResponse.json({ success: true, inCellar, quantity })
 }
 
 export async function DELETE(_request: Request, { params }: { params: Params }) {
@@ -183,9 +142,42 @@ export async function DELETE(_request: Request, { params }: { params: Params }) 
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id } = await params
-  const existing = await canEditWine(parseInt(id), userId)
-  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  const wineId = parseInt(id)
+  if (!(await canEditWine(wineId, userId))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
 
-  await prisma.wine.delete({ where: { id: parseInt(id) } })
+  const me = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { mainListId: true },
+  })
+  if (!me?.mainListId) {
+    return NextResponse.json({ error: "Hovedliste ikke klar" }, { status: 409 })
+  }
+
+  // Drop only the (caller's MainList, wine) ListWine row. Thinker risk
+  // fix: if B pinned this wine on a private Custom List, B's reference
+  // must survive A's removal-from-MainList. We only delete the Wine row
+  // when zero ListWine rows reference it across all lists — evaluated
+  // atomically by Postgres via the `inLists: { none: {} }` predicate
+  // (the Wine→ListWine inverse relation declared in prisma/schema.prisma)
+  // so a concurrent POST/merge can't slip a row in between a count and
+  // a delete (TOCTOU).
+  await prisma.listWine
+    .delete({
+      where: { listId_wineId: { listId: me.mainListId, wineId } },
+    })
+    .catch(() => null)
+
+  await prisma.wine.deleteMany({
+    where: {
+      id: wineId,
+      // The Wine→ListWine inverse relation in prisma/schema.prisma is
+      // named `inLists` (matches the Prisma auto-naming convention for
+      // a relation declared as `ListWine.wine` without `@relation(name)`).
+      inLists: { none: {} },
+    },
+  })
+
   return NextResponse.json({ success: true })
 }

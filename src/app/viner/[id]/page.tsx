@@ -4,6 +4,7 @@ import type { CSSProperties } from "react"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { countryFlag } from "@/lib/countries"
+import { wineAccess } from "@/lib/access"
 import { TastingList } from "./tasting-list"
 import { TastingFormDialog } from "./tasting-form-dialog"
 import { CellarToggle } from "@/app/_components/cellar-toggle"
@@ -42,6 +43,14 @@ export default async function WineDetailPage({
       ? fromInput
       : null
 
+  // v0.15.0 access gate (shared lib access.ts):
+  //   edit = owner or wine on caller's MainList (incl. share-merge)
+  //   read = edit OR wine on a list caller owns OR friend of owner AND
+  //          wine is on owner's MainList (peek)
+  const access = await wineAccess(wineId, userId)
+  if (access === "none") notFound()
+  const canEdit = access === "edit"
+
   const wine = await prisma.wine.findUnique({
     where: { id: wineId },
     include: { user: true, tastings: { orderBy: { date: "desc" } } },
@@ -49,48 +58,60 @@ export default async function WineDetailPage({
 
   if (!wine) notFound()
 
-  const isOwner = wine.userId === userId
-  let canEdit = isOwner
-  let canView = isOwner
-
-  if (!canEdit) {
-    if (wine.sharedListId) {
-      const isMember = await prisma.sharedListMember.findUnique({
-        where: { sharedListId_userId: { sharedListId: wine.sharedListId, userId } },
+  // v0.15.0: inCellar + quantity are ListWine-derived, not Wine columns.
+  //
+  //   - access === "edit"  → caller-perspective: the (caller's MainList,
+  //     wine) ListWine row.
+  //   - access === "read"  → disambiguate:
+  //       * Pinner (caller pinned wine into their Custom List or MainList):
+  //         use the caller's own ListWine row.
+  //       * Friend-peek (caller is friend of wine.userId AND wine is on
+  //         wine.userId's MainList): use the owner's MainList row.
+  let inCellar = false
+  let quantity = 0
+  if (access === "edit") {
+    const me = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { mainListId: true },
+    })
+    if (me?.mainListId) {
+      const lw = await prisma.listWine.findUnique({
+        where: { listId_wineId: { listId: me.mainListId, wineId } },
       })
-      if (isMember) {
-        canEdit = true
-        canView = true
+      inCellar = lw?.inCellar ?? false
+      quantity = lw?.quantity ?? 0
+    }
+  } else {
+    const ownRow = await prisma.listWine.findFirst({
+      where: {
+        wineId,
+        list: { OR: [{ isMain: true, userId }, { isMain: false, userId }] },
+      },
+      select: { inCellar: true, quantity: true },
+    })
+    if (ownRow) {
+      inCellar = ownRow.inCellar
+      quantity = ownRow.quantity
+    } else {
+      // Friend-peek fallback: surface owner's MainList values.
+      const owner = await prisma.user.findUnique({
+        where: { id: wine.userId },
+        select: { mainListId: true },
+      })
+      if (owner?.mainListId) {
+        const ownerRow = await prisma.listWine.findUnique({
+          where: { listId_wineId: { listId: owner.mainListId, wineId } },
+        })
+        inCellar = ownerRow?.inCellar ?? false
+        quantity = ownerRow?.quantity ?? 0
       }
     }
   }
 
-  if (!canView) {
-    // v0.14.0: friend can view only if the wine is in the owner's Vinskapet
-    // (and not a custom-list wine that's still owner-only).
-    const ownerWithVinskap = await prisma.user.findUnique({
-      where: { id: wine.userId },
-      select: { defaultSharedListId: true },
-    })
-    if (
-      wine.sharedListId &&
-      ownerWithVinskap?.defaultSharedListId &&
-      wine.sharedListId === ownerWithVinskap.defaultSharedListId
-    ) {
-      const isFriend = await prisma.friend.findFirst({
-        where: {
-          status: "accepted",
-          OR: [
-            { requesterId: userId, addresseeId: wine.userId },
-            { requesterId: wine.userId, addresseeId: userId },
-          ],
-        },
-      })
-      if (isFriend) canView = true
-    }
-  }
-
-  if (!canView) notFound()
+  // v0.15.0 isOwner gates the legacy back-button default: callers who
+  // own the wine go back to "/" (their MainList), non-owners deep-link
+  // into /venner/{ownerId} (the peer's MainList).
+  const isOwner = wine.userId === userId
 
   // Prefer the originating list's path when WineCard threaded a `from`
   // query param (cellar / all-viner / lister / friends). Falls back to
@@ -168,8 +189,8 @@ export default async function WineDetailPage({
           <div className="absolute left-5 bottom-0 translate-y-1/2 z-30">
             <CellarToggle
               wineId={wine.id}
-              initialInCellar={wine.inCellar}
-              initialQuantity={wine.quantity}
+              initialInCellar={inCellar}
+              initialQuantity={quantity}
               variant="pill"
             />
           </div>
@@ -195,7 +216,7 @@ export default async function WineDetailPage({
             {wine.producer}
             {wine.vintage && <span className="text-wine-500"> · {wine.vintage}</span>}
           </p>
-          {!isOwner && (
+          {wine.userId !== userId && (
             <p className="text-xs text-wine-400 mt-1">
               {wine.user.name ?? wine.user.email} sin <ModeText wine="vin" beer="øl" />
             </p>

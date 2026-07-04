@@ -69,3 +69,15 @@ next-env.d.ts
 # investigation scripts. The shipped e2e suite does not write
 # here; only ad-hoc verification work does.
 /tests-output/
+
+# per-run playwright capture logs from the local regression
+# runner. Re-written on every `npx playwright test` run; never
+# committed. The shipped e2e suite does not write here either;
+/.pw-all.log
+/.pw-vinskapet.log
+/.pw-lists.log
+/.pw-layout.log
+/.pw-merge.log
+
+# ad-hoc runner script written during regression triage.
+/.run-pw.sh

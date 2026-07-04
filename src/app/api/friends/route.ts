@@ -10,47 +10,23 @@ export async function GET() {
 
   const sent = await prisma.friend.findMany({
     where: { requesterId: userId },
-    include: { addressee: { select: { id: true, name: true, email: true, image: true } } },
+    include: { addressee: { select: { id: true, name: true, email: true, image: true, mainListId: true } } },
     orderBy: { createdAt: "desc" },
   })
 
   const received = await prisma.friend.findMany({
     where: { addresseeId: userId },
-    include: { requester: { select: { id: true, name: true, email: true, image: true } } },
+    include: { requester: { select: { id: true, name: true, email: true, image: true, mainListId: true } } },
     orderBy: { createdAt: "desc" },
   })
 
-  // v0.14.0: `canEdit` on a friend means "is a SharedListMember of my
-  // Vinskapet", which is the new sharing signal. Computed once per session.
+  // v0.15.0: canEdit / sharedMainList: caller and friend point at the
+  // same `User.mainListId` (= the same List row, i.e. they've merged).
   const me = await prisma.user.findUnique({
     where: { id: userId },
-    select: { defaultSharedListId: true },
+    select: { mainListId: true },
   })
-  const myVinskapMembers = me?.defaultSharedListId
-    ? await prisma.sharedListMember.findMany({
-        where: { sharedListId: me.defaultSharedListId },
-        select: { userId: true },
-      })
-    : []
-  const editorIds = new Set(myVinskapMembers.map((m) => m.userId))
-
-  const sharedLists = await prisma.sharedList.findMany({
-    where: { members: { some: { userId } } },
-    include: {
-      members: {
-        include: { user: { select: { id: true, name: true, email: true, image: true } } },
-      },
-    },
-  })
-
-  const sharedWithUserIds = new Set<number>()
-  for (const list of sharedLists) {
-    for (const member of list.members) {
-      if (member.userId !== userId) {
-        sharedWithUserIds.add(member.userId)
-      }
-    }
-  }
+  const myMainListId = me?.mainListId ?? null
 
   const friends = [
     ...sent.filter((f) => f.status === "accepted").map((f) => ({
@@ -60,8 +36,11 @@ export async function GET() {
       email: f.addressee.email,
       image: f.addressee.image,
       status: "accepted" as const,
-      canEdit: editorIds.has(f.addressee.id),
-      sharedList: sharedWithUserIds.has(f.addressee.id),
+      canEdit: !!myMainListId && f.addressee.mainListId === myMainListId,
+      sharedMainList: !!myMainListId && f.addressee.mainListId === myMainListId,
+      // legacy alias kept so existing UI keeps rendering; both flags
+      // collapse to the same v0.15.0 condition.
+      sharedList: !!myMainListId && f.addressee.mainListId === myMainListId,
     })),
     ...received.filter((f) => f.status === "accepted").map((f) => ({
       id: f.id,
@@ -70,8 +49,9 @@ export async function GET() {
       email: f.requester.email,
       image: f.requester.image,
       status: "accepted" as const,
-      canEdit: editorIds.has(f.requester.id),
-      sharedList: sharedWithUserIds.has(f.requester.id),
+      canEdit: !!myMainListId && f.requester.mainListId === myMainListId,
+      sharedMainList: !!myMainListId && f.requester.mainListId === myMainListId,
+      sharedList: !!myMainListId && f.requester.mainListId === myMainListId,
     })),
   ]
 
@@ -93,7 +73,15 @@ export async function GET() {
     direction: "received" as const,
   }))
 
-  return NextResponse.json({ friends, pendingSent, pendingReceived, sharedLists })
+  // v0.15.0: SharedList concept retired. `sharedLists` in the response
+  // shape is historically consumed by the UI; we emit an empty array to
+  // keep the contract stable. Phase-3 UI rewrite will drop the field.
+  return NextResponse.json({
+    friends,
+    pendingSent,
+    pendingReceived,
+    sharedLists: [],
+  })
 }
 
 export async function POST(request: Request) {

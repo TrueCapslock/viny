@@ -16,24 +16,35 @@ export async function POST(request: Request) {
 
   const hashed = await hash(password, 12)
 
-  // v0.14.0: each new user gets a per-user default SharedList ("Vinskapet")
-  // too. We do this in a Prisma transaction so the FK and the admin
-  // membership land together — no observable intermediate state where the
-  // User has the FK but no membership row (or vice versa).
+  // v0.15.0: each new user gets a per-user MainList (a List row with
+  // isMain=true) and an admin membership row on it. Single Prisma
+  // transaction so the FK and the membership land together — no observable
+  // intermediate state where the User has the FK but no List row, or vice
+  // versa.
+  // v0.15.0 (Pass A): create the User first (gets an id we can put
+  // on the List's metadata-owner column), then create the List with
+  // that userId, then back-fill User.mainListId to the new List row.
+  // The whole flow sits inside `$transaction` so concurrent DB
+  // readers (under Postgres' default READ COMMITTED isolation) never
+  // observe an intermediate state where the User has the FK but no
+  // List row exists — or vice versa. Pass B (List first with
+  // userId=undefined) was rejected: writing null into List.userId on
+  // some adapters trips P2011 and leaves a List row whose metadata
+  // owner is unrecorded.
   const user = await prisma.$transaction(async (tx) => {
-    const vinskap = await tx.sharedList.create({
-      data: { name: "Vinskapet" },
-    })
-    return tx.user.create({
+    const newUser = await tx.user.create({
       data: {
         email,
         password: hashed,
         name: name || null,
-        defaultSharedListId: vinskap.id,
-        sharedListMembers: {
-          create: [{ sharedListId: vinskap.id, role: "admin" }],
-        },
       },
+    })
+    const mainList = await tx.list.create({
+      data: { name: "UseMainList", userId: newUser.id, isMain: true },
+    })
+    return tx.user.update({
+      where: { id: newUser.id },
+      data: { mainListId: mainList.id },
     })
   })
 

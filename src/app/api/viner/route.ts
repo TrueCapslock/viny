@@ -16,6 +16,7 @@ export async function GET(request: Request) {
   if (targetUserId) {
     const targetId = parseInt(targetUserId)
     if (targetId !== userId) {
+      // Friend gate: must be an accepted Friend of target.
       const isFriend = await prisma.friend.findFirst({
         where: {
           status: "accepted",
@@ -31,58 +32,85 @@ export async function GET(request: Request) {
     ownerId = targetId
   }
 
-  // v0.14.0: the owner's Vinskapet is a per-user SharedList. Friends see the
-  // Vinskapet wines; custom-list wines (userId=owner, sharedListId=NULL) are
-  // owner-only.
-  const owner = await prisma.user.findUnique({
-    where: { id: ownerId },
-    select: { defaultSharedListId: true },
-  })
+  // v0.15.0: visibility is via List membership.
+  //
+  //   Own view:
+  //     - Wines on the caller's MainList (filtered by isMain=true).
+  //     - Wines on caller's Custom Lists (isMain=false, viewer=userId).
+  //
+  //   Friend peek of X (?userId=X):
+  //     - Wines on X's MainList only (X remains owner; friend reads-only
+  //       but inCellar + quantity are surfaced per the resolved spec).
 
-  // Shared lists where BOTH viewer and owner are members (explicit-shared-list
-  // viewing from a friend's perspective).
-  const coMemberedSharedLists = await prisma.sharedList.findMany({
-    where: {
-      AND: [
-        { members: { some: { userId } } },
-        { members: { some: { userId: ownerId } } },
-      ],
-    },
-    select: { id: true },
-  })
+  // Discover the relevant lists for the query.
+  let mainListId: number | null = null
+  if (isOwnView) {
+    const me = await prisma.user.findUnique({
+      where: { id: ownerId },
+      select: { mainListId: true },
+    })
+    mainListId = me?.mainListId ?? null
+  } else {
+    const target = await prisma.user.findUnique({
+      where: { id: ownerId },
+      select: { mainListId: true },
+    })
+    mainListId = target?.mainListId ?? null
+  }
 
-  const wines = await prisma.wine.findMany({
-    where: {
-      OR: [
-        // Own custom-list wines (always visible to self only).
-        ...(isOwnView
-          ? [{ userId: ownerId, sharedListId: null }]
-          : []),
-        // Owner's Vinskapet — visible to self, members, and the owner's friends.
-        ...(owner?.defaultSharedListId
-          ? [{ userId: ownerId, sharedListId: owner.defaultSharedListId }]
-          : []),
-        // Explicit shared lists where both this viewer and the owner are members.
-        { sharedListId: { in: coMemberedSharedLists.map((sl) => sl.id) } },
-      ],
-    },
-    include: { _count: { select: { tastings: true } } },
-    orderBy: { createdAt: "desc" },
-  })
-
-  const winesWithRating = wines.length > 0
-    ? await Promise.all(
-        wines.map(async (wine) => {
-          const result = await prisma.tasting.aggregate({
-            where: { wineId: wine.id },
-            _avg: { rating: true },
-          })
-          return { ...wine, avgRating: Math.round(result._avg.rating ?? 0) }
-        }),
-      )
+  const customListIds = isOwnView
+    ? (
+        await prisma.list.findMany({
+          where: { userId: ownerId, isMain: false },
+          select: { id: true },
+        })
+      ).map((l) => l.id)
     : []
 
-  return NextResponse.json(winesWithRating)
+  const listIdsToShow: number[] = []
+  if (mainListId !== null) listIdsToShow.push(mainListId)
+  listIdsToShow.push(...customListIds)
+
+  if (listIdsToShow.length === 0) {
+    return NextResponse.json([])
+  }
+
+  const listWines = await prisma.listWine.findMany({
+    where: { listId: { in: listIdsToShow } },
+    include: {
+      wine: {
+        include: {
+          _count: { select: { tastings: true } },
+        },
+      },
+    },
+    orderBy: { addedAt: "desc" },
+  })
+
+  // Compute average rating per wine (cheap; ≤ a handful per page).
+  const wineIds = listWines.map((lw) => lw.wineId)
+  const ratings = wineIds.length
+    ? await prisma.tasting.groupBy({
+        by: ["wineId"],
+        where: { wineId: { in: wineIds } },
+        _avg: { rating: true },
+      })
+    : []
+  const ratingByWine = new Map<number, number>()
+  for (const r of ratings) {
+    ratingByWine.set(r.wineId, Math.round(r._avg.rating ?? 0))
+  }
+
+  // Stable order: most-recently-added ListWine first.
+  const out = listWines.map((lw) => ({
+    ...lw.wine,
+    listId: lw.listId,
+    inCellar: lw.inCellar,
+    quantity: lw.quantity,
+    avgRating: ratingByWine.get(lw.wineId) ?? 0,
+  }))
+
+  return NextResponse.json(out)
 }
 
 export async function POST(request: Request) {
@@ -98,33 +126,35 @@ export async function POST(request: Request) {
   if (targetUserId) {
     const targetId = parseInt(targetUserId)
     if (targetId !== userId) {
-      // v0.14.0: editors on someone else's cellar must be a
-      // SharedListMember of that user's Vinskapet.
-      const target = await prisma.user.findUnique({
-        where: { id: targetId },
-        select: { defaultSharedListId: true },
-      })
-      if (!target?.defaultSharedListId) {
+      // v0.15.0: caller must share the target's MainList to add a wine
+      // on their behalf. "Share" means both User.mainListId point at the
+      // same List row.
+      const [me, target] = await Promise.all([
+        prisma.user.findUnique({ where: { id: userId }, select: { mainListId: true } }),
+        prisma.user.findUnique({ where: { id: targetId }, select: { mainListId: true } }),
+      ])
+      if (!me?.mainListId || !target?.mainListId) {
         return NextResponse.json({ error: "Ikke tilgang" }, { status: 403 })
       }
-      const isMember = await prisma.sharedListMember.findUnique({
-        where: {
-          sharedListId_userId: {
-            sharedListId: target.defaultSharedListId,
-            userId,
-          },
-        },
-      })
-      if (!isMember) return NextResponse.json({ error: "Ikke tilgang" }, { status: 403 })
+      if (me.mainListId !== target.mainListId) {
+        return NextResponse.json({ error: "Ikke tilgang" }, { status: 403 })
+      }
     }
     ownerId = targetId
   }
 
   const body = await request.json()
-  const ownerForSharedList = await prisma.user.findUnique({
+  const me = await prisma.user.findUnique({
     where: { id: ownerId },
-    select: { defaultSharedListId: true },
+    select: { mainListId: true },
   })
+  if (!me?.mainListId) {
+    return NextResponse.json({ error: "Hovedliste ikke klar" }, { status: 409 })
+  }
+
+  const inCellar = !!body.inCellar
+  const quantity = inCellar ? parseInt(body.quantity) || 0 : 0
+
   const wine = await prisma.wine.create({
     data: {
       name: body.name,
@@ -136,15 +166,13 @@ export async function POST(request: Request) {
       type: body.type || null,
       notes: body.notes || null,
       image: body.image || null,
-      inCellar: body.inCellar ?? false,
-      quantity: body.inCellar ? parseInt(body.quantity) || 0 : 0,
       userId: ownerId,
-      // v0.14.0: cellar wines live in the owner's Vinskapet (their default
-      // SharedList); non-cellar wines start unshared and don't appear in
-      // anyone else's view unless the owner explicitly adds them to a
-      // SharedList later.
-      sharedListId: body.inCellar ? ownerForSharedList?.defaultSharedListId ?? null : null,
+      inLists: {
+        create: [{ listId: me.mainListId, inCellar, quantity }],
+      },
     },
+    include: { inLists: true },
   })
+
   return NextResponse.json(wine, { status: 201 })
 }

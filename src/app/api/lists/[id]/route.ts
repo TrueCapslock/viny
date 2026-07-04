@@ -4,17 +4,16 @@ import { auth } from "@/lib/auth"
 
 type Params = Promise<{ id: string }>
 
-async function getOwnedList(listId: number, userId: number) {
-  const list = await prisma.list.findUnique({ where: { id: listId } })
-  if (!list || list.userId !== userId) return null
-  return list
+async function getUserId(): Promise<number | null> {
+  const session = await auth()
+  if (!session?.user?.id) return null
+  return parseInt(session.user.id)
 }
 
 export async function GET(_request: Request, { params }: { params: Params }) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = await getUserId()
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const userId = parseInt(session.user.id)
   const { id } = await params
   const listId = parseInt(id)
 
@@ -26,11 +25,9 @@ export async function GET(_request: Request, { params }: { params: Params }) {
         include: {
           wine: {
             include: {
-              // take: 1 still extracts the latest tasting for the avg-rating
-              // read. Add _count alongside so callers can show the real
-              // total without the embed-array capping at 1.
               tastings: { orderBy: { date: "desc" }, take: 1 },
               _count: { select: { tastings: true } },
+              inLists: { select: { listId: true, inCellar: true, quantity: true } },
             },
           },
         },
@@ -38,7 +35,20 @@ export async function GET(_request: Request, { params }: { params: Params }) {
     },
   })
 
-  if (!list || list.userId !== userId) {
+  if (!list) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  // v0.15.0 access:
+  //   - Custom List (isMain=false): owner only.
+  //   - MainList (isMain=true): any user whose User.mainListId points at
+  //     this row (which includes owner + share-merge sharers).
+  const me = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { mainListId: true },
+  })
+  const canSee =
+    (list.isMain && me?.mainListId === list.id) ||
+    (!list.isMain && list.userId === userId)
+  if (!canSee) {
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   }
 
@@ -46,14 +56,19 @@ export async function GET(_request: Request, { params }: { params: Params }) {
 }
 
 export async function PUT(request: Request, { params }: { params: Params }) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = await getUserId()
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const userId = parseInt(session.user.id)
   const { id } = await params
+  const listId = parseInt(id)
 
-  const existing = await getOwnedList(parseInt(id), userId)
-  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  const existing = await prisma.list.findUnique({ where: { id: listId } })
+  if (!existing || existing.isMain) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
+  if (existing.userId !== userId) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
 
   const { name } = await request.json()
   if (typeof name !== "string" || name.trim().length === 0) {
@@ -69,16 +84,23 @@ export async function PUT(request: Request, { params }: { params: Params }) {
 }
 
 export async function DELETE(_request: Request, { params }: { params: Params }) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = await getUserId()
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const userId = parseInt(session.user.id)
   const { id } = await params
+  const listId = parseInt(id)
 
-  const existing = await getOwnedList(parseInt(id), userId)
-  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  const existing = await prisma.list.findUnique({ where: { id: listId } })
+  if (!existing || existing.isMain) {
+    // v0.15.0: never let a user DELETE their own MainList via this
+    // endpoint. (They "delete" by re-pointing mainListId to a fresh
+    // MainList — that's the share-merge inverse.)
+    return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
+  if (existing.userId !== userId) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
 
   await prisma.list.delete({ where: { id: existing.id } })
-
   return NextResponse.json({ success: true })
 }
