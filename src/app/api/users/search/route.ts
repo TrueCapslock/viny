@@ -12,6 +12,15 @@ export async function GET(request: Request) {
 
   const userId = parseInt(session.user.id)
 
+  // Hide ephemeral Playwright test users from real-user searches. The
+  // e2e specs create users with names like `e2e-friend-<stamp>` and
+  // `e2e-merge-<stamp>` (see e2e/mainlist-merge.spec.ts +
+  // e2e/vinskapet.spec.ts) — without this filter they show up in
+  // search results mid-run and pollute the friend-picker UI. The
+  // seeded test user (test@test.no / "Test Bruker") is intentionally
+  // NOT hidden: it's a baseline fixture that mirrors a real account
+  // and may be used as a fixture in dev work; if hard isolation is
+  // needed a future change can add an `isTest: Boolean` column.
   const users = await prisma.user.findMany({
     where: {
       AND: [
@@ -22,6 +31,7 @@ export async function GET(request: Request) {
             { name: { contains: q, mode: "insensitive" } },
           ],
         },
+        { NOT: { email: { startsWith: "e2e-", mode: "insensitive" } } },
       ],
     },
     select: { id: true, name: true, email: true, image: true },
