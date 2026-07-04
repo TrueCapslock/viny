@@ -68,31 +68,71 @@ export function SearchFilterSkeleton() {
 export function DetailPageSkeleton() {
   return (
     <div className="flex flex-col flex-1">
-      <div className="bg-wine-gradient px-4 pt-1 pb-20">
-        <SkeletonBlock className="h-4 w-16 rounded mb-4" />
-        <SkeletonBlock className="h-7 w-2/3 rounded-md mb-1" />
-        <SkeletonBlock className="h-5 w-1/3 rounded-md mb-4" />
-        <div className="flex gap-2">
-          <SkeletonBlock className="h-6 rounded-full w-20" />
-          <SkeletonBlock className="h-6 rounded-full w-24" />
-          <SkeletonBlock className="h-6 rounded-full w-16" />
+      {/* HERO */}
+      <header className="bg-wine-gradient relative flex flex-col px-4 pt-2 pb-20" style={{ minHeight: "26vh" }}>
+        <div className="relative z-10 flex flex-col flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <SkeletonBlock className="h-8 w-24 rounded-full" />
+            <div className="flex items-center gap-2">
+              <SkeletonBlock className="w-9 h-9 rounded-full" />
+              <SkeletonBlock className="w-9 h-9 rounded-full" />
+            </div>
+          </div>
+          <div className="flex-1" />
         </div>
-        <SkeletonBlock className="h-16 rounded-2xl w-full mt-4" />
-        <div className="mt-3">
-          <SkeletonBlock className="h-10 rounded-xl w-full" />
+        <div className="absolute left-5 bottom-0 translate-y-1/2 z-30">
+          <SkeletonBlock className="h-10 w-28 rounded-full" />
         </div>
-      </div>
-      <div className="flex justify-center -mt-4">
-        <SkeletonBlock className="h-10 rounded-2xl w-72" />
-      </div>
-      <div className="flex-1 px-4 mt-14 pb-24">
+        <div className="absolute right-5 bottom-0 translate-y-1/2 z-30">
+          <SkeletonBlock className="h-10 w-36 rounded-full" />
+        </div>
+      </header>
+
+      {/* BOTTOM SHEET */}
+      <div className="relative z-10 bg-cream-50 rounded-t-3xl px-4 pt-12 pb-24 shadow-xl shadow-wine-900/10">
+        {/* Wine identity */}
+        <div className="mb-5">
+          <SkeletonBlock className="h-7 w-2/3 rounded-md mb-1" />
+          <SkeletonBlock className="h-4 w-1/3 rounded-md mt-2" />
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            <SkeletonBlock className="h-6 rounded-full w-24" />
+            <SkeletonBlock className="h-6 rounded-full w-16" />
+          </div>
+        </div>
+
+        {/* Stats grid */}
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          <div className="bg-cream-100 border border-cream-200 rounded-2xl p-5">
+            <SkeletonBlock className="h-3 w-20 rounded mb-2" />
+            <SkeletonBlock className="h-6 w-12 rounded-md" />
+          </div>
+          <div className="bg-cream-100 border border-cream-200 rounded-2xl p-5">
+            <SkeletonBlock className="h-3 w-20 rounded mb-2" />
+            <SkeletonBlock className="h-6 w-24 rounded-md" />
+          </div>
+        </div>
+
+        {/* Detaljer */}
+        <div className="bg-white rounded-2xl border border-cream-200 p-5 shadow-sm mb-5">
+          <SkeletonBlock className="h-5 w-16 rounded-md mb-4" />
+          <div className="space-y-3">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className="flex justify-between gap-3">
+                <SkeletonBlock className="h-4 w-16 rounded" />
+                <SkeletonBlock className="h-4 w-24 rounded" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Smaksnotater */}
         <div className="bg-white rounded-2xl border border-cream-200 p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <SkeletonBlock className="h-5 w-32 rounded" />
-            <SkeletonBlock className="h-8 w-8 rounded-full" />
+          <div className="flex items-center justify-between mb-3">
+            <SkeletonBlock className="h-5 w-36 rounded-md" />
+            <SkeletonBlock className="w-8 h-8 rounded-full" />
           </div>
           <div className="space-y-3">
-            {Array.from({ length: 3 }, (_, i) => (
+            {Array.from({ length: 2 }, (_, i) => (
               <div key={i} className="flex items-start gap-3">
                 <SkeletonBlock className="w-8 h-8 rounded-full shrink-0" />
                 <div className="flex-1 space-y-1.5">

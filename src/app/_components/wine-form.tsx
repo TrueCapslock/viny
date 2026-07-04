@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
 import { wineTypes, beerTypes, beerTypeGroups } from "@/lib/beer"
+import { GrapeSelect } from "@/app/_components/grape-select"
 
 type WineFormData = {
   name: string
@@ -284,13 +285,21 @@ export function WineForm({
             </div>
           </div>
           <div>
-              <label className="block text-xs font-medium text-wine-700 mb-1">{isBeer ? "Stil" : "Drue"}</label>
-            <input
-              value={form.varietal}
-              onChange={(e) => setForm((current) => ({ ...current, varietal: e.target.value }))}
-              className={inputClass}
-              placeholder={isBeer ? "IPA" : "Cabernet Sauvignon"}
-            />
+            <label className="block text-xs font-medium text-wine-700 mb-1">{isBeer ? "Stil" : "Drue"}</label>
+            {isBeer ? (
+              <input
+                value={form.varietal}
+                onChange={(e) => setForm((current) => ({ ...current, varietal: e.target.value }))}
+                className={inputClass}
+                placeholder="IPA"
+                autoComplete="off"
+              />
+            ) : (
+              <GrapeSelect
+                value={form.varietal}
+                onChange={(value) => setForm((current) => ({ ...current, varietal: value }))}
+              />
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
