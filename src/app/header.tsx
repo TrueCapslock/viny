@@ -14,7 +14,7 @@ export function Header() {
   if (hide) return null
 
   return (
-    <header className="bg-wine-gradient text-white sticky top-0 z-40">
+    <header className="bg-topbar text-white sticky top-0 z-40">
       <div className="flex items-center gap-2 px-4 py-2.5">
         <Link href="/" className="flex items-center gap-2 lg:hidden">
           <img src={isBeer ? "/logo-humle.svg" : "/logo-uva.svg"} alt="Uva" className="w-7 h-7" />

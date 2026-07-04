@@ -41,6 +41,13 @@
 
   --background: var(--cream-50);
   --foreground: #2d1b11;
+
+  /* Top-bar in light wine mode: a dark wine gradient (wine-700 →
+   * wine-900) so the header reads as a dark band in light mode too.
+   * Same gradient as the legacy .bg-wine-gradient so visual identity
+   * is preserved when the user switches light ↔ dark. */
+  --topbar-bg-from: var(--wine-700);
+  --topbar-bg-to: var(--wine-900);
 }
 
 @theme inline {
@@ -93,6 +100,20 @@ body {
 
 .bg-wine-gradient {
   background: linear-gradient(135deg, var(--wine-700), var(--wine-900));
+}
+
+/* Top-bar surface. Stays dark in ALL mode combinations (light wine,
+ * light beer, dark wine, dark beer) so the header reads as a
+ * consistent dark band regardless of the user's theme + mode
+ * combination. The gradient is subtle (two near-identical dark
+ * warm-browns) so the header doesn't visually compete with the
+ * page content below it.
+ *
+ * Tokens are defined per-mode in globals.css (see --topbar-bg-from /
+ * --topbar-bg-to). In light modes they default to a dark wine/brown
+ * pair; in dark modes they shift to near-black. */
+.bg-topbar {
+  background: linear-gradient(135deg, var(--topbar-bg-from), var(--topbar-bg-to));
 }
 
 .bg-wine-gradient-light {
@@ -210,6 +231,13 @@ body {
 
   --background: #fdfbf7;
   --foreground: #2d1b11;
+
+  /* Top-bar in light beer mode: a dark beer/amber gradient
+   * (wine-700 → wine-950, both redefined to amber hues under
+   * [data-beer="true"]). Same gradient as the legacy
+   * .bg-wine-gradient for light beer mode. */
+  --topbar-bg-from: var(--wine-700);
+  --topbar-bg-to: var(--wine-950);
 }
 
 [data-beer="true"] ::selection {
@@ -377,17 +405,17 @@ body {
   --cream-800: #cba18b;
   --cream-900: #e6c7b3;
 
-  --wine-50: #1c0810;
-  --wine-100: #2a0e18;
-  --wine-200: #3b1424;
-  --wine-300: #501c33;
-  --wine-400: #682545;
-  --wine-500: #823158;
-  --wine-600: #9e3f6c;
-  --wine-700: #b85280;
-  --wine-800: #d17595;
-  --wine-900: #e6a0ba;
-  --wine-950: #f3cdd9;
+  --wine-50: #1c0a0c;
+  --wine-100: #2a1012;
+  --wine-200: #3b1818;
+  --wine-300: #502222;
+  --wine-400: #682a2a;
+  --wine-500: #82333a;
+  --wine-600: #9e3f48;
+  --wine-700: #b85058;
+  --wine-800: #d17580;
+  --wine-900: #e6a0a8;
+  --wine-950: #f3cdd2;
 
   --gold-50: #1d1606;
   --gold-100: #2a2009;
@@ -399,6 +427,13 @@ body {
   --gold-700: #e8cd9c;
   --gold-800: #dcc692;
   --gold-900: #ecdcbb;
+
+  /* Top-bar stays dark in dark mode (not the pink wine gradient).
+   * --topbar-bg-from is a near-black warm brown; --topbar-bg-to is
+   * pure black with the faintest warm tint. Together they read as
+   * "dark" rather than "pink", regardless of wine/beer axis. */
+  --topbar-bg-from: #1a0e0a;
+  --topbar-bg-to: #080403;
 }
 
 [data-beer="true"][data-theme="dark"] {
@@ -438,6 +473,12 @@ body {
   --gold-700: #c5e3a2;
   --gold-800: #c5dba3;
   --gold-900: #dfeac9;
+
+  /* Top-bar in dark beer mode: same dark, near-black warm brown
+   * gradient as dark wine mode so the header reads as "dark" in
+   * both modes (not as a brown gradient that changes with mode). */
+  --topbar-bg-from: #1a1208;
+  --topbar-bg-to: #080502;
 }
 
 :root[data-theme="dark"] ::selection {
