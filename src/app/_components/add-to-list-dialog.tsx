@@ -69,12 +69,20 @@ export function AddToListDialog({
       return n
     })
     try {
+      // keepalive: true makes the browser hold the request open across
+      // page unloads (navigation, close, refresh). Real users often
+      // tap "Legg i liste" → close dialog → navigate away in quick
+      // succession; without keepalive, the in-flight POST can be
+      // aborted by the navigation and the server never sees it, so the
+      // list membership silently drifts from what the UI showed. Body
+      // limit is 64KB; our { listId } payload is well under that.
       const res = wasMember
-        ? await fetch(`/api/viner/${wineId}/lists/${listId}`, { method: "DELETE" })
+        ? await fetch(`/api/viner/${wineId}/lists/${listId}`, { method: "DELETE", keepalive: true })
         : await fetch(`/api/viner/${wineId}/lists`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ listId }),
+            keepalive: true,
           })
       if (!res.ok) throw new Error("Kunne ikke oppdatere listen")
       mutateMembership()
@@ -99,10 +107,15 @@ export function AddToListDialog({
     setCreating(true)
     setError(null)
     try {
+      // keepalive: true — see comment in toggle(). The inline-create
+      // POST creates a list and (atomically) joins the wine; if the
+      // user navigates away mid-flight, both the list and the
+      // membership would be lost without keepalive. Payload is small.
       const res = await fetch("/api/lists", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: trimmed, addWineId: wineId }),
+        keepalive: true,
       })
       if (!res.ok) throw new Error("Kunne ikke opprette liste")
       const list = await res.json()
