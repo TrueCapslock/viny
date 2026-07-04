@@ -94,7 +94,16 @@ export async function seedTestUser() {
   }
 
   // Idempotent: ensure Testvin is on the MainList, and that no leftover
-  // Custom-List row from a prior seed variant clings to it.
+  // ListWine row from a prior seed variant clings to it. The delete
+  // targets `listId != mainList.id` (NOT `list.isMain = false`) so we
+  // also clean up orphan rows on other MainList rows that older seed
+  // versions may have created for this user — without that, the
+  // friend-view of /api/viner (which queries a single
+  // `target.mainListId`) would miss Testvin whenever `user.mainListId`
+  // pointed at a different MainList than the one `findFirst` returned.
+  // That bit the e2e/vinskapet suite on its first real run: the test
+  // user had 6 orphan MainList rows from a v0.14.0-era seed, and
+  // Testvin was on one of them but not on the live `mainListId`.
   await prisma.listWine.upsert({
     where: {
       listId_wineId: { listId: mainList.id, wineId: testWineId },
@@ -108,7 +117,33 @@ export async function seedTestUser() {
     update: {},
   })
   await prisma.listWine.deleteMany({
-    where: { wineId: testWineId, list: { isMain: false } },
+    where: {
+      wineId: testWineId,
+      listId: { not: mainList.id },
+    },
+  })
+
+  // One-off mop: drop the orphan MainList rows themselves. Prior
+  // seeds + mainlist-merge splits left them behind and the dev DB
+  // has been growing them on every re-run.
+  //
+  // Safe to delete because:
+  //   1. The user.update above has already repointed the test user's
+  //      mainListId at the live list, and the deleteMany is scoped
+  //      to lists owned by the test user — so no User row points at
+  //      the orphans. Deleting a List does NOT cascade-clear
+  //      User.mainListId (it's a plain Int column, not a FK).
+  //   2. Their ListWine rows are cascade-deleted with the List
+  //      (ListWine.list has onDelete: Cascade per schema.prisma);
+  //      the deleteMany above already removed any Testvin rows on
+  //      these lists, so nothing of value is lost.
+  // Idempotent: no-op once the orphans are gone.
+  await prisma.list.deleteMany({
+    where: {
+      userId: user.id,
+      isMain: true,
+      id: { not: mainList.id },
+    },
   })
 
   return { userId: user.id }
