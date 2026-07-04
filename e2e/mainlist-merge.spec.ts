@@ -393,17 +393,19 @@ test.describe("v0.15.1 list-merge invite-then-accept flow", () => {
     }
   })
 
-  test("split via API DELETE: caller recreates fresh MainList and retains caller-owned wines", async ({
+  test("split via API DELETE: BOTH users get a copy of every shared wine", async ({
     browser,
   }) => {
     const ctx = await setupMergePair(browser, Date.now())
-    let stampWineId = -1
+    let callerWineId = -1
+    let friendWineId = -1
+    let callerNewWineId = -1
     try {
       // Precondition: caller invites, friend accepts (UI is tested
       // elsewhere; here the API path is sufficient).
       const inviteRes = await ctx.callerPage.request.post(
         "/api/friends/share-invite",
-        { data: { friendUserId: ctx.friendId, winner: "mine" } },
+        { data: { friendUserId: ctx.friendId, winner: "merge" } },
       )
       expect(inviteRes.ok(), "invite precondition succeeds").toBeTruthy()
       const inviteJson = await inviteRes.json() as { id: number }
@@ -421,44 +423,146 @@ test.describe("v0.15.1 list-merge invite-then-accept flow", () => {
       }>).find((f) => f.userId === ctx.friendId)
       expect(mergedRow?.sharedMainList, "precondition: sharedMainList=true before split").toBe(true)
 
-      const stampWine = await ctx.callerPage.request.post("/api/viner", {
+      // Seed a wine on each side AFTER the merge so both have unique
+      // contributions to verify on each side's copy.
+      const callerWineRes = await ctx.callerPage.request.post("/api/viner", {
         data: {
-          name: `E2E split ${Date.now()}`,
-          producer: "split produsent",
+          name: `E2E split caller ${Date.now()}`,
+          producer: "split produsent A",
           type: "red",
           inCellar: true,
           quantity: 2,
         },
       })
-      expect(stampWine.ok(), "seed wine with quantity succeeds").toBeTruthy()
-      stampWineId = ((await stampWine.json()) as { id: number }).id
+      expect(callerWineRes.ok(), "seed caller wine succeeds").toBeTruthy()
+      callerWineId = ((await callerWineRes.json()) as { id: number }).id
+
+      const friendWineRes = await ctx.friendPage.request.post("/api/viner", {
+        data: {
+          name: `E2E split friend ${Date.now()}`,
+          producer: "split produsent B",
+          type: "white",
+          inCellar: false,
+          quantity: 1,
+        },
+      })
+      expect(friendWineRes.ok(), "seed friend wine succeeds").toBeTruthy()
+      friendWineId = ((await friendWineRes.json()) as { id: number }).id
 
       const splitRes = await ctx.callerPage.request.delete("/api/friends/share", {
         data: { friendUserId: ctx.friendId },
       })
       expect(splitRes.ok(), "DELETE /api/friends/share returns 200").toBeTruthy()
 
-      const friendsAfterSplit = await ctx.callerPage.request.get("/api/friends")
-      const split = await friendsAfterSplit.json()
-      const splitRow = (split.friends as Array<{
+      // Both users are now unshared.
+      const friendsAfterSplitCaller = await ctx.callerPage.request.get("/api/friends")
+      const splitCaller = await friendsAfterSplitCaller.json()
+      const splitRowCaller = (splitCaller.friends as Array<{
         userId: number
         sharedMainList: boolean
       }>).find((f) => f.userId === ctx.friendId)
-      expect(splitRow?.sharedMainList, "sharedMainList=false after split").toBe(false)
+      expect(splitRowCaller?.sharedMainList, "caller: sharedMainList=false after split").toBe(false)
 
-      const callerWines = await ctx.callerPage.request.get("/api/viner")
-      const callerWinesData = (await callerWines.json()) as Array<{
+      const friendsAfterSplitFriend = await ctx.friendPage.request.get("/api/friends")
+      const splitFriend = await friendsAfterSplitFriend.json()
+      const splitRowFriend = (splitFriend.friends as Array<{
+        userId: number
+        sharedMainList: boolean
+      }>).find((f) => f.userId === ctx.callerId)
+      expect(splitRowFriend?.sharedMainList, "friend: sharedMainList=false after split").toBe(false)
+
+      // Caller's fresh MainList has BOTH wines (caller's own + friend's
+      // copy). inCellar/quantity are preserved.
+      const callerWinesRes = await ctx.callerPage.request.get("/api/viner")
+      const callerWines = (await callerWinesRes.json()) as Array<{
         id: number
         name: string
         inCellar: boolean
         quantity: number
       }>
-      const stamped = callerWinesData.find((w) => w.id === stampWineId)
-      expect(stamped, "stamped wine reachable on fresh MainList").toBeTruthy()
-      expect(stamped?.inCellar, "inCellar preserved").toBe(true)
-      expect(stamped?.quantity, "quantity=2 preserved").toBe(2)
+      const callerOwnCopy = callerWines.find((w) => w.id === callerWineId)
+      const friendCopyOnCaller = callerWines.find((w) => w.id === friendWineId)
+      expect(callerOwnCopy, "caller's own wine is on caller's fresh list").toBeTruthy()
+      expect(callerOwnCopy?.inCellar, "caller wine inCellar preserved").toBe(true)
+      expect(callerOwnCopy?.quantity, "caller wine quantity=2 preserved").toBe(2)
+      expect(friendCopyOnCaller, "friend's wine is copied onto caller's fresh list").toBeTruthy()
+      expect(friendCopyOnCaller?.inCellar, "friend wine inCellar preserved on caller's copy").toBe(false)
+      expect(friendCopyOnCaller?.quantity, "friend wine quantity=1 preserved on caller's copy").toBe(1)
+
+      // Friend's fresh MainList has BOTH wines too.
+      const friendWinesRes = await ctx.friendPage.request.get("/api/viner")
+      const friendWines = (await friendWinesRes.json()) as Array<{
+        id: number
+        name: string
+        inCellar: boolean
+        quantity: number
+      }>
+      const friendOwnCopy = friendWines.find((w) => w.id === friendWineId)
+      const callerCopyOnFriend = friendWines.find((w) => w.id === callerWineId)
+      expect(friendOwnCopy, "friend's own wine is on friend's fresh list").toBeTruthy()
+      expect(friendOwnCopy?.inCellar, "friend wine inCellar preserved").toBe(false)
+      expect(friendOwnCopy?.quantity, "friend wine quantity=1 preserved").toBe(1)
+      expect(callerCopyOnFriend, "caller's wine is copied onto friend's fresh list").toBeTruthy()
+      expect(callerCopyOnFriend?.inCellar, "caller wine inCellar preserved on friend's copy").toBe(true)
+      expect(callerCopyOnFriend?.quantity, "caller wine quantity=2 preserved on friend's copy").toBe(2)
+
+      // After the split, the two users are independent: if caller
+      // deletes a wine, it should not affect friend's copy.
+      const delRes = await ctx.callerPage.request.delete(`/api/viner/${callerWineId}`)
+      expect(delRes.ok(), "caller deletes their copy").toBeTruthy()
+
+      const callerWinesAfterDelete = (await (await ctx.callerPage.request.get("/api/viner")).json()) as Array<{ id: number }>
+      expect(
+        callerWinesAfterDelete.find((w) => w.id === callerWineId),
+        "caller's wine is gone from caller's list after delete",
+      ).toBeFalsy()
+      const friendWinesAfterDelete = (await (await ctx.friendPage.request.get("/api/viner")).json()) as Array<{ id: number }>
+      expect(
+        friendWinesAfterDelete.find((w) => w.id === callerWineId),
+        "friend STILL has the copied wine — lists are independent after split",
+      ).toBeTruthy()
+
+      // Symmetric independence check: caller adds a NEW wine after
+      // the split. Friend must NOT see it. Catches the reverse
+      // direction of the race window documented in the split route
+      // (any new ListWine the caller inserts goes to their fresh
+      // list, not the friend's).
+      const callerNewWineRes = await ctx.callerPage.request.post("/api/viner", {
+        data: {
+          name: `E2E post-split ${Date.now()}`,
+          producer: "post-split produsent",
+          type: "red",
+          inCellar: false,
+          quantity: 0,
+        },
+      })
+      expect(callerNewWineRes.ok(), "caller adds a wine after split").toBeTruthy()
+      callerNewWineId = ((await callerNewWineRes.json()) as { id: number }).id
+
+      const callerWinesAfterAdd = (await (await ctx.callerPage.request.get("/api/viner")).json()) as Array<{ id: number }>
+      expect(
+        callerWinesAfterAdd.find((w) => w.id === callerNewWineId),
+        "caller's new wine is on caller's fresh list",
+      ).toBeTruthy()
+      const friendWinesAfterAdd = (await (await ctx.friendPage.request.get("/api/viner")).json()) as Array<{ id: number }>
+      expect(
+        friendWinesAfterAdd.find((w) => w.id === callerNewWineId),
+        "friend does NOT see the caller's new wine after split",
+      ).toBeFalsy()
     } finally {
-      await cleanupMergePair(ctx, stampWineId > 0 ? [stampWineId] : [])
+      // cleanupMergePair only handles caller-side wine IDs; the friend
+      // wine and the caller's wine were both deleted during the test
+      // (caller wine at the end, friend wine via the explicit delete
+      // below), so we don't need extra cleanup here. The symmetric
+      // test's new wine is deleted explicitly so a failure mid-test
+      // doesn't leak it.
+      if (friendWineId > 0) {
+        await ctx.friendPage.request.delete(`/api/viner/${friendWineId}`)
+      }
+      if (callerNewWineId > 0) {
+        await ctx.callerPage.request.delete(`/api/viner/${callerNewWineId}`)
+      }
+      await cleanupMergePair(ctx, [])
     }
   })
 

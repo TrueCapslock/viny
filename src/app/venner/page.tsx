@@ -6,6 +6,7 @@ import { Users } from "@/app/_components/icons"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
 import { UserCardSkeleton } from "@/app/_components/skeletons"
 import { ShareMainlistDialog } from "@/app/_components/share-mainlist-dialog"
+import { StopSharingDialog } from "@/app/_components/stop-sharing-dialog"
 import { useFriends, useSuggestions } from "@/hooks/use-data"
 
 type UserInfo = { id: number; name: string | null; email: string; image: string | null }
@@ -56,6 +57,12 @@ export default function FriendsPage() {
 
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [shareTarget, setShareTarget] = useState<Friend | null>(null)
+
+  // v0.15.1: stop-sharing dialog state. Opens from the friend row when
+  // the list is currently shared; closes on cancel or after the
+  // DELETE /api/friends/share call succeeds.
+  const [showStopSharingDialog, setShowStopSharingDialog] = useState(false)
+  const [stopSharingTarget, setStopSharingTarget] = useState<Friend | null>(null)
 
   // v0.15.0: share logic moved into ShareMainlistDialog — the page only
   // toggles open/close and re-runs the friends SWR fetch on success.
@@ -131,6 +138,11 @@ export default function FriendsPage() {
   function openShareDialog(friend: Friend) {
     setShareTarget(friend)
     setShowShareDialog(true)
+  }
+
+  function openStopSharingDialog(friend: Friend) {
+    setStopSharingTarget(friend)
+    setShowStopSharingDialog(true)
   }
 
   async function handleSearch(q: string) {
@@ -500,12 +512,13 @@ export default function FriendsPage() {
                   </Link>
                   <div className="px-4 pb-3 pt-0">
                     {friend.sharedList ? (
-                      <span
+                      <button
+                        onClick={() => openStopSharingDialog(friend)}
                         data-testid="share-row-shared"
-                        className="text-xs font-medium text-gold-600"
+                        className="text-xs font-medium text-gold-600 hover:text-gold-700 transition-colors"
                       >
                         {isBeer ? "✓ Deler ølliste" : "✓ Deler vinliste"}
-                      </span>
+                      </button>
                     ) : pendingInviteToFriend ? (
                       <span
                         data-testid="share-row-pending"
@@ -547,6 +560,23 @@ export default function FriendsPage() {
           onClose={() => {
             setShareTarget(null)
             setShowShareDialog(false)
+          }}
+        />
+      )}
+
+      {showStopSharingDialog && stopSharingTarget && (
+        <StopSharingDialog
+          friend={{
+            userId: stopSharingTarget.userId,
+            name: stopSharingTarget.name,
+            email: stopSharingTarget.email,
+          }}
+          onStopped={() => {
+            mutateFriends()
+          }}
+          onClose={() => {
+            setStopSharingTarget(null)
+            setShowStopSharingDialog(false)
           }}
         />
       )}
