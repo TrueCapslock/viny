@@ -97,7 +97,9 @@ function UsersDialog({ onClose }: { onClose: () => void }) {
               <UserDialogSkeleton />
             </div>
           ) : filtered.length === 0 ? (
-            <p className="text-center py-8 text-sm text-wine-400">Ingen brukere matchet søket</p>
+            <p className="text-center py-8 text-sm text-wine-400">
+              {searchQuery.trim() ? "Ingen brukere matchet søket" : "Ingen brukere funnet"}
+            </p>
           ) : (
             filtered.map((user: User) => (
               <div key={user.id} className="bg-cream-50 rounded-xl border border-cream-200 p-3 flex items-center gap-3">
