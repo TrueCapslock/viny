@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { randomBytes, createHash } from "crypto"
 import { Resend } from "resend"
 import { prisma } from "@/lib/prisma"
+import { renderResetPassword } from "@/emails/reset-password"
 
 // 24 hours, per spec.
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000
@@ -74,49 +75,11 @@ async function handleResetRequest(
 }
 
 async function sendResetEmail(to: string, resetUrl: string) {
-  const subject = "Tilbakestill passordet ditt på Uva"
-
-  const text =
-    `Hei!\n\n` +
-    `Vi har mottatt en forespørsel om å tilbakestille passordet ditt på Uva.\n` +
-    `Klikk på lenken under for å velge et nytt passord:\n\n` +
-    `${resetUrl}\n\n` +
-    `Lenken er gyldig i 24 timer. Hvis du ikke har bedt om dette, kan du\n` +
-    `ignorere e-posten – passordet ditt blir ikke endret.\n\n` +
-    `– Uva`
-
-  const html = `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 560px; margin: 0 auto; color: #1f2937;">
-      <div style="background: linear-gradient(135deg, #fca5a5 0%, #fecaca 100%); padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
-        <h1 style="margin: 0; color: #7f1d1d; font-size: 20px; font-weight: 600;">Uva</h1>
-      </div>
-      <div style="background: #fff; padding: 28px 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
-        <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.5;">
-          Hei! Vi har mottatt en forespørsel om å tilbakestille passordet ditt.
-        </p>
-        <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.5;">
-          Klikk på knappen under for å velge et nytt passord:
-        </p>
-        <p style="margin: 0 0 24px; text-align: center;">
-          <a href="${resetUrl}"
-             style="display: inline-block; background: linear-gradient(135deg, #fca5a5 0%, #fecaca 100%); color: #7f1d1d; text-decoration: none; padding: 12px 24px; border-radius: 999px; font-size: 15px; font-weight: 600;">
-            Tilbakestill passord
-          </a>
-        </p>
-        <p style="margin: 0 0 8px; font-size: 13px; line-height: 1.5; color: #6b7280;">
-          Lenken er gyldig i 24 timer. Hvis knappen ikke virker, kopier URL-en under
-          inn i nettleseren din:
-        </p>
-        <p style="margin: 0 0 24px; font-size: 12px; word-break: break-all; color: #6b7280;">
-          ${resetUrl}
-        </p>
-        <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #6b7280;">
-          Hvis du ikke har bedt om dette, kan du ignorere e-posten – passordet ditt
-          blir ikke endret.
-        </p>
-      </div>
-    </div>
-  `
+  // The email template lives in src/emails/reset-password.ts so the
+  // /dev/emails preview page (and its Playwright snapshot test) can
+  // render the same string the API actually sends. Any change to
+  // copy, color, or layout is made in ONE place.
+  const { subject, text, html } = renderResetPassword({ resetUrl })
 
   const apiKey = process.env.RESEND_API_KEY
   const from = process.env.EMAIL_FROM ?? "Uva <noreply@uva.no>"
