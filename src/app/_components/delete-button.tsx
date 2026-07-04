@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useId, useState } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { Icon } from "@/app/_components/icons"
@@ -18,6 +18,17 @@ export function DeleteButton({
   const [showConfirm, setShowConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Stable, SSR-safe, per-instance IDs for the dialog's labelling.
+  // useId() (React 18+/19) returns a deterministic string per
+  // component instance so aria-labelledby/describedby here stay in
+  // sync across re-renders. Hardcoding `delete-dialog-title` would
+  // be valid HTML for a single dialog mount but breaks the moment a
+  // second DeleteButton renders on the same page (e.g. a future
+  // list-row variant that surfaces the same confirm UI per wine --
+  // duplicate ids are an HTML conformance violation and screen-
+  // reader aria references would point to whichever heading the
+  // browser happens to find first).
+  const headingId = useId()
 
   async function handleDelete() {
     setDeleting(true)
@@ -88,6 +99,10 @@ export function DeleteButton({
         // subtree); that's expected: cancelling the dialog should
         // collapse the underlying menu state too.
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={`${headingId}-title`}
+          aria-describedby={`${headingId}-desc`}
           onClick={() => setShowConfirm(false)}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in cursor-pointer"
         >
@@ -106,8 +121,8 @@ export function DeleteButton({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
               </svg>
             </div>
-            <h3 className="text-lg font-bold text-wine-800 text-center">Slett {wineName}?</h3>
-            <p className="mt-2 text-sm text-wine-500 text-center">
+            <h3 id={`${headingId}-title`} className="text-lg font-bold text-wine-800 text-center">Slett {wineName}?</h3>
+            <p id={`${headingId}-desc`} className="mt-2 text-sm text-wine-500 text-center">
               {tastingCount > 0
                 ? `${tastingCount} smaksnotat${tastingCount === 1 ? "" : "er"} vil også bli slettet.`
                 : "Denne handlingen kan ikke angres."}
