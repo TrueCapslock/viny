@@ -87,8 +87,8 @@ async function sendResetEmail(to: string, resetUrl: string) {
 
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 560px; margin: 0 auto; color: #1f2937;">
-      <div style="background: linear-gradient(135deg, #7f1d1d 0%, #881337 100%); padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
-        <h1 style="margin: 0; color: #fff; font-size: 20px; font-weight: 600;">Uva</h1>
+      <div style="background: linear-gradient(135deg, #fca5a5 0%, #fecaca 100%); padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
+        <h1 style="margin: 0; color: #7f1d1d; font-size: 20px; font-weight: 600;">Uva</h1>
       </div>
       <div style="background: #fff; padding: 28px 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
         <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.5;">
@@ -99,7 +99,7 @@ async function sendResetEmail(to: string, resetUrl: string) {
         </p>
         <p style="margin: 0 0 24px; text-align: center;">
           <a href="${resetUrl}"
-             style="display: inline-block; background: linear-gradient(135deg, #b91c1c 0%, #881337 100%); color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 999px; font-size: 15px; font-weight: 500;">
+             style="display: inline-block; background: linear-gradient(135deg, #fca5a5 0%, #fecaca 100%); color: #7f1d1d; text-decoration: none; padding: 12px 24px; border-radius: 999px; font-size: 15px; font-weight: 600;">
             Tilbakestill passord
           </a>
         </p>
