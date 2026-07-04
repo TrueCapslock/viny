@@ -25,7 +25,7 @@ Output rules:
 - Do not add commentary, explanations, translations, formatting, or markdown.
 - Do not write "Here is the text:" or similar intro lines.
 - If a character is partially obscured, do your best to read it.
-- Preserve the original language (English, Norwegian Bokm\u00e5l, French, Italian, German, etc.).
+- Preserve the original language (English, Norwegian Bokmål, French, Italian, German, etc.).
 
 Output the text now.`
 

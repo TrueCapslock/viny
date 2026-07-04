@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "Ingen OpenRouter API-n\u00f8kkel. Legg til i profilen din for \u00e5 bruke AI-skann.",
+          "Ingen OpenRouter API-nøkkel. Legg til i profilen din for å bruke AI-skann.",
       },
       { status: 400 },
     )

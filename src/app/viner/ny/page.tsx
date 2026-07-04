@@ -46,9 +46,9 @@ type AiStatus =
 
 /** Friendly Norwegian label for the current OCR progress bucket. */
 function ocrProgressLabel(progress: number): string {
-  if (progress < 0.3) return "Forbereder tekstgjenkjenning\u2026"
-  if (progress < 0.7) return "Klargj\u00f8r bilde\u2026"
-  return "Leser tekst\u2026"
+  if (progress < 0.3) return "Forbereder tekstgjenkjenning…"
+  if (progress < 0.7) return "Klargjør bilde…"
+  return "Leser tekst…"
 }
 
 /**
@@ -143,16 +143,16 @@ export default function NewWinePage() {
       const res = await fetch(`/api/wineapi/search?q=${encodeURIComponent(q)}`)
       if (res.status === 400) {
         const data = await res.json()
-        if (data.error?.includes("API-n\u00f8kkel")) {
+        if (data.error?.includes("API-nøkkel")) {
           setNoKey(true)
           setWineapiResults([])
           return
         }
-        throw new Error(data.error ?? "S\u00f8k feilet")
+        throw new Error(data.error ?? "Søk feilet")
       }
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.error ?? "S\u00f8k feilet")
+        throw new Error(data.error ?? "Søk feilet")
       }
       const data = await res.json()
       setWineapiResults(data)
@@ -231,7 +231,7 @@ export default function NewWinePage() {
       setPhotoError(
         err instanceof Error
           ? err.message
-          : "Tekstgjenkjenning feilet. Bruk s\u00f8ket over.",
+          : "Tekstgjenkjenning feilet. Bruk søket over.",
       )
       setPhotoStatus("error")
     }
@@ -299,7 +299,7 @@ export default function NewWinePage() {
         const data = await res.json().catch(() => null)
         if (
           typeof data?.error === "string" &&
-          data.error.includes("OpenRouter API-n\u00f8kkel")
+          data.error.includes("OpenRouter API-nøkkel")
         ) {
           setAiNoKey(true)
           setAiStatus("idle")
@@ -363,25 +363,25 @@ export default function NewWinePage() {
   return (
     <div className="flex-1 flex flex-col px-4 pt-4 pb-24 animate-fade-in">
       <h1 className="text-2xl font-bold text-wine-900 tracking-tight mb-1">
-        {isBeer ? "Nytt \u00f8l" : "Ny vin"}
+        {isBeer ? "Nytt øl" : "Ny vin"}
       </h1>
       <p className="text-sm text-wine-500 mb-4">
         {isBeer
-          ? "S\u00f8k etter \u00f8l eller fyll inn manuelt"
-          : "S\u00f8k etter vin eller fyll inn manuelt"}
+          ? "Søk etter øl eller fyll inn manuelt"
+          : "Søk etter vin eller fyll inn manuelt"}
       </p>
 
       <div className="space-y-4">
         <div className="bg-white rounded-2xl border border-cream-200 p-5 shadow-sm space-y-4">
           <div className="space-y-2">
             <label className="block text-xs font-semibold text-wine-500 uppercase tracking-wider">
-              {isBeer ? "S\u00f8k etter \u00f8l" : "S\u00f8k etter vin"}
+              {isBeer ? "Søk etter øl" : "Søk etter vin"}
             </label>
             <div className="relative">
               <input
                 value={wineapiQuery}
                 onChange={(e) => handleWineapiQuery(e.target.value)}
-                placeholder={isBeer ? "S\u00f8k etter \u00f8l, produsent..." : "S\u00f8k etter vin, produsent..."}
+                placeholder={isBeer ? "Søk etter øl, produsent..." : "Søk etter vin, produsent..."}
                 className="w-full rounded-xl border border-cream-200 bg-cream-50 pl-10 pr-4 py-2.5 text-sm text-wine-900 placeholder-wine-300 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none transition-all"
               />
               <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-wine-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -393,13 +393,13 @@ export default function NewWinePage() {
               {wineapiLoading && (
                 <span className="flex items-center gap-2 text-xs text-wine-400">
                   <span className="w-3 h-3 border-2 border-wine-300 border-t-transparent rounded-full animate-spin" />
-                  S\u00f8ker...
+                  Søker...
                 </span>
               )}
               {wineapiError && <p className="text-xs text-red-500">{wineapiError}</p>}
               {noKey && (
                 <p className="text-xs text-amber-600">
-                  Ingen wineapi.io-n\u00f8kkel funnet.{" "}
+                  Ingen wineapi.io-nøkkel funnet.{" "}
                   <a href="/profil" className="underline hover:text-amber-800">Legg til i profilen</a>
                 </p>
               )}
@@ -454,9 +454,9 @@ export default function NewWinePage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h3l2-2h8l2 2h3a2 2 0 012 2v9a2 2 0 01-2 2H3a2 2 0 01-2-2V9a2 2 0 012-2zm9 3a4 4 0 100 8 4 4 0 000-8z" />
             </svg>
             {photoStatus === "ocr"
-              ? `Leser etiketten\u2026 ${Math.round(photoProgress * 100)}%`
+              ? `Leser etiketten… ${Math.round(photoProgress * 100)}%`
               : photoStatus === "searching"
-                ? "S\u00f8ker i vinregister\u2026"
+                ? "Søker i vinregister…"
                 : "Skann etikett (lokalt)"}
           </button>
 
@@ -484,7 +484,7 @@ export default function NewWinePage() {
                 {photoStatus === "searching" && (
                   <span className="flex items-center gap-2 text-wine-400">
                     <span className="w-3 h-3 border-2 border-wine-300 border-t-transparent rounded-full animate-spin" />
-                    S\u00f8ker i wineapi.io\u2026
+                    Søker i wineapi.io…
                   </span>
                 )}
                 {photoStatus === "done" && photoExtracted && (
@@ -492,13 +492,13 @@ export default function NewWinePage() {
                     Lokalt lest:{" "}
                     <span className="font-medium text-wine-700">{photoExtracted}</span>
                     {photoVintage && (
-                      <span className="ml-1 text-wine-400">(\u00e5rgang {photoVintage})</span>
+                      <span className="ml-1 text-wine-400">(årgang {photoVintage})</span>
                     )}
                   </p>
                 )}
                 {photoStatus === "no-text" && (
                   <p className="text-amber-600">
-                    Klarte ikke \u00e5 lese etiketten lokalt. Pr\u00f8v AI-knappen under.
+                    Klarte ikke å lese etiketten lokalt. Prøv AI-knappen under.
                   </p>
                 )}
                 {photoStatus === "error" && (
@@ -527,10 +527,10 @@ export default function NewWinePage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" />
             </svg>
             {aiStatus === "loading"
-              ? "AI leser etiketten\u2026"
+              ? "AI leser etiketten…"
               : aiStatus === "searching"
-                ? "S\u00f8ker i vinregister\u2026"
-                : "Pr\u00f8v med AI (OpenRouter)"}
+                ? "Søker i vinregister…"
+                : "Prøv med AI (OpenRouter)"}
           </button>
 
           {aiThumb && (
@@ -544,13 +544,13 @@ export default function NewWinePage() {
                 {aiStatus === "loading" && (
                   <span className="flex items-center gap-2 text-wine-400">
                     <span className="w-3 h-3 border-2 border-wine-300 border-t-transparent rounded-full animate-spin" />
-                    OpenRouter analyserer\u2026
+                    OpenRouter analyserer…
                   </span>
                 )}
                 {aiStatus === "searching" && (
                   <span className="flex items-center gap-2 text-wine-400">
                     <span className="w-3 h-3 border-2 border-wine-300 border-t-transparent rounded-full animate-spin" />
-                    S\u00f8ker i wineapi.io\u2026
+                    Søker i wineapi.io…
                   </span>
                 )}
                 {aiStatus === "done" && aiExtracted && (
@@ -561,7 +561,7 @@ export default function NewWinePage() {
                 )}
                 {aiStatus === "no-text" && (
                   <p className="text-amber-600">
-                    AI fant ikke nok tekst p\u00e5 etiketten. Bruk s\u00f8ket over eller fyll inn manuelt.
+                    AI fant ikke nok tekst på etiketten. Bruk søket over eller fyll inn manuelt.
                   </p>
                 )}
                 {aiStatus === "error" && (
@@ -569,7 +569,7 @@ export default function NewWinePage() {
                 )}
                 {aiNoKey && (
                   <p className="text-amber-600">
-                    Ingen OpenRouter-n\u00f8kkel funnet.{" "}
+                    Ingen OpenRouter-nøkkel funnet.{" "}
                     <a href="/profil" className="underline hover:text-amber-800">Legg til i profilen</a>
                   </p>
                 )}
