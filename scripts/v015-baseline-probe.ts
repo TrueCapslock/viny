@@ -61,7 +61,7 @@ async function main() {
     },
   })
 
-  let misplaced: Array<{ wineId: number; wineName: string; ownerId: number }> = []
+  const misplaced: Array<{ wineId: number; wineName: string; ownerId: number }> = []
   for (const wine of allWines) {
     // The owner's reachable MainList is the owner's mainListId.
     const ownerMainListId = await prisma.user

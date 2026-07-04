@@ -66,6 +66,21 @@ interface WineCardProps {
   from?: string
 }
 
+/**
+ * Hoisted out of WineCard so it's not re-created on every parent render
+ * (react-hooks/static-components). isBeer is threaded as a prop since
+ * the component now lives outside the hook scope.
+ */
+function LogoPlaceholder({ isBeer }: { isBeer: boolean }) {
+  return (
+    <img
+      src={isBeer ? "/logo-humle.svg" : "/wine-glass.svg"}
+      alt=""
+      className="w-1/2 h-1/2 opacity-50"
+    />
+  )
+}
+
 export function WineCard({
   wine,
   variant = "card",
@@ -79,14 +94,6 @@ export function WineCard({
   const { isBeer } = useBeerMode()
   const delayStyle =
     animationDelay !== undefined ? { animationDelay: `${animationDelay}ms` } : undefined
-
-  const LogoPlaceholder = () => (
-    <img
-      src={isBeer ? "/logo-humle.svg" : "/wine-glass.svg"}
-      alt=""
-      className="w-1/2 h-1/2 opacity-50"
-    />
-  )
 
   // Cellar chip wording for the card variant: always quantity-first
   // (e.g. "2 fl." for wine, "2 stk." in beer mode). The count IS the
@@ -116,7 +123,7 @@ export function WineCard({
           />
         ) : (
           <div className="w-12 h-12 rounded-xl bg-wine-50 border border-cream-200 flex items-center justify-center shrink-0">
-            <LogoPlaceholder />
+            <LogoPlaceholder isBeer={isBeer} />
           </div>
         )}
         <Link
@@ -162,9 +169,9 @@ export function WineCard({
                 <img src={wine.image} alt="" className="w-full h-full object-cover" />
               </div>
             ) : (
-              <div className="w-14 h-14 rounded-xl bg-wine-50 border border-wine-100 flex items-center justify-center shrink-0">
-                <LogoPlaceholder />
-              </div>
+          <div className="w-14 h-14 rounded-xl bg-wine-50 border border-wine-100 flex items-center justify-center shrink-0">
+            <LogoPlaceholder isBeer={isBeer} />
+          </div>
             )}
             <div className="flex-1 min-w-0 pt-0.5">
               <h2 className="font-bold text-wine-900 truncate text-[15px]">{wine.name}</h2>
