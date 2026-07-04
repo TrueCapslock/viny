@@ -6,6 +6,8 @@ import Link from "next/link"
 import { useState, useRef, useEffect } from "react"
 import { Icon } from "@/app/_components/icons"
 import { AvatarCropDialog } from "@/app/_components/avatar-crop-dialog"
+import { ChangePasswordDialog } from "@/app/_components/change-password-dialog"
+import { WineApiLoginDialog } from "@/app/_components/wineapi-login-dialog"
 import { ProfileSkeleton } from "@/app/_components/skeletons"
 import { APP_VERSION } from "@/lib/version"
 
@@ -20,6 +22,8 @@ export default function ProfilePage() {
   const [prefersBeer, setPrefersBeer] = useState(false)
   const [prefersDarkMode, setPrefersDarkMode] = useState(false)
   const [wineapiKey, setWineapiKey] = useState("")
+  const [showWineApiLogin, setShowWineApiLogin] = useState(false)
+  const [showChangePassword, setShowChangePassword] = useState(false)
   const [openRouterKey, setOpenRouterKey] = useState("")
   const [visionModel, setVisionModel] = useState("nvidia/nemotron-nano-12b-v2-vl:free")
   const [saving, setSaving] = useState(false)
@@ -193,23 +197,41 @@ export default function ProfilePage() {
 
         <div>
           <label className="block text-xs font-semibold text-wine-700 mb-1.5">E-post</label>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={inputClass}
-          />
+          <div className="flex gap-2">
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={inputClass + " flex-1 min-w-0"}
+            />
+            <button
+              type="button"
+              onClick={() => setShowChangePassword(true)}
+              className="shrink-0 rounded-xl border border-cream-300 bg-cream-100 px-3 py-2.5 text-sm font-medium text-wine-700 hover:bg-cream-200 transition-colors"
+            >
+              Endre passord
+            </button>
+          </div>
         </div>
 
         <div>
           <label className="block text-xs font-semibold text-wine-700 mb-1.5">wineapi.io API-nøkkel</label>
-          <input
-            value={wineapiKey}
-            onChange={(e) => setWineapiKey(e.target.value)}
-            className={inputClass}
-            placeholder="Skriv inn din wineapi.io API-nøkkel"
-          />
+          <div className="flex gap-2">
+            <input
+              value={wineapiKey}
+              onChange={(e) => setWineapiKey(e.target.value)}
+              className={inputClass + " flex-1 min-w-0"}
+              placeholder="Skriv inn din wineapi.io API-nøkkel"
+            />
+            <button
+              type="button"
+              onClick={() => setShowWineApiLogin(true)}
+              className="shrink-0 rounded-xl border border-cream-300 bg-cream-100 px-3 py-2.5 text-sm font-medium text-wine-700 hover:bg-cream-200 transition-colors"
+            >
+              Hent nøkkel
+            </button>
+          </div>
           <p className="text-xs text-wine-400 mt-1">wineapi.io gir utvidet vininformasjon. 100 kall/døgn på gratisplanen. Kan oppgraderes på wineapi.io.</p>
         </div>
 
@@ -349,6 +371,14 @@ export default function ProfilePage() {
             setCropImage(null)
           }}
         />
+      )}
+
+      {showWineApiLogin && (
+        <WineApiLoginDialog onClose={() => setShowWineApiLogin(false)} />
+      )}
+
+      {showChangePassword && (
+        <ChangePasswordDialog onClose={() => setShowChangePassword(false)} />
       )}
     </div>
   )

@@ -29,7 +29,6 @@ type BlobImage = {
 function UsersDialog({ onClose }: { onClose: () => void }) {
   const { users, loading, mutate } = useAdminUsers()
   const [searchQuery, setSearchQuery] = useState("")
-  const [toggling, setToggling] = useState<number | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<{ id: number; name: string; wines: number } | null>(null)
   const [deletingUserId, setDeletingUserId] = useState<number | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -43,17 +42,6 @@ function UsersDialog({ onClose }: { onClose: () => void }) {
         u.email.toLowerCase().includes(q),
     )
   }, [users, searchQuery])
-
-  async function toggleBeer(userId: number, current: boolean) {
-    setToggling(userId)
-    const res = await fetch(`/api/admin/users/${userId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prefersBeer: !current }),
-    })
-    if (res.ok) mutate()
-    setToggling(null)
-  }
 
   async function handleDeleteUser() {
     if (!confirmDelete) return
@@ -117,22 +105,12 @@ function UsersDialog({ onClose }: { onClose: () => void }) {
                   <p className="text-xs text-wine-400 truncate">{user.email}</p>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  {user.prefersBeer && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Øl</span>
-                  )}
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-wine-50 text-wine-700 border border-wine-100">
                     {user._count.wines} viner
                   </span>
                   {user.isAdmin && (
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-gold-50 text-gold-700 border border-gold-200">Admin</span>
                   )}
-                  <button
-                    onClick={() => toggleBeer(user.id, user.prefersBeer)}
-                    disabled={toggling === user.id}
-                    className={`ml-1 w-8 h-5 rounded-full transition-colors relative shrink-0 ${
-                      user.prefersBeer ? "bg-amber-400" : "bg-cream-300"
-                    } ${toggling === user.id ? "opacity-50" : ""}`}
-                  />
                   <button
                     onClick={() => setConfirmDelete({ id: user.id, name: user.name ?? user.email, wines: user._count.wines })}
                     className="ml-1 p-1 text-wine-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
