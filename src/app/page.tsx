@@ -9,6 +9,7 @@ import { SearchAndFilter } from "./search-filter"
 import { typeLabel } from "@/lib/beer"
 import { useWines } from "@/hooks/use-data"
 import { HomeSkeleton } from "@/app/_components/skeletons"
+import { CountryFlag } from "@/app/_components/country-flag"
 
 export default function HomePage() {
   const searchParams = useSearchParams()
@@ -146,7 +147,8 @@ export default function HomePage() {
                             </span>
                           )}
                           {wine.country && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-cream-100 text-cream-700 border border-cream-200/80">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-cream-100 text-cream-700 border border-cream-200/80 inline-flex items-center gap-1">
+                              <CountryFlag country={wine.country} />
                               {wine.country}
                             </span>
                           )}

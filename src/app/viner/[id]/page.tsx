@@ -9,6 +9,7 @@ import { ImageLightbox } from "@/app/_components/image-lightbox"
 import { CellarToggle } from "@/app/_components/cellar-toggle"
 import { SuggestWineButton } from "@/app/_components/suggest-wine-button"
 import { AddToListButton } from "@/app/_components/add-to-list-button"
+import { CountryFlag } from "@/app/_components/country-flag"
 import { ModeLogo, ModeText, ModeTypeLabel } from "@/app/_components/mode-text"
 
 type Params = Promise<{ id: string }>
@@ -126,7 +127,8 @@ export default async function WineDetailPage({ params }: { params: Params }) {
                 </span>
               )}
               {wine.country && (
-                <span className="text-xs px-3 py-1 rounded-full bg-white/15 text-wine-100 border border-white/10 backdrop-blur-sm">
+                <span className="text-xs px-3 py-1 rounded-full bg-white/15 text-wine-100 border border-white/10 backdrop-blur-sm inline-flex items-center gap-1.5">
+                  <CountryFlag country={wine.country} />
                   {wine.country}
                 </span>
               )}

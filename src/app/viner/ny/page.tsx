@@ -5,6 +5,7 @@ import { WineForm } from "@/app/_components/wine-form"
 import { VinmonopoletSearch } from "@/app/_components/vinmonopolet-search"
 import { ModeLogo } from "@/app/_components/mode-text"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
+import { CountryFlag } from "@/app/_components/country-flag"
 
 type Prefill = {
   name: string
@@ -167,7 +168,12 @@ export default function NewWinePage() {
                     {hit.vintage && <span className="text-wine-500 ml-1">({hit.vintage})</span>}
                     <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
                       {hit.winery && <span className="text-xs text-wine-500">{hit.winery}</span>}
-                      {hit.country && <span className="text-xs text-wine-400">{hit.country}</span>}
+                      {hit.country && (
+                        <span className="text-xs text-wine-400 inline-flex items-center gap-1">
+                          <CountryFlag country={hit.country} />
+                          {hit.country}
+                        </span>
+                      )}
                       {hit.region && <span className="text-xs text-wine-400">{hit.region}</span>}
                       {hit.type && <span className="text-xs text-wine-400 capitalize">{hit.type}</span>}
                       {hit.averageRating && (
