@@ -8,6 +8,7 @@ import useSWR, { mutate } from "swr"
 import { Lists } from "@/app/_components/icons"
 import { ModeLogo, ModeText } from "@/app/_components/mode-text"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
+import { WineCard, type WineCardData } from "@/app/_components/wine-card"
 
 
 type ListDetail = {
@@ -21,8 +22,12 @@ type ListDetail = {
       producer: string
       vintage: number | null
       image: string | null
+      type: string | null
+      country: string | null
       inCellar: boolean
       tastings: { rating: number | null }[]
+      quantity: number | null
+      _count: { tastings: number }
     }
   }[]
 }
@@ -197,64 +202,54 @@ export default function ListDetailPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {data.wines.map(({ wine }) => {
-              const rating = wine.tastings[0]?.rating ?? null
+              const card: WineCardData = {
+                id: wine.id,
+                name: wine.name,
+                producer: wine.producer,
+                vintage: wine.vintage,
+                image: wine.image,
+                type: wine.type,
+                country: wine.country,
+                inCellar: wine.inCellar,
+                quantity: wine.quantity,
+                avgRating: wine.tastings[0]?.rating ?? null,
+                tastingCount: wine._count.tastings,
+              }
               return (
                 <div
                   key={wine.id}
-                  className={`bg-white rounded-2xl border border-cream-200 p-3 shadow-sm flex items-center gap-3 transition-opacity ${
-                    removingId === wine.id ? "opacity-50" : ""
-                  }`}
+                  className={`transition-opacity ${removingId === wine.id ? "opacity-50" : ""}`}
                 >
-                  {wine.image ? (
-                    <img
-                      src={wine.image}
-                      alt=""
-                      className="w-12 h-12 rounded-xl object-cover shrink-0"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-xl bg-wine-50 border border-cream-200 flex items-center justify-center shrink-0">
-                      <ModeLogo className="w-7 h-7 opacity-40" />
-                    </div>
-                  )}
-                  <Link href={`/viner/${wine.id}`} className="flex-1 min-w-0">
-                    <p className="font-semibold text-wine-900 truncate text-sm">{wine.name}</p>
-                    <p className="text-xs text-wine-500 truncate mt-0.5">
-                      {wine.producer}
-                      {wine.vintage && ` · ${wine.vintage}`}
-                    </p>
-                  </Link>
-                  {wine.inCellar && (
-                    <span className="text-[10px] uppercase tracking-wider text-gold-700 bg-gold-50 border border-gold-200 rounded-full px-2 py-0.5">
-                      Vinskap
-                    </span>
-                  )}
-                  {rating !== null && (
-                    <span className="text-xs text-gold-700 font-medium">{rating}/5</span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => removeWine(wine.id)}
-                    disabled={removingId === wine.id}
-                    title="Fjern fra liste"
-                    aria-label="Fjern fra liste"
-                    className="text-wine-400 hover:text-red-600 transition-colors p-2 rounded-full hover:bg-red-50"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
+                  <WineCard
+                    wine={card}
+                    from={`/lister/${listId}`}
+                    topRightSlot={
+                      <button
+                        type="button"
+                        onClick={() => removeWine(wine.id)}
+                        disabled={removingId === wine.id}
+                        title="Fjern fra liste"
+                        aria-label="Fjern fra liste"
+                        className="text-wine-400 hover:text-red-600 transition-colors p-1.5 rounded-full bg-white/80 hover:bg-red-50 backdrop-blur-sm shadow-sm"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+                    }
+                  />
                 </div>
               )
             })}

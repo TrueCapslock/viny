@@ -5,12 +5,7 @@ import type { Tasting } from "@/generated/prisma/client"
 import { StaticStars } from "@/app/_components/star-rating"
 
 export function TastingList({ tastings }: { tastings: Tasting[] }) {
-  const [expanded, setExpanded] = useState<Record<number, boolean>>(() => {
-    if (tastings.length === 0) return {}
-    const first = tastings[0]
-    const firstHasContent = first.nose || first.palate || first.finish || first.foodPairing || first.pricePaid || first.comment
-    return firstHasContent ? { [first.id]: true } : {}
-  })
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({})
 
   function toggle(id: number) {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))

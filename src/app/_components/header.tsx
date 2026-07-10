@@ -18,11 +18,11 @@ export function Header() {
           <div className="bg-white/15 rounded-xl p-1.5">
             <WineGlass className="w-4 h-5 text-gold-300" />
           </div>
-          <span className="text-lg font-bold tracking-wide">Viny</span>
+          <span className="text-lg font-bold tracking-wide">Uva</span>
         </Link>
         {session?.user && (
           <button
-            onClick={() => signOut()}
+            onClick={() => signOut({ callbackUrl: "/login" })}
             className="text-xs text-wine-200 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-3.5 py-1.5 transition-all"
           >
             Logg ut

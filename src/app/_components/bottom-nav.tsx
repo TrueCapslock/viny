@@ -14,7 +14,7 @@ export function BottomNav() {
   if (hide) return null
 
   const tabs = [
-    { href: "/", label: isBeer ? "Ølsamling" : "Vinskap", icon: Shelf },
+    { href: "/", label: isBeer ? "Ølkasse" : "Vinskap", icon: Shelf },
     { href: "/lister", label: "Lister", icon: Lists },
     { href: "/viner/ny", label: "Legg til", icon: Plus, primary: true },
     { href: "/venner", label: "Venner", icon: Users },
@@ -22,7 +22,7 @@ export function BottomNav() {
   ]
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pb-3 pointer-events-none">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 flex justify-center pb-3 pointer-events-none">
       <div className="bg-white/90 backdrop-blur-xl border border-cream-200/80 rounded-2xl shadow-xl shadow-wine-900/10 flex items-center justify-around px-1.5 py-1.5 max-w-md w-full pointer-events-auto mx-3">
         {tabs.map((tab) => {
           const isActive = tab.href === "/"
@@ -41,7 +41,7 @@ export function BottomNav() {
                     : "bg-wine-600/90 text-white hover:bg-wine-700 shadow-sm"
                 }`}
               >
-                <Icon className="w-5 h-6" />
+                <Icon className="w-6 h-6" />
                 <span className="text-[10px] font-medium">{tab.label}</span>
               </Link>
             )
@@ -58,7 +58,7 @@ export function BottomNav() {
               {isActive && (
                 <span className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-wine-600" />
               )}
-              <Icon className="w-5 h-6" />
+              <Icon className="w-6 h-6" />
               <span className="text-[10px] font-medium">{tab.label}</span>
             </Link>
           )

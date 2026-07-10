@@ -10,40 +10,23 @@ export async function GET() {
 
   const sent = await prisma.friend.findMany({
     where: { requesterId: userId },
-    include: { addressee: { select: { id: true, name: true, email: true, image: true } } },
+    include: { addressee: { select: { id: true, name: true, email: true, image: true, mainListId: true } } },
     orderBy: { createdAt: "desc" },
   })
 
   const received = await prisma.friend.findMany({
     where: { addresseeId: userId },
-    include: { requester: { select: { id: true, name: true, email: true, image: true } } },
+    include: { requester: { select: { id: true, name: true, email: true, image: true, mainListId: true } } },
     orderBy: { createdAt: "desc" },
   })
 
-  const editors = await prisma.listShare.findMany({
-    where: { ownerId: userId },
-    include: { editor: { select: { id: true, name: true, email: true, image: true } } },
+  // v0.15.0: canEdit / sharedMainList: caller and friend point at the
+  // same `User.mainListId` (= the same List row, i.e. they've merged).
+  const me = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { mainListId: true },
   })
-
-  const editorIds = new Set(editors.map((e) => e.editorId))
-
-  const sharedLists = await prisma.sharedList.findMany({
-    where: { members: { some: { userId } } },
-    include: {
-      members: {
-        include: { user: { select: { id: true, name: true, email: true, image: true } } },
-      },
-    },
-  })
-
-  const sharedWithUserIds = new Set<number>()
-  for (const list of sharedLists) {
-    for (const member of list.members) {
-      if (member.userId !== userId) {
-        sharedWithUserIds.add(member.userId)
-      }
-    }
-  }
+  const myMainListId = me?.mainListId ?? null
 
   const friends = [
     ...sent.filter((f) => f.status === "accepted").map((f) => ({
@@ -53,8 +36,11 @@ export async function GET() {
       email: f.addressee.email,
       image: f.addressee.image,
       status: "accepted" as const,
-      canEdit: editorIds.has(f.addressee.id),
-      sharedList: sharedWithUserIds.has(f.addressee.id),
+      canEdit: !!myMainListId && f.addressee.mainListId === myMainListId,
+      sharedMainList: !!myMainListId && f.addressee.mainListId === myMainListId,
+      // legacy alias kept so existing UI keeps rendering; both flags
+      // collapse to the same v0.15.0 condition.
+      sharedList: !!myMainListId && f.addressee.mainListId === myMainListId,
     })),
     ...received.filter((f) => f.status === "accepted").map((f) => ({
       id: f.id,
@@ -63,8 +49,9 @@ export async function GET() {
       email: f.requester.email,
       image: f.requester.image,
       status: "accepted" as const,
-      canEdit: editorIds.has(f.requester.id),
-      sharedList: sharedWithUserIds.has(f.requester.id),
+      canEdit: !!myMainListId && f.requester.mainListId === myMainListId,
+      sharedMainList: !!myMainListId && f.requester.mainListId === myMainListId,
+      sharedList: !!myMainListId && f.requester.mainListId === myMainListId,
     })),
   ]
 
@@ -86,7 +73,62 @@ export async function GET() {
     direction: "received" as const,
   }))
 
-  return NextResponse.json({ friends, pendingSent, pendingReceived, sharedLists })
+  // v0.15.1: list-share is invite-then-accept. Surface the two pending
+  // invite directions so the Venner page can render "Delte-listeforespørsler"
+  // (received) and "Ventende delte-listeforespørsler" (sent) sections in
+  // parallel to the existing friend-request sections. Terminal-status
+  // invites (accepted | declined | cancelled) are kept for audit but
+  // filtered out of these arrays.
+  const [sentShareInvitesRaw, receivedShareInvitesRaw] = await Promise.all([
+    prisma.shareInvite.findMany({
+      where: { fromUserId: userId, status: "pending" },
+      include: { toUser: { select: { id: true, name: true, email: true, image: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.shareInvite.findMany({
+      where: { toUserId: userId, status: "pending" },
+      include: { fromUser: { select: { id: true, name: true, email: true, image: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+  ])
+
+  const pendingShareInvitesSent = sentShareInvitesRaw.map((i) => ({
+    id: i.id,
+    fromUserId: i.fromUserId,
+    toUserId: i.toUserId,
+    toUser: i.toUser,
+    winner: i.winner,
+    migrateLoserWines: i.migrateLoserWines,
+    createdAt: i.createdAt,
+  }))
+  const pendingShareInvitesReceived = receivedShareInvitesRaw.map((i) => ({
+    id: i.id,
+    fromUserId: i.fromUserId,
+    toUserId: i.toUserId,
+    fromUser: i.fromUser,
+    winner: i.winner,
+    migrateLoserWines: i.migrateLoserWines,
+    createdAt: i.createdAt,
+  }))
+
+  // v0.15.0: SharedList concept retired. `sharedLists` in the response
+  // shape is historically consumed by the UI; we emit an empty array to
+  // keep the contract stable. Phase-3 UI rewrite will drop the field.
+  //
+  // `me` exposes the authenticated caller's id + mainListId directly so
+  // e2e tests (and any future caller-side feature that needs
+  // "who am I") don't have to POST a throwaway wine to /api/viner just
+  // to learn their own userId. Cheap: the user row is already fetched
+  // above for `myMainListId`.
+  return NextResponse.json({
+    me: { id: userId, mainListId: myMainListId },
+    friends,
+    pendingSent,
+    pendingReceived,
+    pendingShareInvitesSent,
+    pendingShareInvitesReceived,
+    sharedLists: [],
+  })
 }
 
 export async function POST(request: Request) {

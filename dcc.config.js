@@ -1,5 +1,5 @@
-export default {
-  name: 'Viny',
+const dccConfig = {
+  name: 'Uva',
   menuRows: 10,
 
   commands: [
@@ -139,3 +139,5 @@ export default {
     },
   ],
 }
+
+export default dccConfig

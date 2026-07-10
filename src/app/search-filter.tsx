@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { Fragment, useState, useMemo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
-import { filterLabel, getFilterKeys } from "@/lib/beer"
+import { filterLabel, getFilterKeys, beerTypes } from "@/lib/beer"
 
 export function SearchAndFilter({
   initialQuery = "",
@@ -64,19 +64,30 @@ export function SearchAndFilter({
           </button>
         )}
       </div>
-      <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-        {filterKeys.map((key) => (
-          <button
-            key={key}
-            onClick={() => handleFilter(key)}
-            className={`shrink-0 text-xs font-medium px-3.5 py-1.5 rounded-full border transition-all ${
-              active === key
-                ? "bg-wine-600 text-white border-wine-600 shadow-sm shadow-wine-600/20"
-                : "bg-white text-wine-600 border-cream-200 hover:border-wine-300 hover:bg-wine-50"
-            }`}
-          >
-            {filterLabel(key)}
-          </button>
+      <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar items-center">
+        {filterKeys.map((key, idx) => (
+          <Fragment key={key}>
+            {/* Beer mode only: emit a thin divider after the 23 beer sub-style
+                chips so the trailing 5 wine-only chips are visually grouped
+                as the user's "mis-tagged entry" fallback. Wine mode has no
+                boundary since its row is single-category (all wine types). */}
+            {isBeer && idx === 1 + beerTypes.length && (
+              <span
+                aria-hidden="true"
+                className="shrink-0 w-px h-5 bg-cream-300"
+              />
+            )}
+            <button
+              onClick={() => handleFilter(key)}
+              className={`shrink-0 text-xs font-medium px-3.5 py-1.5 rounded-full border transition-all ${
+                active === key
+                  ? "bg-wine-600 text-white border-wine-600 shadow-sm shadow-wine-600/20"
+                  : "bg-white text-wine-600 border-cream-200 hover:border-wine-300 hover:bg-wine-50"
+              }`}
+            >
+              {filterLabel(key)}
+            </button>
+          </Fragment>
         ))}
       </div>
     </div>

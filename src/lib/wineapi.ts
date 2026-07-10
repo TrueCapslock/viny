@@ -108,10 +108,7 @@ export async function searchWines(
   })
 
   if (!res.ok) {
-    throw new WineapiError(
-      `wineapi.io error: ${res.statusText}`,
-      res.status,
-    )
+    throw await formatHttpError("GET", url.pathname, res)
   }
 
   // Read the body as text first so we can both parse it AND log a preview
@@ -156,10 +153,7 @@ export async function getWineDetail(
 
   if (!res.ok) {
     if (res.status === 404) return null
-    throw new WineapiError(
-      `wineapi.io error: ${res.statusText}`,
-      res.status,
-    )
+    throw await formatHttpError("GET", `/wines/${wineId}`, res)
   }
 
   const item = await res.json()
@@ -181,4 +175,38 @@ export async function getWineDetail(
     criticScores: item.criticScores ?? [],
     description: item.description ?? null,
   }
+}
+
+/**
+ * Build a diagnostic-rich WineapiError from a non-2xx response. Reads
+ * the body (truncated to 300 chars) and folds status + statusText +
+ * method + path into the message so the next 405 / 404 / 5xx surfaces
+ * the upstream's actual reply instead of just "Method Not Allowed".
+ * For 405 specifically, also surfaces the upstream `Allow` header
+ * (per RFC 7231 the server MUST list the accepted methods there) --
+ * that's how we'll know whether to switch from POST to GET, or to a
+ * different content-type, on the next iteration. Swallows body-read
+ * errors so we never mask the original failure.
+ */
+async function formatHttpError(
+  method: string,
+  path: string,
+  res: Response,
+): Promise<WineapiError> {
+  let body = ""
+  try {
+    body = (await res.text()).slice(0, 300)
+  } catch {
+    // Body read failed -- keep the message informative without body.
+  }
+  let allowInfo = ""
+  if (res.status === 405) {
+    const allowed = res.headers.get("allow")
+    if (allowed) allowInfo = ` (allowed: ${allowed})`
+  }
+  const suffix = body || allowInfo ? `: ${body}${allowInfo}` : ""
+  return new WineapiError(
+    `wineapi.io ${method} ${path} -> ${res.status} ${res.statusText}${suffix}`,
+    res.status,
+  )
 }

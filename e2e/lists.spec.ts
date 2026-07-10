@@ -87,7 +87,26 @@ test("personal-lists flow: create → add wine → verify → delete", async ({ 
   await page.getByRole("button", { name: "Legg i liste" }).click()
   // Dialog row carries the list name + count. A RegExp is more explicit
   // than a string match and stays robust to row-content changes.
-  await page.getByRole("button", { name: new RegExp(listName) }).click()
+  //
+  // Race-condition guard: Playwright's `click()` only waits for the DOM
+  // click event to dispatch — it does NOT await async onClick handlers.
+  // The dialog's `toggle()` does an optimistic UI flip and then awaits
+  // a fetch. Without `Promise.all` with `waitForResponse`, the test
+  // can race ahead to `page.goto("/lister/...")` while the POST is
+  // still in flight; the navigation aborts the fetch and the GET fires
+  // before the upsert commits, so the list-detail page renders 0 wines
+  // and `getByText(TEST_WINE_NAME)` times out. The pattern: register
+  // the response waiter first, then dispatch the click — both run in
+  // parallel and the click resolves only after the POST returns.
+  const [addWineRes] = await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        r.request().method() === "POST" &&
+        /\/api\/viner\/\d+\/lists$/.test(new URL(r.url()).pathname),
+    ),
+    page.getByRole("button", { name: new RegExp(listName) }).click(),
+  ])
+  expect(addWineRes.status(), "add-to-list POST should succeed").toBe(200)
   await page.getByRole("button", { name: "Lukk" }).click()
 
   // 4. Verify the wine is in the list on /lister/{id}.
@@ -122,7 +141,20 @@ test("personal-lists: create list inline from the wine-detail dialog (addWineId)
   // Open the dialog and create the list from inside it.
   await page.getByRole("button", { name: "Legg i liste" }).click()
   await page.getByPlaceholder("F.eks. Favoritt-viner").fill(listName)
-  await page.getByRole("button", { name: "Opprett" }).click()
+
+  // Same race-condition guard as test 1: the dialog's `createList()` is
+  // async and fire-and-forget, so we must wait for the POST /api/lists
+  // to commit before clicking "Lukk" and navigating to /lister. Without
+  // this, the navigation can race ahead and abort the inline-create.
+  const [createRes] = await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        r.request().method() === "POST" &&
+        r.url().endsWith("/api/lists"),
+    ),
+    page.getByRole("button", { name: "Opprett" }).click(),
+  ])
+  expect(createRes.status(), "inline-create POST should succeed").toBe(201)
 
   // Inline-create success: the new list row appears in the dialog with a checkmark.
   await expect(

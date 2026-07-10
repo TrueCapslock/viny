@@ -75,7 +75,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const valid = await compare(password, user.password)
         if (!valid) return null
 
-        return { id: String(user.id), email: user.email, name: user.name, image: user.image, prefersBeer: user.prefersBeer, isAdmin: user.isAdmin, wineapiKey: user.wineapiKey }
+        return { id: String(user.id), email: user.email, name: user.name, image: user.image, prefersBeer: user.prefersBeer, prefersDarkMode: user.prefersDarkMode, isAdmin: user.isAdmin, wineapiKey: user.wineapiKey, openRouterKey: user.openRouterKey, visionModel: user.visionModel }
       },
     }),
   ],
@@ -98,20 +98,27 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.id = user.id
         token.image = user.image
         token.prefersBeer = user.prefersBeer
+        token.prefersDarkMode = user.prefersDarkMode
         token.isAdmin = user.isAdmin
       }
       if (trigger === "update") {
         if (newSession?.prefersBeer !== undefined) {
           token.prefersBeer = newSession.prefersBeer
         }
+        if (newSession?.prefersDarkMode !== undefined) {
+          token.prefersDarkMode = newSession.prefersDarkMode
+        }
         const dbUser = await prisma.user.findUnique({ where: { id: parseInt(token.id as string) } })
         if (dbUser) {
           token.isAdmin = dbUser.isAdmin
           token.prefersBeer = dbUser.prefersBeer
+          token.prefersDarkMode = dbUser.prefersDarkMode
           token.name = dbUser.name
           token.email = dbUser.email
           token.image = dbUser.image
           token.wineapiKey = dbUser.wineapiKey
+          token.openRouterKey = dbUser.openRouterKey
+          token.visionModel = dbUser.visionModel
         }
       }
       const settings = await prisma.siteSettings.findFirst()
@@ -123,9 +130,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.id = token.id as string
         session.user.image = token.image as string | null | undefined
         session.user.prefersBeer = token.prefersBeer as boolean | undefined
+        session.user.prefersDarkMode = token.prefersDarkMode as boolean | undefined
         session.user.isAdmin = token.isAdmin as boolean | undefined
         session.user.beerModeDisabled = token.beerModeDisabled as boolean | undefined
         session.user.wineapiKey = token.wineapiKey as string | null | undefined
+        session.user.openRouterKey = token.openRouterKey as string | null | undefined
+        session.user.visionModel = token.visionModel as string | null | undefined
       }
       return session
     },

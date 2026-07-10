@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
 :root {
+  /* Collapsible desktop sidebar width — set by <SidebarProvider>
+     and overridden by [data-sidebar-collapsed] in the component. */
+  --sidebar-width: 256px;
+
   --wine-50: #fdf2f4;
   --wine-100: #fce7ea;
   --wine-200: #f9d0d8;
@@ -20,7 +24,7 @@
   --gold-400: #ffe84d;
   --gold-500: #ffd61a;
   --gold-600: #e6b800;
-  --gold-700: #bf9000;
+  --gold-700: #8A6700;
   --gold-800: #997300;
   --gold-900: #7a5e00;
 
@@ -37,6 +41,13 @@
 
   --background: var(--cream-50);
   --foreground: #2d1b11;
+
+  /* Top-bar in light wine mode: a dark wine gradient (wine-700 →
+   * wine-900) so the header reads as a dark band in light mode too.
+   * Same gradient as the legacy .bg-wine-gradient so visual identity
+   * is preserved when the user switches light ↔ dark. */
+  --topbar-bg-from: var(--wine-700);
+  --topbar-bg-to: var(--wine-900);
 }
 
 @theme inline {
@@ -89,6 +100,20 @@ body {
 
 .bg-wine-gradient {
   background: linear-gradient(135deg, var(--wine-700), var(--wine-900));
+}
+
+/* Top-bar surface. Stays dark in ALL mode combinations (light wine,
+ * light beer, dark wine, dark beer) so the header reads as a
+ * consistent dark band regardless of the user's theme + mode
+ * combination. The gradient is subtle (two near-identical dark
+ * warm-browns) so the header doesn't visually compete with the
+ * page content below it.
+ *
+ * Tokens are defined per-mode in globals.css (see --topbar-bg-from /
+ * --topbar-bg-to). In light modes they default to a dark wine/brown
+ * pair; in dark modes they shift to near-black. */
+.bg-topbar {
+  background: linear-gradient(135deg, var(--topbar-bg-from), var(--topbar-bg-to));
 }
 
 .bg-wine-gradient-light {
@@ -206,6 +231,13 @@ body {
 
   --background: #fdfbf7;
   --foreground: #2d1b11;
+
+  /* Top-bar in light beer mode: a dark beer/amber gradient
+   * (wine-700 → wine-950, both redefined to amber hues under
+   * [data-beer="true"]). Same gradient as the legacy
+   * .bg-wine-gradient for light beer mode. */
+  --topbar-bg-from: var(--wine-700);
+  --topbar-bg-to: var(--wine-950);
 }
 
 [data-beer="true"] ::selection {
@@ -231,5 +263,354 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* Desktop sidebar bottom accent -- a hand-drawn sketch anchored to the
+ * bottom of the <nav> element (container of the 5 nav tabs). The URL is
+ * mode-driven via a CSS custom property so the same class works in
+ * both wine and beer mode:
+ *
+ *   - default (wine mode): a 1254x1254 RGB WebP (~125 KB, was a
+ *     ~1.45 MB PNG before the q=80 optimization) with an opaque
+ *     white background showing a wine-themed sketch (current asset:
+ *     bottle + glass + grapes + grape-leaf, user-provided custom
+ *     artwork AI-generated via ChatGPT; no commercial licensing
+ *     concerns). Against the sidebar's bg-white only the maroon
+ *     strokes of the sketch are visible. The 1:1 aspect renders as
+ *     a ~256x256 block pinned to the bottom-center of the 256 px-wide
+ *     nav.
+ *   - beer mode (`<html data-beer="true">`): a separate 1254x1254 RGB
+ *     WebP intended to be beer-themed. Both files share the same
+ *     1:1 aspect and roughly the same size, so `background-size:
+ *     contain` produces visually consistent layouts in each mode.
+ *     **STATUS**: this file is currently byte-identical to the old
+ *     committed wine image (a carry-over bug from commits 296af92
+ *     and 7bae7e8 -- the beer.png/beer.webp slot was generated from
+ *     a beer-themed prompt but the same source bytes slipped in
+ *     out-of-band). A real beer-themed illustration still needs to
+ *     be encoded into `public/sidebar-bg-beer.webp` for beer mode to
+ *     render differently from wine mode.
+ *
+ * `background-size: contain` keeps the 1:1 aspect intact (renders as
+ * a ~256x256 block at the bottom-center of the 256 px-wide nav in
+ * expanded desktop).
+ *
+ * Hidden in collapsed mode (64 px is too narrow for the illustration).
+ *
+ * Asset format note: both files are WebP at quality 80 +
+ * method=6 (≈125–200 KB each), converted from the original ≥1 MB
+ * PNGs via `Pillow.WebPImagePlugin`. The exact output size depends on
+ * the source sketch's compressibility -- current wine.webp is ~124 KB
+ * (md5 `8e493b95…`) and current beer.webp is ~185 KB (md5
+ * `b2de2d72…`). cwebp/ffmpeg are NOT installed in this environment;
+ * the PIL save achieves roughly the same compression ratio as
+ * `cwebp -q 80 -m 6` on these flat-color sketches (≈10% of original
+ * size). The recipe is codified in `scripts/optimize-sidebar-bg.py`
+ * so future bg swaps do not re-invent the invocation.
+ * The `[data-beer="true"]` selector used to LIVE here as a hide-rule;
+ * it now lives upstream as the URL-override for the variable, so the
+ * bg stays visible in beer mode with a different illustration. */
+:root {
+  --sidebar-bg-image: url('/sidebar-bg-wine.webp');
+}
+
+:root[data-beer="true"] {
+  --sidebar-bg-image: url('/sidebar-bg-beer.webp');
+}
+
+/* Co-locate the collapsed flag with the nav itself -- the React
+ * sidebar-provider already toggles `collapsed` via useSidebar(), so
+ * we mirror it onto data-sidebar-collapsed here. That way the CSS
+ * override below targets the same element the class is on, no
+ * external state-machine wiring required. Specificity:
+ * `.sidebar-bg-illustration` = (0,1,0); the override below is
+ * `[data-sidebar-collapsed="true"].sidebar-bg-illustration` = (0,2,0).
+ *
+ * Note: `var(--sidebar-bg-image)` resolves at computed-style time,
+ * so `background-image: none` here cleanly defeats the CSS-var
+ * computed value (no fall-through to the URL). */
+.sidebar-bg-illustration {
+  background-image: var(--sidebar-bg-image);
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: contain;
+}
+
+[data-sidebar-collapsed="true"].sidebar-bg-illustration {
+  background-image: none;
+}
+
+/* Desktop sidebar reserve space inside <main>.
+ * layout.tsx sets lg:pl-[var(--sidebar-width)] inline; this rule is a
+ * gate that explicitly zeroes the padding on /login|/register (where
+ * <Sidebar> sets html[data-sidebar-hidden]). Both branches scoped to
+ * min-width 1024px (Tailwind's lg breakpoint).
+ * Specificity: html[...]|main = 0,2,0 + media → wins over the 0,1,0
+ * Tailwind utility class when this rule applies. */
+@media (min-width: 1024px) {
+  html:not([data-sidebar-hidden]) main {
+    padding-bottom: 1.5rem;
+  }
+  /* Zero BOTH sides on /login|/register so the form is vertically
+   * centered exactly the same way it is on mobile (no bottom-nav space). */
+  html[data-sidebar-hidden] main {
+    padding-left: 0;
+    padding-bottom: 0;
+  }
+}
+
+/* ============================================================
+ * DARK MODE
+ * ============================================================
+ *
+ * Implemented via the `data-theme="dark"` attribute on <html>,
+ * co-located with the existing `data-beer="true"` wine/beer axis
+ * so the user can independently toggle:
+ *
+ *   - light wine (default)    root vs [:root][data-theme="dark"]
+ *   - light beer              [data-beer="true"]
+ *   - dark  wine              [:root][data-theme="dark"]
+ *   - dark  beer              [data-beer="true"][data-theme="dark"]
+ *
+ * Specificity / cascade (later wins):
+ *   0,1,0 :  :root                          (light wine)
+ *   0,1,1 :  :root[data-theme="dark"]      (dark wine -- overrides :root)
+ *   0,1,1 :  [data-beer="true"]            (light beer -- overrides :root)
+ *   0,1,2 :  [data-beer="true"][data-theme="dark"] (dark beer -- overrides all)
+ *
+ * The same wine-50..950 / gold-50..900 / cream-50..900 / --background /
+ * --foreground tokens are REdefined, so existing Tailwind classes (e.g.
+ * `bg-cream-50`, `text-wine-900`) re-bind to the new values without any
+ * per-component edits. The single global `.bg-white` override below
+ * handles the few hard-coded `bg-white` Tailwind classes used on cards,
+ * sidebars, and modals so the visual hierarchy (slightly-lighter card
+ * on a slightly-darker page bg) survives the theme switch.
+ *
+ * ThemeProvider (`src/app/_components/theme-provider.tsx`) writes the
+ * `data-theme` attribute from session.user.prefersDarkMode on every
+ * session change; BeerModeProvider does the same for `data-beer`. */
+
+:root[data-theme="dark"] {
+  --background: #15100f;
+  --foreground: #f3dfd4;
+
+  --cream-50: #1e1411;
+  --cream-100: #271915;
+  --cream-200: #36221c;
+  --cream-300: #462c24;
+  --cream-400: #5d3b30;
+  --cream-500: #784c3e;
+  --cream-600: #91614e;
+  --cream-700: #ae7c66;
+  --cream-800: #cba18b;
+  --cream-900: #e6c7b3;
+
+  --wine-50: #1c0a0c;
+  --wine-100: #2a1012;
+  --wine-200: #3b1818;
+  --wine-300: #502222;
+  --wine-400: #682a2a;
+  --wine-500: #82333a;
+  --wine-600: #9e3f48;
+  --wine-700: #b85058;
+  --wine-800: #d17580;
+  --wine-900: #e6a0a8;
+  --wine-950: #f3cdd2;
+
+  --gold-50: #1d1606;
+  --gold-100: #2a2009;
+  --gold-200: #3d3014;
+  --gold-300: #54421f;
+  --gold-400: #71592d;
+  --gold-500: #977841;
+  --gold-600: #b69455;
+  --gold-700: #e8cd9c;
+  --gold-800: #dcc692;
+  --gold-900: #ecdcbb;
+
+  /* Top-bar stays dark in dark mode (not the pink wine gradient).
+   * --topbar-bg-from is a near-black warm brown; --topbar-bg-to is
+   * pure black with the faintest warm tint. Together they read as
+   * "dark" rather than "pink", regardless of wine/beer axis. */
+  --topbar-bg-from: #1a0e0a;
+  --topbar-bg-to: #080403;
+}
+
+[data-beer="true"][data-theme="dark"] {
+  --background: #15110a;
+  --foreground: #f0e2c8;
+
+  --cream-50: #1f1810;
+  --cream-100: #2a2117;
+  --cream-200: #38291a;
+  --cream-300: #4a3520;
+  --cream-400: #634729;
+  --cream-500: #7e5b34;
+  --cream-600: #977143;
+  --cream-700: #ae8a5b;
+  --cream-800: #c7a779;
+  --cream-900: #dcc39a;
+
+  --wine-50: #1c0e02;
+  --wine-100: #281506;
+  --wine-200: #3a2009;
+  --wine-300: #522e10;
+  --wine-400: #6d3f19;
+  --wine-500: #8b5424;
+  --wine-600: #a86834;
+  --wine-700: #c3814c;
+  --wine-800: #d9a072;
+  --wine-900: #ebb98a;
+  --wine-950: #f5dab4;
+
+  --gold-50: #0e1807;
+  --gold-100: #172810;
+  --gold-200: #243a1b;
+  --gold-300: #325024;
+  --gold-400: #476c33;
+  --gold-500: #608c46;
+  --gold-600: #80a95e;
+  --gold-700: #c5e3a2;
+  --gold-800: #c5dba3;
+  --gold-900: #dfeac9;
+
+  /* Top-bar in dark beer mode: same dark, near-black warm brown
+   * gradient as dark wine mode so the header reads as "dark" in
+   * both modes (not as a brown gradient that changes with mode). */
+  --topbar-bg-from: #1a1208;
+  --topbar-bg-to: #080502;
+}
+
+:root[data-theme="dark"] ::selection {
+  background: var(--wine-700);
+  color: var(--foreground);
+}
+
+:root[data-theme="dark"] .bg-wine-gradient {
+  background: linear-gradient(135deg, var(--wine-700), var(--wine-950));
+}
+
+:root[data-theme="dark"] .bg-wine-gradient-light {
+  background: linear-gradient(135deg, var(--cream-50), var(--cream-100));
+}
+
+:root[data-theme="dark"] .bg-subtle {
+  background-image: radial-gradient(var(--cream-100) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+:root[data-theme="dark"] .text-gradient {
+  background: linear-gradient(135deg, var(--wine-700), var(--wine-900));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+[data-beer="true"][data-theme="dark"] .bg-wine-gradient {
+  background: linear-gradient(135deg, var(--wine-700), var(--wine-950));
+}
+
+[data-beer="true"][data-theme="dark"] .bg-wine-gradient-light {
+  background: linear-gradient(135deg, var(--cream-50), var(--cream-100));
+}
+
+[data-beer="true"][data-theme="dark"] .bg-subtle {
+  background-image: radial-gradient(var(--cream-100) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+[data-beer="true"][data-theme="dark"] .text-gradient {
+  background: linear-gradient(135deg, var(--wine-700), var(--wine-900));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Targeted override: most card / sidebar / modal surfaces use
+ * `bg-white` (hardcoded white, not a token). Bridge them to the
+ * dark palette so the visual hierarchy (lighter card on slightly
+ * darker page bg) is preserved. Inputs are NOT in this group --
+ * they keep their existing `bg-white` for high contrast against
+ * the dark form background. */
+:root[data-theme="dark"] .bg-white {
+  background-color: var(--cream-50);
+}
+
+[data-beer="true"][data-theme="dark"] .bg-white {
+  background-color: var(--cream-50);
+}
+
+/* ============================================================
+ * WCAG AA text-colour overrides — light themes only
+ * ============================================================
+ *
+ * In light themes, --wine-400 and --wine-500 sit at low luminance
+ * and fail 4.5:1 on cream-50/cream-100 — which is where they're used
+ * for helper text (`text-wine-400`, `text-wine-500`), placeholders
+ * (`placeholder-wine-300`/`400`), and pill counters. The aesthetic
+ * rosé/amber hues are preserved on backgrounds (`bg-wine-50`,
+ * `bg-wine-100`) and borders by scoping the override to `color`
+ * (and `::placeholder` color) only. Wine-700 reads darker in both
+ * light wine (#a9283f) and light beer (#9a5500) and clears AA on the
+ * cream backgrounds.
+ *
+ * Selector specificity:
+ *   Tailwind generates `.text-wine-400` at (0,1,0).
+ *   This override is `:root:not([data-theme="dark"]) .text-wine-400`
+ *   at (0,2,0) — same selector, plus the `:not(...)` attribute gate,
+ *   so it wins for both light wine and light beer without affecting
+ *   dark themes (where the tokens are already lightened at the
+ *   variable layer).
+ *
+ * Browsers dim `::placeholder` to ~60 % opacity by default — that's a
+ * silent contrast killer even when the chosen colour passes. Force
+ * opacity:1 so the colour we set is the colour that's painted. */
+:root:not([data-theme="dark"]) .text-wine-400,
+:root:not([data-theme="dark"]) .text-wine-500 {
+  color: var(--wine-700);
+}
+
+/* In dark themes, --wine-400/-500/-700 are dark hues that fail AA on
+ * cream-50/cream-100 (which themselves are dark in dark mode). The
+ * monotone luminance gradient is preserved at the token layer
+ * (400 < 500 < 600 < 700 < 800 < 900 in relative luminance) for
+ * backgrounds and borders; text-class uses get re-routed to a lighter
+ * sibling that already passes 4.5:1. Mapping choices preserve the
+ * "higher number = brighter text" semantic so 400/500/600/700/800
+ * remain visually ordered on text surfaces:
+ *   text-wine-400/500 → wine-800  (gap of one step in dark gradient)
+ *   text-wine-700      → wine-900  (only tinier jump, just clearing AA)
+ * Result: any text-wine-N on cream-50/cream-100 in dark ≥ 4.5:1; the
+ * dark gradient still has clean bg-/border-distinction steps. */
+:root[data-theme="dark"] .text-wine-400,
+:root[data-theme="dark"] .text-wine-500,
+:root[data-theme="dark"] .text-wine-600 {
+  color: var(--wine-800);
+}
+:root[data-theme="dark"] .text-wine-700 {
+  color: var(--wine-900);
+}
+
+:root:not([data-theme="dark"]) .placeholder-wine-300::placeholder,
+:root:not([data-theme="dark"]) .placeholder-wine-400::placeholder {
+  color: var(--wine-700);
+  opacity: 1;
+}
+
+:root[data-theme="dark"] .placeholder-wine-300::placeholder,
+:root[data-theme="dark"] .placeholder-wine-400::placeholder {
+  color: var(--cream-700);
+  opacity: 1;
+}
+
+/* Hide the placeholder on focus for every form control, so the
+ * field's "empty" affordance disappears the moment the user clicks
+ * or tabs in (rather than persisting until they type their first
+ * character). Specificity (0,1,2) beats the per-class placeholder
+ * color rules above (0,1,1) so the focus-hide wins regardless of
+ * which placeholder-* utility the input uses. */
+input:focus::placeholder,
+textarea:focus::placeholder {
+  opacity: 0;
 }
 

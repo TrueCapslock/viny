@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
-import { wineTypes, beerTypes } from "@/lib/beer"
+import { wineTypes, beerTypes, beerTypeGroups } from "@/lib/beer"
+import { GrapeSelect } from "@/app/_components/grape-select"
 
 type WineFormData = {
   name: string
@@ -35,6 +36,15 @@ export function WineForm({
   const fileRef = useRef<HTMLInputElement>(null)
   const imageRef = useRef(initial?.image ?? "")
   const savedRef = useRef(false)
+  // Synchronous re-entry guard for handleSubmit. The button's
+  // `disabled={saving || uploading}` prop is the visual cue, but
+  // pressing Enter in any text input fires form submit (bypassing
+  // the button-disabled state) and React's `setSaving(true)` flushes
+  // asynchronously — a rapid double-Enter can fire handleSubmit
+  // twice before the state update lands, producing two POSTs and
+  // two Wine rows. A ref flips synchronously on first invocation
+  // and bails on re-entry; reset on error so the user can retry.
+  const submittingRef = useRef(false)
   const [form, setForm] = useState<WineFormData>(
     initial ?? {
       name: "",
@@ -118,17 +128,29 @@ export function WineForm({
       setError("Vent til bildet er ferdig lastet opp")
       return
     }
+    // Synchronous guard against double-submit (rapid Enter, double
+    // click before React flushes `setSaving(true)`). See the
+    // submittingRef declaration above for the why.
+    if (submittingRef.current) return
+    submittingRef.current = true
     setSaving(true)
     setError(null)
     const res = await onSave({ ...form, image: imageRef.current || form.image })
     if (res.ok) {
       savedRef.current = true
+      // Don't reset submittingRef on success — we're navigating
+      // away, so the guard just blocks any late submits racing the
+      // navigation transition. The unmount drops the ref.
       router.push("/")
       router.refresh()
-    } else {
-      setError(res.error ?? "Noe gikk galt")
+      // setSaving(false) intentionally NOT called on success: the
+      // form unmounts as `router.push` lands, so a final state tick
+      // would just be wasted React work before the unmount.
+      return
     }
+    submittingRef.current = false // allow retry on error
     setSaving(false)
+    setError(res.error ?? "Noe gikk galt")
   }
 
   const inputClass = "w-full rounded-xl border border-cream-200 bg-cream-50 px-3.5 py-2.5 text-sm text-wine-900 placeholder-wine-300 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none transition-all"
@@ -224,29 +246,60 @@ export function WineForm({
                 className={inputClass}
               >
                 <option value="">Velg type...</option>
-                {isBeer && (
-                  <optgroup label="Øl">
-                    {beerTypes.map((t) => (
+                {isBeer ? (
+                  // Beer-mode dropdown: wine types first (no generic "Øl"
+                  // entry, since the user is already in beer mode and
+                  // should pick a specific sub-style) then the 6 grouped
+                  // beer sub-style optgroups.
+                  <>
+                    <optgroup label="Vin">
+                      {wineTypes
+                        .filter((t) => t.key !== "beer")
+                        .map((t) => (
+                          <option key={t.key} value={t.key}>{t.label}</option>
+                        ))}
+                    </optgroup>
+                    {beerTypeGroups.map((group) => {
+                      const items = beerTypes.filter((t) => t.group === group)
+                      if (items.length === 0) return null
+                      return (
+                        <optgroup key={group} label={group}>
+                          {items.map((t) => (
+                            <option key={t.key} value={t.key}>{t.label}</option>
+                          ))}
+                        </optgroup>
+                      )
+                    })}
+                  </>
+                ) : (
+                  // Wine-mode dropdown: classic wine types + a generic
+                  // "Øl" entry for users who want to tag a wine-mode
+                  // entry as a beer without picking a sub-style.
+                  <optgroup label="Type">
+                    {wineTypes.map((t) => (
                       <option key={t.key} value={t.key}>{t.label}</option>
                     ))}
                   </optgroup>
                 )}
-                <optgroup label={isBeer ? "Vin" : "Type"}>
-                  {wineTypes.map((t) => (
-                    <option key={t.key} value={t.key}>{t.label}</option>
-                  ))}
-                </optgroup>
               </select>
             </div>
           </div>
           <div>
-              <label className="block text-xs font-medium text-wine-700 mb-1">{isBeer ? "Stil" : "Drue"}</label>
-            <input
-              value={form.varietal}
-              onChange={(e) => setForm((current) => ({ ...current, varietal: e.target.value }))}
-              className={inputClass}
-              placeholder={isBeer ? "IPA" : "Cabernet Sauvignon"}
-            />
+            <label className="block text-xs font-medium text-wine-700 mb-1">{isBeer ? "Stil" : "Drue"}</label>
+            {isBeer ? (
+              <input
+                value={form.varietal}
+                onChange={(e) => setForm((current) => ({ ...current, varietal: e.target.value }))}
+                className={inputClass}
+                placeholder="IPA"
+                autoComplete="off"
+              />
+            ) : (
+              <GrapeSelect
+                value={form.varietal}
+                onChange={(value) => setForm((current) => ({ ...current, varietal: value }))}
+              />
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -283,7 +336,7 @@ export function WineForm({
       </div>
 
       <div>
-        <h3 className="text-xs font-semibold text-wine-500 uppercase tracking-wider mb-3">{isBeer ? "Lager" : "Vinskap"}</h3>
+        <h3 className="text-xs font-semibold text-wine-500 uppercase tracking-wider mb-3">{isBeer ? "Ølkasse" : "Vinskap"}</h3>
         <div className="bg-cream-50 rounded-2xl border border-cream-200 p-4 space-y-4">
           <label className="flex items-center gap-3 cursor-pointer select-none">
             <div

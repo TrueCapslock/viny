@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Uva (Latin: grape). Hand-designed grape-bunch motif.
+     Wine-red palette mirrors globals.css bg-wine-gradient.
+     viewBox 100×100, scales freely via CSS className on <img>. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" aria-hidden="true">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#a9283f"/>
+      <stop offset="1" stop-color="#3f0f1b"/>
+    </linearGradient>
+    <radialGradient id="grape" cx="0.32" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#fce7ea"/>
+      <stop offset="0.4" stop-color="#de4f68"/>
+      <stop offset="1" stop-color="#722337"/>
+    </radialGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fce7ea"/>
+      <stop offset="1" stop-color="#da9653"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded square background, matches bg-wine-gradient direction. -->
+  <rect width="100" height="100" rx="20" fill="url(#bg)"/>
+
+  <!-- Stem connecting leaf to grape cluster. -->
+  <path d="M50,32 C50,28 49,23 50,17" stroke="#a46a3b" stroke-width="2.5"
+        fill="none" stroke-linecap="round"/>
+
+  <!-- Grape-style leaf: rounded silhouette with notched top edge
+       (suggesting two side lobes + a center lobe) and a midrib vein. -->
+  <path d="M50,22 C58,17 71,21 70,32 C62,31 54,29 50,28 Z"
+        fill="url(#leaf)" stroke="#a46a3b" stroke-width="1.2" stroke-linejoin="round"/>
+  <!-- Midrib vein from petiole toward leaf tip. -->
+  <path d="M52,28 L66,30" stroke="#a46a3b" stroke-width="0.9"
+        fill="none" opacity="0.6" stroke-linecap="round"/>
+  <!-- Two side veins branching off the midrib toward lobe tips. -->
+  <path d="M58,22 L62,20" stroke="#a46a3b" stroke-width="0.7"
+        fill="none" opacity="0.5" stroke-linecap="round"/>
+  <path d="M58,22 L54,20" stroke="#a46a3b" stroke-width="0.7"
+        fill="none" opacity="0.5" stroke-linecap="round"/>
+
+  <!-- Tendril curl. -->
+  <path d="M70,24 C77,28 73,35 70,34" stroke="#a46a3b" stroke-width="1.5"
+        fill="none" stroke-linecap="round"/>
+
+  <!-- Grape cluster: 1-2-3-2-1 pyramid (9 grapes), shifted up 4 units
+       so the bottom grape ends at y=74 (above the bottom safe-area edge). -->
+  <g stroke="#3f0f1b" stroke-width="0.6">
+    <circle cx="50" cy="34" r="8" fill="url(#grape)"/>
+    <circle cx="42" cy="44" r="8" fill="url(#grape)"/>
+    <circle cx="58" cy="44" r="8" fill="url(#grape)"/>
+    <circle cx="34" cy="54" r="8" fill="url(#grape)"/>
+    <circle cx="50" cy="54" r="8" fill="url(#grape)"/>
+    <circle cx="66" cy="54" r="8" fill="url(#grape)"/>
+    <circle cx="42" cy="64" r="8" fill="url(#grape)"/>
+    <circle cx="58" cy="64" r="8" fill="url(#grape)"/>
+    <circle cx="50" cy="74" r="8" fill="url(#grape)"/>
+  </g>
+
+  <!-- Specular highlights, upper-left of each grape. -->
+  <g fill="#fff" opacity="0.55">
+    <circle cx="47" cy="31" r="1.4"/>
+    <circle cx="39" cy="41" r="1.4"/>
+    <circle cx="55" cy="41" r="1.4"/>
+    <circle cx="31" cy="51" r="1.4"/>
+    <circle cx="47" cy="51" r="1.4"/>
+    <circle cx="63" cy="51" r="1.4"/>
+    <circle cx="39" cy="61" r="1.4"/>
+    <circle cx="55" cy="61" r="1.4"/>
+    <circle cx="47" cy="71" r="1.4"/>
+  </g>
+</svg>

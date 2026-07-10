@@ -1,56 +1,180 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useId, useState } from "react"
+import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
+import { Icon } from "@/app/_components/icons"
 
 export function DeleteButton({
   wineId,
   wineName,
   tastingCount,
+  lists,
 }: {
   wineId: number
   wineName: string
   tastingCount: number
+  lists?: { id: number; name: string; isMain: boolean; inCellar: boolean }[]
 }) {
   const router = useRouter()
   const [showConfirm, setShowConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  // Stable, SSR-safe, per-instance IDs for the dialog's labelling.
+  // useId() (React 18+/19) returns a deterministic string per
+  // component instance so aria-labelledby/describedby here stay in
+  // sync across re-renders. Hardcoding `delete-dialog-title` would
+  // be valid HTML for a single dialog mount but breaks the moment a
+  // second DeleteButton renders on the same page (e.g. a future
+  // list-row variant that surfaces the same confirm UI per wine --
+  // duplicate ids are an HTML conformance violation and screen-
+  // reader aria references would point to whichever heading the
+  // browser happens to find first).
+  const headingId = useId()
 
   async function handleDelete() {
     setDeleting(true)
-    const res = await fetch(`/api/viner/${wineId}`, {
-      method: "DELETE",
-    })
-    if (res.ok) {
-      router.push("/")
-      router.refresh()
+    setError(null)
+    try {
+      const res = await fetch(`/api/viner/${wineId}`, {
+        method: "DELETE",
+      })
+      if (res.ok) {
+        router.push("/")
+        router.refresh()
+        return
+      }
+      // Non-2xx: surface a readable message so the user knows the
+      // delete didn't happen. Without this the dialog re-enabled the
+      // button silently and the user thought the click "didn't work"
+      // — which is exactly the bug that motivated the FK-constraint
+      // + handler fix in the same commit.
+      const data = (await res.json().catch(() => null)) as {
+        error?: string
+      } | null
+      setError(data?.error ?? `Kunne ikke slette (HTTP ${res.status})`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Nettverksfeil")
+    } finally {
+      setDeleting(false)
     }
-    setDeleting(false)
   }
+
+  function openConfirm() {
+    setError(null)
+    setShowConfirm(true)
+  }
+
+  // Close the confirm dialog on Escape. The dialog is portaled to
+  // document.body (see comment below on the portal), so it lives
+  // outside the WineOverflowMenu subtree -> the menu's own Escape
+  // listener would not see this dialog. Pair the keyboard handler
+  // with a backdrop onClick (below) for mouse parity with add-to-list-
+  // dialog / avatar-crop-dialog / suggest-wine-dialog / share-mainlist-
+  // dialog / stop-sharing-dialog / tasting-form-dialog.
+  useEffect(() => {
+    if (!showConfirm) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setShowConfirm(false)
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [showConfirm])
 
   return (
     <>
       <button
-        onClick={() => setShowConfirm(true)}
-        className="text-sm font-medium text-red-400 hover:text-red-500 transition-colors px-3.5 py-1.5 rounded-xl hover:bg-red-50"
+        onClick={openConfirm}
+        className="flex items-center gap-2.5 w-full px-3 py-2 text-sm font-medium text-red-700 hover:bg-cream-50 rounded-xl transition-colors"
       >
+        <Icon name="delete" size={18} className="text-red-500" />
         Slett
       </button>
 
-      {showConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
-          <div className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-cream-200 animate-scale-in">
+      {showConfirm && createPortal(
+        // Backdrop dismisses on click. The backdrop is also the listener
+        // for "click outside the dialog card => cancel" and matches the
+        // dismiss-affordance in every other portaled dialog in the
+        // codebase (add-to-list-dialog etc.). The mousedown on the
+        // backdrop also fires the WineOverflowMenu's outside-click
+        // handler (the dialog is now outside the menu's ref-anchored
+        // subtree); that's expected: cancelling the dialog should
+        // collapse the underlying menu state too.
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={`${headingId}-title`}
+          aria-describedby={`${headingId}-desc`}
+          onClick={() => setShowConfirm(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in cursor-pointer"
+        >
+          {/* Click + mousedown on the card must NOT bubble out. Two
+              distinct listeners need stopping here:
+               * onClick stopPropagation -> the backdrop's onClick
+                 (setShowConfirm(false)) doesn't fire on every
+                 card-internal click.
+               * onMouseDown stopPropagation -> the parent
+                 WineOverflowMenu's document-level mousedown
+                 listener doesn't immediately close the menu and
+                 UNMOUNT this whole <DeleteButton /> subtree (which
+                 would also take the portaled dialog with it) before
+                 the subsequent click event fires handleDelete.
+              Without this, a race between mousedown and click makes
+              the Slett button inside the dialog a no-op. The
+              backdrop intentionally allows both to bubble so a click
+              on the dark backdrop still collapses the menu state
+              cleanly. */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-cream-200 animate-scale-in"
+          >
             <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
               <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
               </svg>
             </div>
-            <h3 className="text-lg font-bold text-wine-800 text-center">Slett {wineName}?</h3>
-            <p className="mt-2 text-sm text-wine-500 text-center">
+            <h3 id={`${headingId}-title`} className="text-lg font-bold text-wine-800 text-center">Slett {wineName}?</h3>
+            <p id={`${headingId}-desc`} className="mt-2 text-sm text-wine-500 text-center">
               {tastingCount > 0
                 ? `${tastingCount} smaksnotat${tastingCount === 1 ? "" : "er"} vil også bli slettet.`
                 : "Denne handlingen kan ikke angres."}
             </p>
+            {lists && lists.length > 0 && (
+              <div className="mt-4 text-left">
+                <p className="text-xs font-medium text-wine-400 mb-1.5">Vinen er i:</p>
+                <ul className="space-y-1">
+                  {lists.map((l) => (
+                    <li
+                      key={l.id}
+                      className="flex items-center gap-2 text-sm text-wine-700 bg-cream-50 rounded-lg px-3 py-1.5"
+                    >
+                      {l.isMain ? (
+                        <span className="w-3 h-3 rounded-full bg-wine-600 shrink-0" />
+                      ) : (
+                        <span className="w-3 h-3 rounded border border-wine-400 shrink-0" />
+                      )}
+                      <span>
+                        {l.isMain ? "Vinskapet" : l.name}
+                        {l.isMain && (
+                          <span className="text-wine-400 ml-1">
+                            ({l.inCellar ? "i kjelleren" : "ikke i kjelleren"})
+                          </span>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {error && (
+              <p
+                role="alert"
+                className="mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-center"
+              >
+                {error}
+              </p>
+            )}
             <div className="mt-6 flex gap-3">
               <button
                 onClick={() => setShowConfirm(false)}
@@ -67,7 +191,8 @@ export function DeleteButton({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   )

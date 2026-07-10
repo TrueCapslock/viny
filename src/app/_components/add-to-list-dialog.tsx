@@ -24,9 +24,37 @@ export function AddToListDialog({
   const [creating, setCreating] = useState(false)
   const [toggling, setToggling] = useState<number | null>(null)
 
+  // Sync the optimistic `membership` Set with the SWR-cached `listIds`.
+  // useWineLists returns a fresh `listIds` array reference on every
+  // render, so the bare `setMembership(new Set(listIds))` previous
+  // implementation triggered React's "Maximum update depth exceeded"
+  // guard under the dialog's toggle flow — setMembership called →
+  // re-render → new listIds ref → effect fires again → loop.
+  //
+  // Bail out when the new listIds describe the same ID set as `prev`
+  // so React reads the same state and skips the re-render. The `react-
+  // hooks/set-state-in-effect` lint rule trips on any synchronous
+  // setState in an effect, but React's bailout on identical state
+  // identity means no cascading render actually happens here — the
+  // rule is over-defensive for SWR-cache-mirror patterns. Suppressed
+  // for this single effect (block-style because the rule fires at the
+  // setMembership call inside the body, not the useEffect call
+  // itself, so `disable-next-line` doesn't reach it); the alternative
+  // (an optimistic-overlay Map + useMemo derivation) is a meaningful
+  // rewrite that's not in scope for this fix.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    setMembership(new Set(listIds))
+    setMembership((prev) => {
+      if (
+        prev.size === listIds.length &&
+        listIds.every((id) => prev.has(id))
+      ) {
+        return prev
+      }
+      return new Set(listIds)
+    })
   }, [listIds])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function toggle(listId: number) {
     if (toggling !== null) return
@@ -41,12 +69,20 @@ export function AddToListDialog({
       return n
     })
     try {
+      // keepalive: true makes the browser hold the request open across
+      // page unloads (navigation, close, refresh). Real users often
+      // tap "Legg i liste" → close dialog → navigate away in quick
+      // succession; without keepalive, the in-flight POST can be
+      // aborted by the navigation and the server never sees it, so the
+      // list membership silently drifts from what the UI showed. Body
+      // limit is 64KB; our { listId } payload is well under that.
       const res = wasMember
-        ? await fetch(`/api/viner/${wineId}/lists/${listId}`, { method: "DELETE" })
+        ? await fetch(`/api/viner/${wineId}/lists/${listId}`, { method: "DELETE", keepalive: true })
         : await fetch(`/api/viner/${wineId}/lists`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ listId }),
+            keepalive: true,
           })
       if (!res.ok) throw new Error("Kunne ikke oppdatere listen")
       mutateMembership()
@@ -71,10 +107,15 @@ export function AddToListDialog({
     setCreating(true)
     setError(null)
     try {
+      // keepalive: true — see comment in toggle(). The inline-create
+      // POST creates a list and (atomically) joins the wine; if the
+      // user navigates away mid-flight, both the list and the
+      // membership would be lost without keepalive. Payload is small.
       const res = await fetch("/api/lists", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: trimmed, addWineId: wineId }),
+        keepalive: true,
       })
       if (!res.ok) throw new Error("Kunne ikke opprette liste")
       const list = await res.json()

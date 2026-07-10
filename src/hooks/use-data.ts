@@ -1,7 +1,6 @@
 "use client"
 
 import useSWR from "swr"
-import useSWRMutation from "swr/mutation"
 import { fetcher, apiUrl } from "@/lib/api"
 
 export function useWines(userId?: number | null) {
@@ -22,6 +21,8 @@ export function useFriends() {
     friends: data?.friends ?? [],
     pendingSent: data?.pendingSent ?? [],
     pendingReceived: data?.pendingReceived ?? [],
+    pendingShareInvitesSent: data?.pendingShareInvitesSent ?? [],
+    pendingShareInvitesReceived: data?.pendingShareInvitesReceived ?? [],
     sharedLists: data?.sharedLists ?? [],
     error,
     loading: isLoading,

@@ -62,3 +62,22 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# local QA artifacts from manual / per-run iterations --
+# per-run logs (e.g. tests-output/baseline.log) and ad-hoc
+# screenshot folders (e.g. tests-output/sidebar-qa) used by
+# investigation scripts. The shipped e2e suite does not write
+# here; only ad-hoc verification work does.
+/tests-output/
+
+# per-run playwright capture logs from the local regression
+# runner. Re-written on every `npx playwright test` run; never
+# committed. The shipped e2e suite does not write here either;
+/.pw-all.log
+/.pw-vinskapet.log
+/.pw-lists.log
+/.pw-layout.log
+/.pw-merge.log
+
+# ad-hoc runner script written during regression triage.
+/.run-pw.sh

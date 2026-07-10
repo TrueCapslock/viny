@@ -5,6 +5,8 @@ import Link from "next/link"
 import { Users } from "@/app/_components/icons"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
 import { UserCardSkeleton } from "@/app/_components/skeletons"
+import { ShareMainlistDialog } from "@/app/_components/share-mainlist-dialog"
+import { StopSharingDialog } from "@/app/_components/stop-sharing-dialog"
 import { useFriends, useSuggestions } from "@/hooks/use-data"
 
 type UserInfo = { id: number; name: string | null; email: string; image: string | null }
@@ -22,9 +24,31 @@ type Suggestion = {
   fromUser: { id: number; name: string | null; email: string; image: string | null }
 }
 
+// v0.15.1: list-share is invite-then-accept.
+type PendingShareInviteSent = {
+  id: number
+  toUserId: number
+  winner: "mine" | "theirs" | "merge"
+  toUser: { id: number; name: string | null; email: string; image: string | null }
+}
+type PendingShareInviteReceived = {
+  id: number
+  fromUserId: number
+  winner: "mine" | "theirs" | "merge"
+  fromUser: { id: number; name: string | null; email: string; image: string | null }
+}
+
 export default function FriendsPage() {
   const { isBeer } = useBeerMode()
-  const { friends, pendingSent, pendingReceived, loading: friendsLoading, mutate: mutateFriends } = useFriends()
+  const {
+    friends,
+    pendingSent,
+    pendingReceived,
+    pendingShareInvitesSent,
+    pendingShareInvitesReceived,
+    loading: friendsLoading,
+    mutate: mutateFriends,
+  } = useFriends()
   const { received: suggestions, loading: suggestionsLoading, mutate: mutateSuggestions } = useSuggestions()
 
   const [searchQuery, setSearchQuery] = useState("")
@@ -33,11 +57,45 @@ export default function FriendsPage() {
 
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [shareTarget, setShareTarget] = useState<Friend | null>(null)
-  const [sharing, setSharing] = useState(false)
-  const [shareError, setShareError] = useState<string | null>(null)
 
+  // v0.15.1: stop-sharing dialog state. Opens from the friend row when
+  // the list is currently shared; closes on cancel or after the
+  // DELETE /api/friends/share call succeeds.
+  const [showStopSharingDialog, setShowStopSharingDialog] = useState(false)
+  const [stopSharingTarget, setStopSharingTarget] = useState<Friend | null>(null)
+
+  // v0.15.0: share logic moved into ShareMainlistDialog — the page only
+  // toggles open/close and re-runs the friends SWR fetch on success.
   async function reload() {
     await Promise.all([mutateFriends(), mutateSuggestions()])
+  }
+
+  // v0.15.1: list-share actions.
+  //
+  // Accept runs the merge tx on the server (the friend user is
+  // post-authenticated). Decline and cancel both DELETE the invite
+  // with status="declined" or "cancelled" respectively; the route
+  // differentiates by caller identity. We always reload() afterwards
+  // so the new merged-state friend row (or the dismissed pending
+  // invite row) shows up on the next SWR pass.
+  async function handleAcceptShareInvite(inviteId: number) {
+    const res = await fetch(`/api/friends/share-invite/${inviteId}/accept`, { method: "POST" })
+    if (!res.ok) {
+      const data = await res.json().catch(() => null)
+      alert(data?.error ?? "Kunne ikke godta delingen")
+      return
+    }
+    await reload()
+  }
+
+  async function handleDeclineShareInvite(inviteId: number) {
+    const res = await fetch(`/api/friends/share-invite/${inviteId}`, { method: "DELETE" })
+    if (res.ok) mutateFriends()
+  }
+
+  async function handleCancelShareInvite(inviteId: number) {
+    const res = await fetch(`/api/friends/share-invite/${inviteId}`, { method: "DELETE" })
+    if (res.ok) mutateFriends()
   }
 
   async function handleRequest(email: string) {
@@ -67,26 +125,6 @@ export default function FriendsPage() {
     mutateFriends()
   }
 
-  async function handleShare(mode: "mine" | "theirs" | "merge") {
-    if (!shareTarget) return
-    setSharing(true)
-    setShareError(null)
-    const res = await fetch("/api/shared-lists", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ friendUserId: shareTarget.userId, mode }),
-    })
-    if (res.ok) {
-      setShowShareDialog(false)
-      setShareTarget(null)
-      mutateFriends()
-    } else {
-      const data = await res.json()
-      setShareError(data.error ?? "Noe gikk galt")
-    }
-    setSharing(false)
-  }
-
   async function handleAcceptSuggestion(suggestionId: number) {
     const res = await fetch(`/api/forslag/${suggestionId}/accept`, { method: "POST" })
     if (res.ok) reload()
@@ -99,8 +137,12 @@ export default function FriendsPage() {
 
   function openShareDialog(friend: Friend) {
     setShareTarget(friend)
-    setShareError(null)
     setShowShareDialog(true)
+  }
+
+  function openStopSharingDialog(friend: Friend) {
+    setStopSharingTarget(friend)
+    setShowStopSharingDialog(true)
   }
 
   async function handleSearch(q: string) {
@@ -304,6 +346,121 @@ export default function FriendsPage() {
         </section>
       )}
 
+      {pendingShareInvitesReceived.length > 0 && (
+        <section className="mb-6">
+          <h2 className="text-xs font-semibold text-wine-500 uppercase tracking-wider mb-3">Delte-listeforespørsler</h2>
+          <div className="space-y-2">
+            {pendingShareInvitesReceived.map((i: PendingShareInviteReceived) => {
+              const sender = i.fromUser
+              const senderLabel = sender?.name ?? sender?.email ?? "en venn"
+              // winner="merge" is the non-destructive path: all wines
+              // survive. mine/theirs are now destructive — the loser's
+              // wines are dropped on accept. Lookup map (not a nested
+              // ternary) so TS catches an unhandled winner at compile
+              // time and the copy is easier to scan.
+              const subtitleByWinner: Record<
+                PendingShareInviteReceived["winner"],
+                string
+              > = {
+                merge: `${senderLabel} foreslår å slå sammen listene — alle viner bevares i den felles listen.`,
+                mine: `Senderens liste blir den felles — ${senderLabel}s viner blir slettet.`,
+                theirs: `Din liste blir den felles — dine viner blir slettet.`,
+              }
+              const subtitle = subtitleByWinner[i.winner]
+              return (
+                <div
+                  key={i.id}
+                  data-testid="share-invite-received"
+                  className="bg-white rounded-xl border border-cream-200 p-4"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-wine-100 flex items-center justify-center shrink-0 overflow-hidden">
+                      <Users className="w-5 h-5 text-wine-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-wine-800 truncate">
+                        {senderLabel} vil dele {isBeer ? "ølliste" : "vinliste"} med deg
+                      </p>
+                      <p className="text-xs text-wine-500 mt-1 leading-relaxed">{subtitle}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={() => handleAcceptShareInvite(i.id)}
+                      data-testid="share-invite-accept"
+                      className="rounded-full bg-wine-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-wine-700 transition-colors"
+                    >
+                      Godta
+                    </button>
+                    <button
+                      onClick={() => handleDeclineShareInvite(i.id)}
+                      data-testid="share-invite-decline"
+                      className="rounded-full border border-cream-300 px-3.5 py-1.5 text-xs font-medium text-wine-600 hover:bg-cream-50 transition-colors"
+                    >
+                      Avslå
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      {pendingShareInvitesSent.length > 0 && (
+        <section className="mb-6">
+          <h2 className="text-xs font-semibold text-wine-500 uppercase tracking-wider mb-3">Ventende delte-listeforespørsler</h2>
+          <div className="space-y-2">
+            {pendingShareInvitesSent.map((i: PendingShareInviteSent) => {
+              const targetEmail = i.toUser?.email
+              // Prefer the friend display name over their email for the
+              // "blir slettet" copy — e.g. "Olas viner blir slettet"
+              // rather than "e2e-merge-12345@viny.tests viner blir
+              // slettet", which is ungrammatical Norwegian.
+              const targetName =
+                i.toUser?.name ?? i.toUser?.email ?? "vennen"
+              const sentTail = targetEmail ? ` til ${targetEmail}` : ""
+              const tailByWinner: Record<
+                PendingShareInviteSent["winner"],
+                string
+              > = {
+                merge:
+                  "Venter på svar — listene slås sammen og alle viner bevares.",
+                mine: `Venter på svar — ${targetName}s viner blir slettet ved godkjenning.`,
+                theirs:
+                  "Venter på svar — dine viner blir slettet ved godkjenning.",
+              }
+              return (
+                <div
+                  key={i.id}
+                  data-testid="share-invite-sent"
+                  className="bg-white rounded-xl border border-cream-200 p-4 flex items-center gap-3"
+                >
+                  <div className="w-10 h-10 rounded-full bg-cream-100 flex items-center justify-center shrink-0 overflow-hidden">
+                    <Users className="w-5 h-5 text-cream-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-wine-800 truncate">
+                      Sendt forespørsel om å dele {isBeer ? "ølliste" : "vinliste"}{sentTail}
+                    </p>
+                    <p className="text-xs text-wine-400 truncate">
+                      {tailByWinner[i.winner]}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleCancelShareInvite(i.id)}
+                    data-testid="share-invite-cancel"
+                    className="rounded-full border border-cream-300 px-3.5 py-1.5 text-xs font-medium text-wine-600 hover:bg-cream-50 transition-colors shrink-0"
+                  >
+                    Kanseller
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
       <section>
         <h2 className="text-xs font-semibold text-wine-500 uppercase tracking-wider mb-3">
           Dine venner
@@ -319,111 +476,109 @@ export default function FriendsPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {friends.map((friend: Friend) => (
-              <div key={friend.id} className="bg-white rounded-xl border border-cream-200 overflow-hidden">
-                <Link
-                  href={`/venner/${friend.userId}`}
-                  className="flex items-center gap-3 p-4 hover:bg-cream-50 transition-colors"
-                >
-                  <div className="w-10 h-10 rounded-full bg-wine-100 flex items-center justify-center shrink-0 overflow-hidden">
-                    {friend.image ? (
-                      <img src={friend.image} alt="" className="w-full h-full object-cover" />
+            {friends.map((friend: Friend) => {
+              // v0.15.1: row gets a tri-state share badge. sharedList
+              // wins top billing; otherwise hide the "Del liste" button
+              // when there's a pending sent invite to that friend so the
+              // user doesn't double-invite.
+              const pendingInviteToFriend = pendingShareInvitesSent.find(
+                (i: PendingShareInviteSent) => i.toUserId === friend.userId,
+              )
+              return (
+                <div key={friend.id} className="bg-white rounded-xl border border-cream-200 overflow-hidden">
+                  <Link
+                    href={`/venner/${friend.userId}`}
+                    className="flex items-center gap-3 p-4 hover:bg-cream-50 transition-colors"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-wine-100 flex items-center justify-center shrink-0 overflow-hidden">
+                      {friend.image ? (
+                        <img src={friend.image} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <Users className="w-5 h-5 text-wine-500" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-wine-800 truncate">{friend.name ?? friend.email}</p>
+                      <p className="text-xs text-wine-400 truncate">{friend.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-wine-400">
+                        {friend.sharedList ? "Felles liste" : "Les"}
+                      </span>
+                      <svg className="w-4 h-4 text-wine-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </Link>
+                  <div className="px-4 pb-3 pt-0">
+                    {friend.sharedList ? (
+                      <button
+                        onClick={() => openStopSharingDialog(friend)}
+                        data-testid="share-row-shared"
+                        className="text-xs font-medium text-gold-600 hover:text-gold-700 transition-colors"
+                      >
+                        {isBeer ? "✓ Deler ølliste" : "✓ Deler vinliste"}
+                      </button>
+                    ) : pendingInviteToFriend ? (
+                      <span
+                        data-testid="share-row-pending"
+                        className="text-xs font-medium text-wine-400"
+                      >
+                        {isBeer ? "Venter på svar om ølliste…" : "Venter på svar om vinliste…"}
+                      </span>
                     ) : (
-                      <Users className="w-5 h-5 text-wine-500" />
+                      <button
+                        onClick={() => openShareDialog(friend)}
+                        className="text-xs font-medium text-wine-600 hover:text-wine-800 transition-colors"
+                      >
+                        Del liste
+                      </button>
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-wine-800 truncate">{friend.name ?? friend.email}</p>
-                    <p className="text-xs text-wine-400 truncate">{friend.email}</p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-wine-400">
-                      {friend.sharedList ? "Felles liste" : "Les"}
-                    </span>
-                    <svg className="w-4 h-4 text-wine-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </Link>
-                <div className="px-4 pb-3 pt-0">
-                  {friend.sharedList ? (
-                    <span className="text-xs font-medium text-gold-600">
-                      {isBeer ? "✓ Deler ølliste" : "✓ Deler vinliste"}
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => openShareDialog(friend)}
-                      className="text-xs font-medium text-wine-600 hover:text-wine-800 transition-colors"
-                    >
-                      Del liste
-                    </button>
-                  )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </section>
 
       {showShareDialog && shareTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowShareDialog(false)} />
-          <div className="relative bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl animate-scale-in">
-            <button
-              onClick={() => setShowShareDialog(false)}
-              className="absolute top-4 right-4 text-wine-400 hover:text-wine-600 transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+        <ShareMainlistDialog
+          friend={{
+            userId: shareTarget.userId,
+            name: shareTarget.name,
+            email: shareTarget.email,
+          }}
+          onShared={() => {
+            // The dialog calls onShared() THEN onClose() on success — so
+            // let onClose own the state-reset (setShareTarget(null) +
+            // setShowShareDialog(false)) and have onShared only kick the
+            // SWR re-fetch. If we clear shareTarget here too, the
+            // dialog's onClose call hits it again — redundant.
+            mutateFriends()
+          }}
+          onClose={() => {
+            setShareTarget(null)
+            setShowShareDialog(false)
+          }}
+        />
+      )}
 
-            <h2 className="text-lg font-bold text-wine-900 mb-1">{isBeer ? "Del ølliste" : "Del vinliste"}</h2>
-            <p className="text-sm text-wine-500 mb-5">
-              Velg hva som skal deles med <span className="font-medium text-wine-700">{shareTarget.name ?? shareTarget.email}</span>
-            </p>
-
-            <div className="space-y-2">
-              <button
-                onClick={() => handleShare("mine")}
-                disabled={sharing}
-                className="w-full text-left rounded-xl border border-cream-200 p-4 hover:border-wine-300 hover:bg-wine-50 transition-all disabled:opacity-50"
-              >
-                <p className="text-sm font-semibold text-wine-800">Del din liste</p>
-                <p className="text-xs text-wine-500 mt-0.5">{isBeer ? "Vennene får tilgang til dine øl. Dere kan begge redigere." : "Vennene får tilgang til dine viner. Dere kan begge redigere."}</p>
-              </button>
-              <button
-                onClick={() => handleShare("theirs")}
-                disabled={sharing}
-                className="w-full text-left rounded-xl border border-cream-200 p-4 hover:border-wine-300 hover:bg-wine-50 transition-all disabled:opacity-50"
-              >
-                <p className="text-sm font-semibold text-wine-800">Del vennens liste</p>
-                <p className="text-xs text-wine-500 mt-0.5">{isBeer ? "Du får tilgang til vennens øl. Dere kan begge redigere." : "Du får tilgang til vennens viner. Dere kan begge redigere."}</p>
-              </button>
-              <button
-                onClick={() => handleShare("merge")}
-                disabled={sharing}
-                className="w-full text-left rounded-xl border border-cream-200 p-4 hover:border-wine-300 hover:bg-wine-50 transition-all disabled:opacity-50"
-              >
-                <p className="text-sm font-semibold text-wine-800">Slå sammen</p>
-                <p className="text-xs text-wine-500 mt-0.5">Begge listene slås sammen til én felles liste. Dere kan begge redigere.</p>
-              </button>
-            </div>
-
-            {sharing && (
-              <div className="flex items-center justify-center gap-2 mt-4 text-sm text-wine-500">
-                <div className="w-4 h-4 border-2 border-wine-400 border-t-transparent rounded-full animate-spin" />
-                Oppretter felles liste...
-              </div>
-            )}
-
-            {shareError && (
-              <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 mt-4">
-                {shareError}
-              </div>
-            )}
-          </div>
-        </div>
+      {showStopSharingDialog && stopSharingTarget && (
+        <StopSharingDialog
+          friend={{
+            userId: stopSharingTarget.userId,
+            name: stopSharingTarget.name,
+            email: stopSharingTarget.email,
+          }}
+          onStopped={() => {
+            mutateFriends()
+          }}
+          onClose={() => {
+            setStopSharingTarget(null)
+            setShowStopSharingDialog(false)
+          }}
+        />
       )}
     </div>
   )

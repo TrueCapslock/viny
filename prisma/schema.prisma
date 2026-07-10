@@ -7,27 +7,36 @@ datasource db {
   provider = "postgresql"
 }
 
-model SharedList {
+model List {
   id        Int       @id @default(autoincrement())
-  name      String?
+  name      String
+  userId    Int?
+  isMain    Boolean   @default(false)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  members   SharedListMember[]
-  wines     Wine[]
+  // onDelete: SetNull — a shared MainList must NOT disappear when only one
+  // of its users is deleted. The other user's User.mainListId keeps pointing
+  // at the same List row; only List.userId (the metadata owner) goes null.
+  user   User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  wines  ListWine[]
+
+  @@index([userId, isMain])
 }
 
-model SharedListMember {
-  id           Int         @id @default(autoincrement())
-  sharedListId Int
-  userId       Int
-  role         String      @default("member") // "admin" | "member"
-  createdAt    DateTime    @default(now())
+model ListWine {
+  listId   Int
+  wineId   Int
+  inCellar Boolean  @default(false)
+  quantity Int      @default(0)
+  addedAt  DateTime @default(now())
 
-  sharedList   SharedList  @relation(fields: [sharedListId], references: [id], onDelete: Cascade)
-  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  list     List @relation(fields: [listId], references: [id], onDelete: Cascade)
+  wine     Wine @relation(fields: [wineId], references: [id], onDelete: Cascade)
 
-  @@unique([sharedListId, userId])
+  @@id([listId, wineId])
+  @@index([listId])
+  @@index([wineId])
 }
 
 model Wine {
@@ -41,43 +50,16 @@ model Wine {
   type      String?
   notes     String?
   image     String?
-  inCellar  Boolean   @default(false)
-  quantity  Int       @default(0)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   tastings  Tasting[]
   userId    Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sharedListId  Int?
-  sharedList    SharedList? @relation(fields: [sharedListId], references: [id])
-  suggestions   WineSuggestion[]
-  inLists       ListWine[]
-}
-
-model List {
-  id        Int       @id @default(autoincrement())
-  name      String
-  userId    Int
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  wines  ListWine[]
-
-  @@index([userId])
-}
-
-model ListWine {
-  listId   Int
-  wineId   Int
-  addedAt  DateTime  @default(now())
-
-  list     List      @relation(fields: [listId], references: [id], onDelete: Cascade)
-  wine     Wine      @relation(fields: [wineId], references: [id], onDelete: Cascade)
-
-  @@id([listId, wineId])
-  @@index([listId])
-  @@index([wineId])
+  // v0.15.0: with cellar state moved to ListWine.inCellar and visibility
+  // derived from List membership, Wine.userId is a byline only (first
+  // user to create the record). Access control goes through ListWine.
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inLists      ListWine[]
+  suggestions  WineSuggestion[]
 }
 
 model Tasting {
@@ -104,20 +86,57 @@ model User {
   password  String
   image       String?
   wineapiKey  String?
-  prefersBeer Boolean @default(false)
-  isAdmin     Boolean @default(false)
+  // v0.12.0: OpenRouter free-vision OCR backend for the photo-identification
+  // flow. opt-in; tesseract.js remains the no-key fallback. The default
+  // visionModel below points to a free vision-language model on OpenRouter
+  // and is updated over time as OpenRouter rotates the free tier.
+  openRouterKey  String?
+  visionModel    String?  @default("nvidia/nemotron-nano-12b-v2-vl:free")
+  prefersBeer     Boolean @default(false)
+  prefersDarkMode Boolean @default(false)
+  isAdmin         Boolean @default(false)
+  // v0.15.0: per-user MainList. Every User gets exactly one List row with
+  // isMain=true and mainListId here points at it. Friends invited to share
+  // a MainList get their mainListId repointed at the same row, so this
+  // column is intentionally NON-UNIQUE — multiple User rows legitimately
+  // point at the same List after the v0.15.0 list-merge. Query perf is
+  // served by @@index([mainListId]) below.
+  mainListId Int?
   createdAt   DateTime  @default(now())
+
+  @@index([mainListId])
   updatedAt   DateTime  @updatedAt
   wines       Wine[]
 
   sentFriendships   Friend[]     @relation("SentFriendships")
   receivedFriendships Friend[]   @relation("ReceivedFriendships")
-  ownedShares        ListShare[]           @relation("ListOwners")
-  editorShares       ListShare[]           @relation("ListEditors")
-  sharedListMembers  SharedListMember[]
-  sentSuggestions    WineSuggestion[]      @relation("SentSuggestions")
-  receivedSuggestions WineSuggestion[]     @relation("ReceivedSuggestions")
+  sentSuggestions    WineSuggestion[]   @relation("SentSuggestions")
+  receivedSuggestions WineSuggestion[]  @relation("ReceivedSuggestions")
   lists              List[]
+  resetTokens        PasswordResetToken[]
+
+  // v0.15.1: list-share is pending-then-accept. Inviter creates a
+  // ShareInvite row (sentShareInvites); invitee sees it in their
+  // receivedShareInvites. Terminal rows (accepted | declined |
+  // cancelled) hang around for audit but don't surface in the UI.
+  sentShareInvites     ShareInvite[] @relation("SentShareInvites")
+  receivedShareInvites ShareInvite[] @relation("ReceivedShareInvites")
+}
+
+model PasswordResetToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  // SHA-256 hash of the 32-byte plaintext token. The plaintext only lives
+  // in the email we send and in the URL the user clicks; we never store
+  // it, so a DB leak does not let an attacker reset arbitrary accounts.
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model WineSuggestion {
@@ -143,7 +162,15 @@ model WineSuggestion {
 
   fromUser  User     @relation("SentSuggestions", fields: [fromUserId], references: [id], onDelete: Cascade)
   toUser    User     @relation("ReceivedSuggestions", fields: [toUserId], references: [id], onDelete: Cascade)
-  wine      Wine?    @relation(fields: [wineId], references: [id])
+  // onDelete: SetNull — a suggestion is a historical record. If the
+  // suggested wine is later deleted by its owner, the suggestion stays
+  // in the recipient's inbox with its denormalized name/producer/vintage
+  // intact (the WineSuggestion model snapshots those fields at suggest
+  // time, so a SetNull'd wineId doesn't lose any visible data). Without
+  // this, DELETE /api/viner/[id] throws Prisma P2003 (FK violation)
+  // for any wine that was ever suggested, and the user's delete
+  // silently no-ops.
+  wine      Wine?    @relation(fields: [wineId], references: [id], onDelete: SetNull)
 }
 
 model Friend {
@@ -160,16 +187,52 @@ model Friend {
   @@unique([requesterId, addresseeId])
 }
 
-model ListShare {
-  id        Int      @id @default(autoincrement())
-  ownerId   Int
-  editorId  Int
-  createdAt DateTime @default(now())
+model ShareInvite {
+  id                Int      @id @default(autoincrement())
+  fromUserId        Int
+  toUserId          Int
+  // "mine" = caller's list becomes the joined list (winner is fromUserId);
+  // "theirs" = the recipient's list becomes the joined list (winner is
+  // toUserId). Persisted at invite time so the recipient's "Godta"
+  // button doesn't have to re-pick a winner — the inviter has already
+  // committed to a directional preference.
+  // "merge" = neither list wins; both are combined into one shared
+  // list. Mechanically identical to "mine" with migrateLoserWines=true
+  // (inviter's list is the base, invitee's wines are migrated in,
+  // collisions are OR-summed). The distinction is purely UI: the
+  // inviter's dialog labels it "Slå sammen" so the recipient sees
+  // "Listene slås sammen" on accept.
+  winner            String
+  // mine/theirs: false (destructive — the loser's wines are dropped on
+  // accept; their ListWine rows are cascade-deleted with the loser
+  // list, and any Wine rows left orphaned are cascade-deleted too).
+  // merge: true (non-destructive — all wines from both lists survive
+  // on the shared list, with collision handling: OR on inCellar, sum
+  // on quantity, keep the earlier addedAt).
+  // The @default(true) is a Prisma-level default for the column; the
+  // POST /api/friends/share-invite route always passes an explicit
+  // value derived from `winner`, so this default only applies to any
+  // rows that might be inserted by other code paths (migrations, raw
+  // SQL, future endpoints).
+  migrateLoserWines Boolean  @default(true)
+  // "pending" -> "accepted" | "declined" | "cancelled".
+  // Only the "pending" rows participate in
+  // pendingShareInvites{Received,Sent} on /api/friends; terminal rows
+  // are kept for audit but excluded from the UI.
+  status            String   @default("pending")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  owner     User     @relation("ListOwners", fields: [ownerId], references: [id], onDelete: Cascade)
-  editor    User     @relation("ListEditors", fields: [editorId], references: [id], onDelete: Cascade)
+  fromUser  User @relation("SentShareInvites", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser    User @relation("ReceivedShareInvites", fields: [toUserId], references: [id], onDelete: Cascade)
 
-  @@unique([ownerId, editorId])
+  // No @@unique — invite-history audit trails are preserved across
+  // re-shares (after split, users can re-merge and a fresh pending
+  // invite can sit alongside terminated ones). The POST
+  // /api/friends/share-invite route enforces "one pending per pair"
+  // via deleteMany(pending)+create inside a transaction.
+  @@index([fromUserId, status])
+  @@index([toUserId, status])
 }
 
 model SiteSettings {

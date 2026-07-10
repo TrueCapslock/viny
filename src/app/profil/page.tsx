@@ -6,6 +6,8 @@ import Link from "next/link"
 import { useState, useRef, useEffect } from "react"
 import { Icon } from "@/app/_components/icons"
 import { AvatarCropDialog } from "@/app/_components/avatar-crop-dialog"
+import { ChangePasswordDialog } from "@/app/_components/change-password-dialog"
+import { WineApiLoginDialog } from "@/app/_components/wineapi-login-dialog"
 import { ProfileSkeleton } from "@/app/_components/skeletons"
 import { APP_VERSION } from "@/lib/version"
 
@@ -18,7 +20,12 @@ export default function ProfilePage() {
   const [email, setEmail] = useState("")
   const [image, setImage] = useState("")
   const [prefersBeer, setPrefersBeer] = useState(false)
+  const [prefersDarkMode, setPrefersDarkMode] = useState(false)
   const [wineapiKey, setWineapiKey] = useState("")
+  const [showWineApiLogin, setShowWineApiLogin] = useState(false)
+  const [showChangePassword, setShowChangePassword] = useState(false)
+  const [openRouterKey, setOpenRouterKey] = useState("")
+  const [visionModel, setVisionModel] = useState("nvidia/nemotron-nano-12b-v2-vl:free")
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -33,7 +40,10 @@ export default function ProfilePage() {
         setEmail(session.user.email ?? "")
         setImage(session.user.image ?? "")
         setPrefersBeer(session.user.prefersBeer ?? false)
+        setPrefersDarkMode(session.user.prefersDarkMode ?? false)
         setWineapiKey(session.user.wineapiKey ?? "")
+        setOpenRouterKey(session.user.openRouterKey ?? "")
+        setVisionModel(session.user.visionModel ?? "nvidia/nemotron-nano-12b-v2-vl:free")
         setLoaded(true)
       })
     }
@@ -97,7 +107,16 @@ export default function ProfilePage() {
     const res = await fetch("/api/profile", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, image: image || null, prefersBeer, wineapiKey: wineapiKey || null }),
+      body: JSON.stringify({
+        name,
+        email,
+        image: image || null,
+        prefersBeer,
+        prefersDarkMode,
+        wineapiKey: wineapiKey || null,
+        openRouterKey: openRouterKey || null,
+        visionModel: visionModel || null,
+      }),
     })
 
     if (!res.ok) {
@@ -107,7 +126,7 @@ export default function ProfilePage() {
       return
     }
 
-    update({ prefersBeer })
+    update({ prefersBeer, prefersDarkMode })
     router.refresh()
     setSaving(false)
   }
@@ -178,24 +197,74 @@ export default function ProfilePage() {
 
         <div>
           <label className="block text-xs font-semibold text-wine-700 mb-1.5">E-post</label>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={inputClass}
-          />
+          <div className="flex gap-2">
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={inputClass + " flex-1 min-w-0"}
+            />
+            <button
+              type="button"
+              onClick={() => setShowChangePassword(true)}
+              className="shrink-0 rounded-xl border border-cream-300 bg-cream-100 px-3 py-2.5 text-sm font-medium text-wine-700 hover:bg-cream-200 transition-colors"
+            >
+              Endre passord
+            </button>
+          </div>
         </div>
 
         <div>
           <label className="block text-xs font-semibold text-wine-700 mb-1.5">wineapi.io API-nøkkel</label>
-          <input
-            value={wineapiKey}
-            onChange={(e) => setWineapiKey(e.target.value)}
-            className={inputClass}
-            placeholder="Skriv inn din wineapi.io API-nøkkel"
-          />
+          <div className="flex gap-2">
+            <input
+              value={wineapiKey}
+              onChange={(e) => setWineapiKey(e.target.value)}
+              className={inputClass + " flex-1 min-w-0"}
+              placeholder="Skriv inn din wineapi.io API-nøkkel"
+            />
+            <button
+              type="button"
+              onClick={() => setShowWineApiLogin(true)}
+              className="shrink-0 rounded-xl border border-cream-300 bg-cream-100 px-3 py-2.5 text-sm font-medium text-wine-700 hover:bg-cream-200 transition-colors"
+            >
+              Hent nøkkel
+            </button>
+          </div>
           <p className="text-xs text-wine-400 mt-1">wineapi.io gir utvidet vininformasjon. 100 kall/døgn på gratisplanen. Kan oppgraderes på wineapi.io.</p>
+        </div>
+
+        <div className="hidden">
+          <label className="block text-xs font-semibold text-wine-700 mb-1.5">OpenRouter API-nøkkel</label>
+          <input
+            value={openRouterKey}
+            onChange={(e) => setOpenRouterKey(e.target.value)}
+            className={inputClass}
+            placeholder="sk-or-v1-..."
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <p className="text-xs text-wine-400 mt-1">
+            Brukes til AI-basert etikett-skanning. Hent nøkkelen p&aring;{" "}
+            <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="underline hover:text-wine-600">openrouter.ai/keys</a>.
+            Bildet sendes via v&aring;r server, aldri direkte fra nettleseren.
+          </p>
+        </div>
+
+        <div className="hidden">
+          <label className="block text-xs font-semibold text-wine-700 mb-1.5">Visuell modell (OpenRouter)</label>
+          <input
+            value={visionModel}
+            onChange={(e) => setVisionModel(e.target.value)}
+            className={inputClass}
+            placeholder="nvidia/nemotron-nano-12b-v2-vl:free"
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <p className="text-xs text-wine-400 mt-1">
+            OpenRouter roterer gratis-modeller. Standard er Nemotron Nano. Bytt modell her dersom skanningen slutter å fungere.
+          </p>
         </div>
 
         {!session.user.beerModeDisabled && (
@@ -223,6 +292,30 @@ export default function ProfilePage() {
             </label>
           </div>
         )}
+
+        <div className="rounded-2xl border border-cream-200 bg-cream-50 p-4">
+          <label className="flex items-center justify-between gap-4 cursor-pointer select-none">
+            <div>
+              <span className="block text-sm font-semibold text-wine-900">Mørk modus</span>
+              <span className="block text-xs text-wine-500 mt-0.5">Bytt til et mørkere fargevalg for hele appen.</span>
+            </div>
+            <div
+              role="switch"
+              aria-checked={prefersDarkMode}
+              tabIndex={0}
+              onClick={() => setPrefersDarkMode((current) => !current)}
+              onKeyDown={(e) => {
+                if (e.key === " " || e.key === "Enter") {
+                  e.preventDefault()
+                  setPrefersDarkMode((current) => !current)
+                }
+              }}
+              className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${prefersDarkMode ? "bg-gold-500" : "bg-cream-300"}`}
+            >
+              <div className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-1 transition-transform ${prefersDarkMode ? "translate-x-6" : "translate-x-1"}`} />
+            </div>
+          </label>
+        </div>
 
         <button
           type="submit"
@@ -267,7 +360,7 @@ export default function ProfilePage() {
         </div>
       </form>
 
-      <p className="text-center text-xs text-wine-300 mt-6">Viny v{APP_VERSION}</p>
+      <p className="text-center text-xs text-wine-300 mt-6">Uva v{APP_VERSION}</p>
 
       {cropImage && (
         <AvatarCropDialog
@@ -278,6 +371,14 @@ export default function ProfilePage() {
             setCropImage(null)
           }}
         />
+      )}
+
+      {showWineApiLogin && (
+        <WineApiLoginDialog onClose={() => setShowWineApiLogin(false)} />
+      )}
+
+      {showChangePassword && (
+        <ChangePasswordDialog onClose={() => setShowChangePassword(false)} />
       )}
     </div>
   )
