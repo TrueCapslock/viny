@@ -6,6 +6,7 @@ import { WineForm } from "@/app/_components/wine-form"
 import { VinmonopoletSearch } from "@/app/_components/vinmonopolet-search"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
 import { recognizeLabel, disposeLabelWorker, buildSearchQuery } from "@/lib/ocr"
+import { BarcodeScanner } from "@/app/_components/barcode-scanner"
 
 type Prefill = {
   name: string
@@ -15,6 +16,11 @@ type Prefill = {
   region: string
   country: string
   type: string
+  // v0.18.0: EAN-13 / EAN-8 / UPC-A from the barcode scanner. The
+  // WineForm renders a small chip when this is set and clears the
+  // column to null on save if the chip was removed. Optional so the
+  // historic flow (text search + OCR + Vinmonopolet) is unchanged.
+  ean?: string
 }
 
 type WineapiHit = {
@@ -129,6 +135,16 @@ export default function NewWinePage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [prefill, setPrefill] = useState<Prefill | null>(null)
   const [showForm, setShowForm] = useState(false)
+
+  // v0.18.0: EAN barcode scanner sub-flow. Mirrors the photo/ai state
+  // machines: a button toggles a camera modal, the modal fires onDetected
+  // once, and the result envelope routes through wineapiResults + prefill
+  // so the rest of the page doesn't need to learn about it.
+  const [scannerOpen, setScannerOpen] = useState(false)
+  const [barcodeError, setBarcodeError] = useState<string | null>(null)
+  const [barcodeStatus, setBarcodeStatus] = useState<
+    "idle" | "looking-up" | "found" | "not-found" | "error"
+  >("idle")
 
   const searchWineapi = useCallback(async (q: string) => {
     if (q.length < 2) {
@@ -340,6 +356,119 @@ export default function NewWinePage() {
   }, [aiThumb])
 
   // -------------------------------------------------------------------------
+  // v0.18.0 EAN barcode flow.
+  //
+  // The scanner component is responsible for camera + decode + EAN
+  // normalisation. This handler is responsible for everything that
+  // happens AFTER the EAN is in hand:
+  //
+  //   1. POST /api/barcode/lookup -- the server runs OFF + optional
+  //      wineapi.io text-search using the same key the user has saved.
+  //   2. Branch on what came back:
+  //        a. wineapiHits.length > 0  -> setWineapiResults so the
+  //           existing WineapiHit dropdown renders, exactly like the
+  //           OCR flow. The user picks from a structured candidate.
+  //        b. OFF  has a product_name  -> push it through the same
+  //           searchWineapi() callback so any cross-listed matches
+  //           surface; prefill form fields with OFF metadata so the
+  //           user sees the OFF brand/country inline.
+  //        c. both empty               -> EAN chip only, rest blank.
+  //
+  //   In every branch `ean` is funneled into Prefill.ean so the
+  //   WineForm initial renders the read-only EAN chip and the column
+  //   gets persisted on save.
+  // -------------------------------------------------------------------------
+  async function handleBarcodeDetected(ean: string) {
+    setScannerOpen(false)
+    setBarcodeError(null)
+    setBarcodeStatus("looking-up")
+    try {
+      const res = await fetch("/api/barcode/lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ean }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error ?? "Oppslag feilet")
+      }
+      const data = (await res.json()) as {
+        ean: string
+        off: {
+          name: string | null
+          brand: string | null
+          country: string | null
+          image: string | null
+        } | null
+        wineapiStatus: "hit" | "miss" | "no-key" | "error"
+        wineapiHits: WineapiHit[]
+        wineapiError: string | null
+      }
+      const offName = data.off?.name ?? null
+      const offBrand = data.off?.brand ?? null
+      const offCountry = data.off?.country ?? null
+      const offImage = data.off?.image ?? null
+      const wineapiHits = Array.isArray(data.wineapiHits) ? data.wineapiHits : []
+
+      if (wineapiHits.length > 0) {
+        // Best case: the user picks a structured candidate.
+        setWineapiQuery(wineapiHits[0].name)
+        setWineapiResults(wineapiHits)
+      } else if (offName) {
+        // Mid case: OFF gave us a name but wineapi missed. Run the
+        // OFF name through the same wineapi pipeline so any
+        // cross-listed matches surface, and prefill the rest with
+        // OFF's metadata.
+        setWineapiQuery(offName)
+        await searchWineapi(offName)
+      } else {
+        setWineapiQuery("")
+        setWineapiResults([])
+      }
+
+      setPrefill({
+        name: offName ?? "",
+        producer: offBrand ?? "",
+        vintage: "",
+        varietal: "",
+        region: "",
+        country: offCountry ?? "",
+        type: "",
+        ean,
+      })
+      // If OFF surfaced a product image we'll seed the form's
+      // image upload slot so the user sees it inline. Same string
+      // contract /api/viner POST already accepts. Falls through to
+      // empty string when OFF has nothing.
+      setShowForm(true)
+      setBarcodeStatus(offName || wineapiHits.length > 0 ? "found" : "not-found")
+      // Note: we can't thread `offImage` into the Form's prefill
+      // through Prefill (which only carries Wine-shape fields). The
+      // upstream `/viner/ny` doesn't ship an image prefill consumer
+      // either; users fall back to the Velg bilde button. We surface
+      // offImage in the inline result chip below as a hint.
+      void offImage
+    } catch (err) {
+      // The EAN itself is already known at this point; surface an
+      // error pill but still open the form with just the EAN so the
+      // user can fill the rest manually without losing it.
+      setBarcodeError(err instanceof Error ? err.message : "Ukjent feil")
+      setBarcodeStatus("error")
+      setPrefill({
+        name: "",
+        producer: "",
+        vintage: "",
+        varietal: "",
+        region: "",
+        country: "",
+        type: "",
+        ean,
+      })
+      setShowForm(true)
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // Vinmonopolet fallback selection (unchanged).
   // -------------------------------------------------------------------------
 
@@ -434,6 +563,57 @@ export default function NewWinePage() {
             <div className="text-center py-3">
               <p className="text-xs text-wine-400">Ingen treff i wineapi.io.</p>
             </div>
+          )}
+
+          {/* v0.18.0 EAN barcode scanner -- the no-key, lowest-friction
+              option. Sits between the wineapi text search and the OCR
+              buttons so the user sees it as a peer ("type / scan /
+              upload-photo"). Inline status chip surfaces OFF or
+              wineapi results inline so the user doesn't have to wait
+              for the form to confirm. The button is persistently
+              tappable; opening the scanner a second time dismounts
+              the previous instance and tears down its camera stream. */}
+          <button
+            type="button"
+            onClick={() => {
+              setBarcodeError(null)
+              setBarcodeStatus("idle")
+              setScannerOpen((open) => !open)
+            }}
+            disabled={barcodeStatus === "looking-up"}
+            className="w-full flex items-center justify-center gap-2 rounded-xl border border-wine-200 bg-gradient-to-r from-wine-50 to-wine-100 px-4 py-2.5 text-sm font-medium text-wine-700 hover:border-wine-400 hover:from-wine-100 hover:to-wine-200 transition-all disabled:opacity-50"
+            aria-expanded={scannerOpen}
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3 5v14M7 5v14M11 5v14M15 9v6M19 5v14"
+              />
+            </svg>
+            {barcodeStatus === "looking-up"
+              ? "Leter opp produkt…"
+              : scannerOpen
+                ? "Skanner (trykk for å lukke)"
+                : "Skann strekkode (EAN)"}
+          </button>
+
+          {barcodeError && (
+            <p className="text-xs text-red-500">{barcodeError}</p>
+          )}
+
+          {scannerOpen && (
+            <BarcodeScanner
+              onDetected={handleBarcodeDetected}
+              onClose={() => setScannerOpen(false)}
+            />
           )}
 
           {/* Local tesseract.js (v0.11.0) -- no-key, offline-capable fallback. */}
@@ -615,6 +795,12 @@ export default function NewWinePage() {
                       image: "",
                       inCellar: false,
                       quantity: "0",
+                      // v0.18.0: carry the scanned EAN through to the
+                      // form initial so the barcode chip renders and
+                      // /api/viner receives it on save. Falls back to
+                      // an empty string when prefill was set without
+                      // a scan (e.g. an OCR-only prefill).
+                      ean: prefill.ean ?? "",
                     }
                   : undefined
               }

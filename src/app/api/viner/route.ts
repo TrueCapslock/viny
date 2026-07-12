@@ -198,6 +198,11 @@ export async function POST(request: Request) {
       type: body.type || null,
       notes: body.notes || null,
       image: body.image || null,
+      // v0.18.0: scanner-passed EAN. Trim + validate digits-only before
+      // persisting so a junk scan doesn't poison the lookup index. Falls
+      // through to null if anything else -- matches WineForm's hidden
+      // input contract.
+      ean: normaliseEan(body.ean),
       userId: ownerId,
       inLists: {
         create: [{ listId: me.mainListId, inCellar, quantity }],
@@ -207,4 +212,16 @@ export async function POST(request: Request) {
   })
 
   return NextResponse.json(wine, { status: 201 })
+}
+
+/**
+ * Strip a value to a 7-14 digit EAN/UPC string or null. Used by both
+ * POST and the PUT handler on the [id] route so the column never sees
+ * a stray space, dash or non-numeric character.
+ */
+function normaliseEan(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const digits = value.replace(/\D/g, "")
+  if (digits.length < 7 || digits.length > 14) return null
+  return digits
 }

@@ -18,6 +18,10 @@ type WineFormData = {
   image: string
   inCellar: boolean
   quantity: string
+  // v0.18.0: EAN-13 / EAN-8 / UPC-A scanned from the bottle, or typed
+  // manually. Persisted to Wine.ean so re-finding "did I add this
+  // bottle before?" is a single SELECT WHERE ean = ... lookup.
+  ean: string
 }
 
 export function WineForm({
@@ -58,6 +62,7 @@ export function WineForm({
       image: "",
       inCellar: false,
       quantity: "0",
+      ean: "",
     },
   )
   const [saving, setSaving] = useState(false)
@@ -321,6 +326,28 @@ export function WineForm({
               />
             </div>
           </div>
+          {/* v0.18.0: scanned EAN chip. Lets the user see what landed
+              and clear it if the barcode read was wrong; the value is
+              persisted to Wine.ean on submit. Manual edits are not
+              exposed in the UI since barcode readers + autocorrect
+              are a minefield for digits -- the chip is "what we
+              read", and the user can re-scan if the number is wrong. */}
+          {form.ean && (
+            <div className="flex items-center gap-2 rounded-xl bg-wine-50 border border-wine-200 px-3 py-2">
+              <svg className="w-4 h-4 text-wine-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 5v14M7 5v14M11 5v14M15 9v6M19 5v14" />
+              </svg>
+              <span className="text-xs font-mono text-wine-800 flex-1">{form.ean}</span>
+              <button
+                type="button"
+                onClick={() => setForm((current) => ({ ...current, ean: "" }))}
+                className="text-xs font-medium text-wine-600 hover:text-wine-800 px-1.5 py-0.5 rounded transition-colors"
+                aria-label="Fjern EAN"
+              >
+                Fjern
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

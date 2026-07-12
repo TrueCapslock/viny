@@ -50,6 +50,13 @@ model Wine {
   type      String?
   notes     String?
   image     String?
+  // v0.18.0: scanned EAN-13 / EAN-8 / UPC-A barcode from the bottle.
+  // Stored as free-text so user-typed, scanner-detected and catalogue-
+  // pasted values all land in one column. Indexed for fast lookup and
+  // intentionally NOT @unique -- two natural users CAN buy the same
+  // EAN, and the same user CAN legitimately re-add a known bottle
+  // (e.g. new run of a vintage, separate wine evening log).
+  ean       String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   tastings  Tasting[]
@@ -60,6 +67,8 @@ model Wine {
   user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   inLists      ListWine[]
   suggestions  WineSuggestion[]
+
+  @@index([ean])
 }
 
 model Tasting {

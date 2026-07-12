@@ -21,6 +21,11 @@ type FormData = {
   image: string
   inCellar: boolean
   quantity: string
+  // v0.18.0: EAN field. Loaded from Wine.ean (which the regenerated
+  // Prisma client now surfaces on the GET /api/viner/[id] payload).
+  // Empty string when the wine was created before the column existed
+  // (older rows have ean: null in the DB).
+  ean: string
 }
 
 export default function EditWinePage() {
@@ -43,6 +48,7 @@ export default function EditWinePage() {
         image: wine.image ?? "",
         inCellar: wine.inCellar ?? false,
         quantity: wine.quantity?.toString() ?? "0",
+        ean: wine.ean ?? "",
       })
     }
   }, [wine])

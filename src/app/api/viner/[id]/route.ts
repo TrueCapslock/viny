@@ -86,6 +86,24 @@ export async function PUT(request: Request, { params }: { params: Params }) {
       type: body.type || null,
       notes: body.notes || null,
       image: body.image || null,
+      // v0.18.0: allow editing the EAN chip directly from the edit form.
+      //
+      // We only spread the `ean` key when the body actually carries one,
+      // so a request that omits the field leaves the column as-is.
+      // When the body has an `ean` string, normalise to digits-only --
+      // an empty / non-numeric / wrong-length value clears the column
+      // (null), which matches the WineForm's "Fjern" behaviour. Prisma
+      // rejects bare `undefined` for a nullable field; setting the key
+      // conditionally with a spread keeps it out of the update entirely.
+      ...(typeof body.ean === "string"
+        ? {
+            ean:
+              body.ean.replace(/\D/g, "").length >= 7 &&
+              body.ean.replace(/\D/g, "").length <= 14
+                ? body.ean.replace(/\D/g, "")
+                : null,
+          }
+        : {}),
     },
   })
 
