@@ -34,6 +34,41 @@ type WineapiHit = {
   averageRating: number | null
 }
 
+/**
+ * v0.18.0: shape of the /api/barcode/lookup response. Mirrored on the
+ * client so we can render the full cascade inline -- the user can see
+ * what each leg (OFF, then wineapi.io) replied with for the scanned
+ * EAN, not just "I found a wine, click here".
+ *
+ * `ean` is echoed back from the server for clarity in the panel;
+ * `scannedAt` is set client-side so the panel can show "for 3 s
+ * ago" if we ever want freshness hinting.
+ */
+type LookupEnvelope = {
+  ean: string
+  /**
+   * BarcodeDetector / ZXing symbology string for what the camera
+   * actually read (ean_13 / ean_8 / upc_a / upc_e / "manual"). Null
+   * when the source is unknown -- the scanner always supplies one
+   * except for the manual-entry bypass where the user typed an EAN.
+   */
+  format?: string | null
+  scannedAt: number
+  off: {
+    name: string | null
+    brand: string | null
+    country: string | null
+    image: string | null
+    /** null when OFF returned 200 with status:0, or fetch threw. */
+    error?: string | null
+  } | null
+  wineapiStatus: "hit" | "miss" | "no-key" | "error" | "skipped"
+  wineapiHits: WineapiHit[]
+  wineapiError: string | null
+  attribution: string
+  transportError?: string | null
+}
+
 type PhotoStatus =
   | "idle"
   | "ocr"
@@ -145,6 +180,13 @@ export default function NewWinePage() {
   const [barcodeStatus, setBarcodeStatus] = useState<
     "idle" | "looking-up" | "found" | "not-found" | "error"
   >("idle")
+  // Holds the FULL /api/barcode/lookup response (or a rendered-error
+  // facsimile) so the inline debug panel below the button can show
+  // what each leg of the cascade actually returned -- "the user
+  // asked for visibility into why nothing showed up" is the original
+  // motivation for keeping this on the page rather than burying it
+  // in console.log.
+  const [lastLookup, setLastLookup] = useState<LookupEnvelope | null>(null)
 
   const searchWineapi = useCallback(async (q: string) => {
     if (q.length < 2) {
@@ -378,7 +420,10 @@ export default function NewWinePage() {
   //   WineForm initial renders the read-only EAN chip and the column
   //   gets persisted on save.
   // -------------------------------------------------------------------------
-  async function handleBarcodeDetected(ean: string) {
+  async function handleBarcodeDetected(
+    ean: string,
+    format?: string,
+  ) {
     setScannerOpen(false)
     setBarcodeError(null)
     setBarcodeStatus("looking-up")
@@ -386,24 +431,13 @@ export default function NewWinePage() {
       const res = await fetch("/api/barcode/lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ean }),
+        body: JSON.stringify({ ean, format }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
         throw new Error(data?.error ?? "Oppslag feilet")
       }
-      const data = (await res.json()) as {
-        ean: string
-        off: {
-          name: string | null
-          brand: string | null
-          country: string | null
-          image: string | null
-        } | null
-        wineapiStatus: "hit" | "miss" | "no-key" | "error"
-        wineapiHits: WineapiHit[]
-        wineapiError: string | null
-      }
+      const data = await res.json()
       const offName = data.off?.name ?? null
       const offBrand = data.off?.brand ?? null
       const offCountry = data.off?.country ?? null
@@ -436,23 +470,40 @@ export default function NewWinePage() {
         type: "",
         ean,
       })
-      // If OFF surfaced a product image we'll seed the form's
-      // image upload slot so the user sees it inline. Same string
-      // contract /api/viner POST already accepts. Falls through to
-      // empty string when OFF has nothing.
       setShowForm(true)
       setBarcodeStatus(offName || wineapiHits.length > 0 ? "found" : "not-found")
-      // Note: we can't thread `offImage` into the Form's prefill
-      // through Prefill (which only carries Wine-shape fields). The
-      // upstream `/viner/ny` doesn't ship an image prefill consumer
-      // either; users fall back to the Velg bilde button. We surface
-      // offImage in the inline result chip below as a hint.
-      void offImage
+      void offImage // surfaced in the inline panel below instead of via Prefill
+
+      // Pin the full envelope so the inline debug panel below the
+      // button can render exactly what each API leg replied with --
+      // the user reported "it did not work" without seeing the
+      // cascade, so showing the raw shape is the diagnostic surface.
+      setLastLookup({
+        ean,
+        format: format ?? null,
+        scannedAt: Date.now(),
+        off:
+          data.off === null
+            ? null
+            : {
+                name: offName,
+                brand: offBrand,
+                country: offCountry,
+                image: offImage,
+                error: data.off?.error ?? null,
+              },
+        wineapiStatus: data.wineapiStatus,
+        wineapiHits,
+        wineapiError: data.wineapiError ?? null,
+        attribution: data.attribution ?? "Kilde: openfoodfacts.org",
+        transportError: null,
+      })
     } catch (err) {
       // The EAN itself is already known at this point; surface an
       // error pill but still open the form with just the EAN so the
       // user can fill the rest manually without losing it.
-      setBarcodeError(err instanceof Error ? err.message : "Ukjent feil")
+      const msg = err instanceof Error ? err.message : "Ukjent feil"
+      setBarcodeError(msg)
       setBarcodeStatus("error")
       setPrefill({
         name: "",
@@ -465,6 +516,21 @@ export default function NewWinePage() {
         ean,
       })
       setShowForm(true)
+      // Even on a transport failure the user can see what we tried
+      // to do and where it broke -- the panel surfaces the bare EAN
+      // alongside the failure message so they can decide whether
+      // to retype the EAN or fill in manually.
+      setLastLookup({
+        ean,
+        format: format ?? null,
+        scannedAt: Date.now(),
+        off: null,
+        wineapiStatus: "error",
+        wineapiHits: [],
+        wineapiError: msg,
+        attribution: "Kilde: openfoodfacts.org",
+        transportError: msg,
+      })
     }
   }
 
@@ -611,9 +677,164 @@ export default function NewWinePage() {
 
           {scannerOpen && (
             <BarcodeScanner
-              onDetected={handleBarcodeDetected}
+              onDetected={(ean, format) => handleBarcodeDetected(ean, format)}
               onClose={() => setScannerOpen(false)}
             />
+          )}
+
+          {/*
+            v0.18.0: inline debug panel. Shows what the camera read,
+            what Open Food Facts replied with, and what wineapi.io
+            replied with -- identical to a server log, just surfaced
+            on the page so the user can debug "the scan did nothing"
+            without opening DevTools. Rendered whenever a scan has
+            landed (regardless of branch in handleBarcodeDetected), so
+            even transport errors leave a visible paper trail.
+          */}
+          {lastLookup && (
+            <div className="rounded-2xl border border-cream-200 bg-cream-50/60 p-4 space-y-3 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-semibold text-wine-500 uppercase tracking-wider">
+                  Skann-logg
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLastLookup(null)}
+                  className="text-xs text-wine-500 hover:text-wine-800 px-1.5"
+                  aria-label="Skjul skann-logg"
+                >
+                  Skjul
+                </button>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-xs text-wine-700">
+                  <span className="font-medium text-wine-500">EAN lest:</span>{" "}
+                  <span className="font-mono">{lastLookup.ean}</span>
+                  {lastLookup.format && (
+                    <span className="ml-1 text-wine-400">({lastLookup.format})</span>
+                  )}
+                </div>
+                <div className="text-[10px] text-wine-400 uppercase tracking-wider">
+                  {new Date(lastLookup.scannedAt).toLocaleTimeString("nb-NO")}
+                </div>
+              </div>
+
+              <div className="border-t border-cream-200 pt-3 space-y-2">
+                <div className="text-xs">
+                  <div className="flex items-center gap-1.5 font-medium text-wine-700">
+                    <span
+                      className={`inline-block w-2 h-2 rounded-full ${
+                        lastLookup.off ? "bg-emerald-500" : "bg-wine-300"
+                      }`}
+                    />
+                    Open Food Facts
+                  </div>
+                  {lastLookup.off === null ? (
+                    <p className="mt-1 text-wine-500 pl-3.5">
+                      Ingen treff{" "}
+                      <span className="text-wine-400">
+                        (status:0 eller ikke klassifisert som drikke)
+                      </span>
+                    </p>
+                  ) : (
+                    <div className="mt-1 pl-3.5 space-y-0.5 text-wine-600">
+                      {lastLookup.off.name && (
+                        <p>
+                          <span className="text-wine-400">Navn:</span>{" "}
+                          {lastLookup.off.name}
+                        </p>
+                      )}
+                      {lastLookup.off.brand && (
+                        <p>
+                          <span className="text-wine-400">Produsent:</span>{" "}
+                          {lastLookup.off.brand}
+                        </p>
+                      )}
+                      {lastLookup.off.country && (
+                        <p>
+                          <span className="text-wine-400">Land:</span>{" "}
+                          {lastLookup.off.country}
+                        </p>
+                      )}
+                      {lastLookup.off.error && (
+                        <p className="text-amber-600">
+                          Feil: {lastLookup.off.error}
+                        </p>
+                      )}
+                      {!lastLookup.off.name && !lastLookup.off.error && (
+                        <p className="text-wine-400">
+                          Produkt funnet, men mangler navn
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-xs">
+                  <div className="flex items-center gap-1.5 font-medium text-wine-700">
+                    <span
+                      className={`inline-block w-2 h-2 rounded-full ${
+                        lastLookup.wineapiStatus === "hit" &&
+                        lastLookup.wineapiHits.length > 0
+                          ? "bg-emerald-500"
+                          : lastLookup.wineapiStatus === "error"
+                            ? "bg-red-500"
+                            : "bg-wine-300"
+                      }`}
+                    />
+                    Wineapi.io
+                  </div>
+                  <div className="mt-1 pl-3.5 text-wine-600">
+                    {lastLookup.wineapiStatus === "no-key" && (
+                      <p>
+                        Ingen wineapi-nøkkel i profilen.{" "}
+                        <a
+                          href="/profil"
+                          className="underline text-wine-700 hover:text-wine-900"
+                        >
+                          Legg til her
+                        </a>{" "}
+                        for å berike treffene.
+                      </p>
+                    )}
+                    {lastLookup.wineapiStatus === "hit" && (
+                      <p>
+                        {lastLookup.wineapiHits.length} treff —{" "}
+                        {lastLookup.wineapiHits
+                          .slice(0, 3)
+                          .map((h) => h.name)
+                          .join(", ")}
+                        {lastLookup.wineapiHits.length > 3 && " …"}
+                      </p>
+                    )}
+                    {lastLookup.wineapiStatus === "miss" && (
+                      <p>Ingen treff på det navnet.</p>
+                    )}
+                    {lastLookup.wineapiStatus === "error" && (
+                      <p className="text-red-500">
+                        Feil:{" "}
+                        {lastLookup.wineapiError ?? "Ukjent feil"}
+                      </p>
+                    )}
+                    {lastLookup.wineapiStatus === "skipped" && (
+                      <p>Hoppet over (ingen treff fra OFF).</p>
+                    )}
+                  </div>
+                </div>
+
+                {lastLookup.transportError && (
+                  <div className="text-xs text-red-500">
+                    <span className="font-medium">Transportfeil:</span>{" "}
+                    {lastLookup.transportError}
+                  </div>
+                )}
+
+                <div className="text-[10px] text-wine-400 pt-1">
+                  {lastLookup.attribution}
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Local tesseract.js (v0.11.0) -- no-key, offline-capable fallback. */}
