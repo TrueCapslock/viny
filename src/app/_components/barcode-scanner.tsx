@@ -341,8 +341,7 @@ export function BarcodeScanner({
             pattern="[0-9]*"
             value={manualEan}
             onChange={(e) => setManualEan(e.target.value)}
-            placeholder="Skriv EAN her (8–14 sifre)"
-            className="flex-1 rounded-lg border border-cream-200 bg-white px-3 py-1.5 text-sm text-wine-900 placeholder-wine-300 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none transition-all"
+            className="flex-1 rounded-lg border border-cream-200 bg-white px-3 py-1.5 text-sm text-wine-900 focus:border-wine-400 focus:ring-1 focus:ring-wine-400 outline-none transition-all"
             aria-label="Manuelt EAN-nummer"
           />
           <button
