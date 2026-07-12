@@ -219,7 +219,6 @@ export function WineForm({
               value={form.name}
               onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))}
               className={inputClass}
-              placeholder="Château Margaux"
             />
           </div>
           <div>
@@ -229,7 +228,6 @@ export function WineForm({
               value={form.producer}
               onChange={(e) => setForm((current) => ({ ...current, producer: e.target.value }))}
               className={inputClass}
-              placeholder="Château Margaux"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -240,7 +238,6 @@ export function WineForm({
                 value={form.vintage}
                 onChange={(e) => setForm((current) => ({ ...current, vintage: e.target.value }))}
                 className={inputClass}
-                placeholder="2020"
               />
             </div>
             <div>
@@ -296,7 +293,6 @@ export function WineForm({
                 value={form.varietal}
                 onChange={(e) => setForm((current) => ({ ...current, varietal: e.target.value }))}
                 className={inputClass}
-                placeholder="IPA"
                 autoComplete="off"
               />
             ) : (
@@ -313,7 +309,6 @@ export function WineForm({
                 value={form.region}
                 onChange={(e) => setForm((current) => ({ ...current, region: e.target.value }))}
                 className={inputClass}
-                placeholder="Bordeaux"
               />
             </div>
             <div>
@@ -322,7 +317,6 @@ export function WineForm({
                 value={form.country}
                 onChange={(e) => setForm((current) => ({ ...current, country: e.target.value }))}
                 className={inputClass}
-                placeholder="Frankrike"
               />
             </div>
           </div>
@@ -358,7 +352,6 @@ export function WineForm({
           value={form.notes}
           onChange={(e) => setForm((current) => ({ ...current, notes: e.target.value }))}
           className={inputClass + " resize-none"}
-          placeholder={isBeer ? "Dine notater om ølet..." : "Dine notater om vinen..."}
         />
       </div>
 
