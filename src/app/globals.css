@@ -614,3 +614,32 @@ textarea:focus::placeholder {
   opacity: 0;
 }
 
+/* ============================================================
+ * iOS Safari auto-zoom mitigation on input focus
+ * ============================================================
+ *
+ * iOS Safari auto-zooms the page on input focus when the
+ * input's font-size is below 16px; the zoom sometimes lingers on
+ * blur and the user ends up stranded ("lose the edges of the
+ * page"). Clamping all interactive form controls to >= 16px on
+ * touch devices is the canonical fix. Touch-only via the media
+ * query so desktop / iPad-with-mouse keep their existing
+ * `text-sm` / `text-xs` / 14-px design without becoming visually
+ * larger.
+ *
+ * The `!important` flag is required to win over Tailwind's
+ * `text-sm` (0,1,0) utility class for the same element; without
+ * it the 14-px utility would still apply and Safari would still
+ * zoom. The accompanying JS hook (`src/app/_components/
+ * zoom-restore.tsx`, mounted globally via <Providers>) replays
+ * the user's pre-focus scroll position on focusout as defence
+ * for webviews / older browsers where the zoom actually still
+ * triggers despite the CSS clamp. */
+@media (hover: none) and (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
