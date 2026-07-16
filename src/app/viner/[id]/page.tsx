@@ -343,7 +343,16 @@ export default async function WineDetailPage({
             </h2>
             {canEdit && <TastingFormDialog wineId={wine.id} />}
           </div>
-          <TastingList tastings={wine.tastings} canEdit={canEdit} />
+          {/* v0.20.0: pass currentUserId so TastingList can derive the
+              per-row edit/delete affordance (canEdit && tasting.userId
+              === currentUserId). canEdit remains the wine-level gate
+              for both the "+ Legg til" dialog and TastingList's row
+              gate; currentUserId is the per-row author check. */}
+          <TastingList
+            tastings={wine.tastings}
+            canEdit={canEdit}
+            currentUserId={userId}
+          />
         </section>
       </div>
     </div>

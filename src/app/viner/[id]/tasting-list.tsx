@@ -9,9 +9,22 @@ import { TastingEditDialog } from "./tasting-edit-dialog"
 export function TastingList({
   tastings,
   canEdit,
+  currentUserId,
 }: {
   tastings: Tasting[]
+  /** Wine-level gate inherited from /viner/[id] (server-computed
+   * access tier). Drives the high-level "is the user allowed to
+   * touch this wine at all?" decision. Required because friend-peek
+   * (read-only) callers have canEdit=false and must not see any
+   * row-level edit affordances even if the row happened to be theirs
+   * historically. */
   canEdit: boolean
+  /** Caller's session user id. v0.20.0: combined with `canEdit`,
+   * per-row edit/delete is shown iff `canEdit && tasting.userId ===
+   * currentUserId`. Mirrors the author-equality gate added server-
+   * side in /api/smaking/[id]/route.ts; both layers must agree or
+   * the row buttons would mislead the user. */
+  currentUserId: number
 }) {
   const [expanded, setExpanded] = useState<Record<number, boolean>>({})
   const [deletingId, setDeletingId] = useState<number | null>(null)
@@ -72,6 +85,13 @@ export function TastingList({
       {tastings.map((tasting) => {
         const isOpen = expanded[tasting.id] ?? false
         const isDeleting = deletingId === tasting.id
+        // v0.20.0: per-author gate. `canEdit` is the wine-level
+        // (high) gate. The author check is the row-level (low)
+        // gate. Both must hold to expose Edit / Slett on a row --
+        // friend-peek viewers see `canEdit=false`, and share-merged
+        // friends only see Edit / Slett on rows they authored.
+        const canEditThisRow =
+          canEdit && tasting.userId === currentUserId
         const hasContent =
           tasting.nose ||
           tasting.palate ||
@@ -235,7 +255,7 @@ export function TastingList({
                  * Calmer, less crowded, and the affordances read as
                  * "things you can do with this tasting row".
                  */}
-                {canEdit && (
+                {canEditThisRow && (
                   <div className="flex items-center justify-end gap-2 pt-3 mt-3 border-t border-cream-200/60">
                     <TastingEditDialog tasting={tasting} />
                     <button

@@ -36,12 +36,22 @@ export async function PUT(
 
   const existing = await prisma.tasting.findUnique({
     where: { id: tastingId },
-    select: { id: true, wineId: true },
+    select: { id: true, wineId: true, userId: true },
   })
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   }
+  // v0.20.0: two-step gate. The wine-level `canEditWine` is still a
+  // precondition (a caller who has lost access to the wine entirely
+  // -- e.g. after a list split -- gets bounced with 404). On top of
+  // that, the author equality check guarantees a share-merged friend
+  // can only edit / delete their OWN tastings, not the byline
+  // owner's and not another sharer's. Both checks return 404 on
+  // denial so the route does not leak row existence to probes.
   if (!(await canEditWine(existing.wineId, userId))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
+  if (existing.userId !== userId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   }
 
@@ -98,12 +108,17 @@ export async function DELETE(
 
   const existing = await prisma.tasting.findUnique({
     where: { id: tastingId },
-    select: { id: true, wineId: true },
+    select: { id: true, wineId: true, userId: true },
   })
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   }
+  // v0.20.0: same two-step gate as PUT above. Pre-mutation author
+  // check is critical here because there is no undo on DELETE.
   if (!(await canEditWine(existing.wineId, userId))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
+  if (existing.userId !== userId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   }
 

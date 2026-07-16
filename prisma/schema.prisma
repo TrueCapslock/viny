@@ -73,6 +73,18 @@ model Wine {
 
 model Tasting {
   id          Int      @id @default(autoincrement())
+  // v0.20.0: who authored this tasting row. Allows the API to gate
+  // edits and deletes on author identity so a share-merged friend
+  // cannot mutate another user's tasting notes. ON DELETE CASCADE
+  // matches Wine.userId cascade for account-deletion privacy --
+  // removing a user drops their tastings along with their wines.
+  // Backfilled from Wine.userId by the
+  // 20260116000000_tasting_user migration; every pre-existing
+  // row is thereafter owned by the Wine's byline owner. Indexed
+  // for future author-scoped queries (e.g. /smaking "tastings I
+  // authored" feed, audit listing).
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   date        DateTime @default(now())
   rating      Int?
   nose        String?
@@ -86,6 +98,8 @@ model Tasting {
   updatedAt   DateTime @updatedAt
   wineId      Int
   wine        Wine     @relation(fields: [wineId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model User {
@@ -112,17 +126,21 @@ model User {
   // served by @@index([mainListId]) below.
   mainListId Int?
   createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([mainListId])
-  updatedAt   DateTime  @updatedAt
-  wines       Wine[]
-
+  wines       Wine[] 
   sentFriendships   Friend[]     @relation("SentFriendships")
   receivedFriendships Friend[]   @relation("ReceivedFriendships")
   sentSuggestions    WineSuggestion[]   @relation("SentSuggestions")
   receivedSuggestions WineSuggestion[]  @relation("ReceivedSuggestions")
   lists              List[]
-  resetTokens        PasswordResetToken[]
+  // v0.20.0: tastings authored by this user. ON DELETE CASCADE on
+  // Tasting.userId + Wine.userId means deleting a user removes
+  // their wines and their tastings together (privacy posture;
+  // see LIST_DOC §3.3 "What 'delete a wine' means now").
+  tastings           Tasting[]
+  resetTokens        PasswordResetToken[] 
 
   // v0.15.1: list-share is pending-then-accept. Inviter creates a
   // ShareInvite row (sentShareInvites); invitee sees it in their

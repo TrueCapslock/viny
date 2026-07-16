@@ -36,6 +36,13 @@ export async function POST(request: Request) {
   const tasting = await prisma.tasting.create({
     data: {
       wineId: body.wineId,
+      // v0.20.0: author is always the authenticated session user.
+      // We deliberately drop any incoming `body.userId` from the
+      // wire form -- a hostile client could otherwise forge or
+      // impersonate another sharer. Server is the source of truth
+      // for `userId` from here on (PUT / DELETE in
+      // /api/smaking/[id]/route.ts gate on author equality).
+      userId,
       rating: body.rating || null,
       nose: body.nose?.trim() || null,
       palate: body.palate?.trim() || null,
