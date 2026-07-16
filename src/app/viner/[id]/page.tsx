@@ -343,7 +343,7 @@ export default async function WineDetailPage({
             </h2>
             {canEdit && <TastingFormDialog wineId={wine.id} />}
           </div>
-          <TastingList tastings={wine.tastings} />
+          <TastingList tastings={wine.tastings} canEdit={canEdit} />
         </section>
       </div>
     </div>
