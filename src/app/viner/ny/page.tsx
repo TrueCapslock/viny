@@ -138,6 +138,13 @@ export default function NewWinePage() {
   const sessionLoaded = sessionStatus !== "loading"
   const hasOpenRouterKey =
     sessionLoaded && Boolean(session?.user?.openRouterKey)
+  // v0.20.1: gate the EAN barcode scanner behind the admin role. The
+  // OFF + wineapi.io cascade is hidden for non-admins -- they don't see
+  // the scan button, the inline debug panel never renders, and the
+  // camera never opens. The button itself carries an "Admin" badge so
+  // admins (and reviewers) can see at-a-glance that this branch is
+  // gated and shouldn't be relied on by non-admin code paths.
+  const isAdmin = sessionLoaded && Boolean(session?.user?.isAdmin)
 
   const [wineapiQuery, setWineapiQuery] = useState("")
   const [wineapiResults, setWineapiResults] = useState<WineapiHit[]>([])
@@ -630,14 +637,15 @@ export default function NewWinePage() {
             </div>
           )}
 
-          {/* v0.18.0 EAN barcode scanner -- the no-key, lowest-friction
-              option. Sits between the wineapi text search and the OCR
-              buttons so the user sees it as a peer ("type / scan /
-              upload-photo"). Inline status chip surfaces OFF or
-              wineapi results inline so the user doesn't have to wait
-              for the form to confirm. The button is persistently
-              tappable; opening the scanner a second time dismounts
-              the previous instance and tears down its camera stream. */}
+          {/* v0.18.0 EAN barcode scanner -- ADMIN-ONLY as of v0.20.1.
+              The OFF + wineapi.io cascade is gated behind
+              `session.user.isAdmin`; non-admins see no scan button,
+              no inline debug panel, and the camera never opens.
+              The Admin badge inside the button marks it so admins
+              (and reviewers) see at-a-glance that this branch is
+              gated and shouldn't be relied on by non-admin code. */}
+          {isAdmin && (
+          <>
           <button
             type="button"
             onClick={() => {
@@ -646,7 +654,7 @@ export default function NewWinePage() {
               setScannerOpen((open) => !open)
             }}
             disabled={barcodeStatus === "looking-up"}
-            className="w-full flex items-center justify-center gap-2 rounded-xl border border-wine-200 bg-gradient-to-r from-wine-50 to-wine-100 px-4 py-2.5 text-sm font-medium text-wine-700 hover:border-wine-400 hover:from-wine-100 hover:to-wine-200 transition-all disabled:opacity-50"
+            className="relative w-full flex items-center justify-center gap-2 rounded-xl border border-wine-200 bg-gradient-to-r from-wine-50 to-wine-100 px-4 py-2.5 text-sm font-medium text-wine-700 hover:border-wine-400 hover:from-wine-100 hover:to-wine-200 transition-all disabled:opacity-50"
             aria-expanded={scannerOpen}
           >
             <svg
@@ -668,6 +676,32 @@ export default function NewWinePage() {
               : scannerOpen
                 ? "Skanner (trykk for å lukke)"
                 : "Skann strekkode (EAN)"}
+            {/* Admin-only badge (v0.20.1): the entire scanner section
+                is gated behind isAdmin; the badge is rendered here too
+                so admins see the gate at-a-glance and so a future
+                non-admin-only feature doesn't accidentally reach for
+                the camera. Anchored to the button's right edge so the
+                centred icon + label layout is preserved. */}
+            <span
+              className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-800"
+              aria-label="Kun for administratorer"
+            >
+              <svg
+                className="w-3 h-3"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"
+                />
+              </svg>
+              Admin
+            </span>
           </button>
 
           {barcodeError && (
@@ -835,6 +869,8 @@ export default function NewWinePage() {
               </div>
             </div>
           )}
+          </>
+          )}
 
           {/* Local tesseract.js (v0.11.0) -- no-key, offline-capable fallback. */}
           <input
@@ -979,7 +1015,7 @@ export default function NewWinePage() {
 
           <details className="group">
             <summary className="text-xs text-wine-500 cursor-pointer hover:text-wine-700 transition-colors select-none">
-              Søk i Vinmonopolet som fallback
+              Søk i Vinmonopolets varelager
             </summary>
             <div className="mt-3">
               <VinmonopoletSearch selectedId={selectedId} onSelect={handleVinmonopoletSelect} />
