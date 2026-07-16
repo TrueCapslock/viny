@@ -5,7 +5,6 @@ import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { fetcher } from "@/lib/api"
 import useSWR, { mutate } from "swr"
-import { Lists } from "@/app/_components/icons"
 import { ModeLogo, ModeText } from "@/app/_components/mode-text"
 import { useBeerMode } from "@/app/_components/beer-mode-provider"
 import { WineCard, type WineCardData } from "@/app/_components/wine-card"
@@ -167,9 +166,6 @@ export default function ListDetailPage() {
             <p className="text-wine-200/90 mt-1 text-sm">
               {count} {count === 1 ? (isBeer ? "øl" : "vin") : isBeer ? "øl" : "viner"}
             </p>
-          </div>
-          <div className="bg-white/15 rounded-xl p-2 shrink-0">
-            <Lists className="w-6 h-7 text-gold-300" />
           </div>
         </div>
 
